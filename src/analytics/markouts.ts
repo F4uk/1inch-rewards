@@ -98,7 +98,14 @@ export function buildFairPriceProvider(
       const usdB = poolUsdAt(baseToken, ts, maxAgeSec);
       const usdQ = poolUsdAt(quoteToken, ts, maxAgeSec);
       if (!usdB || !usdQ || usdB.price <= 0) return null;
-      return { source: 'composed:' + baseToken.slice(0, 8) + '/' + quoteToken.slice(0, 8), timestamp: usdB.timestamp < usdQ.timestamp ? usdB.timestamp : usdQ.timestamp, blockNumber: 0n, price: usdQ.price / usdB.price, ageSec: usdB.ageSec > usdQ.ageSec ? usdB.ageSec : usdQ.ageSec, confidence: usdB.confidence === 'HIGH' && usdQ.confidence === 'HIGH' ? 'HIGH' : 'MEDIUM' };
+      // V1.4 P0-5: exactly one semantic for composed prices:
+      //   pairPrice(base, quote) = quote-token units per one base token
+      //                             = USD(base) / USD(quote)
+      // e.g. 1INCH=$0.08, USDC=$1 => 0.08 USDC per 1INCH;
+      //      USDC=$1, WETH=$3000  => 1/3000 WETH per USDC.
+      // The previous implementation returned the reciprocal (USD(quote)/USD(base)),
+      // which made range simulations disagree with strategy construction.
+      return { source: 'composed:' + baseToken.slice(0, 8) + '/' + quoteToken.slice(0, 8), timestamp: usdB.timestamp < usdQ.timestamp ? usdB.timestamp : usdQ.timestamp, blockNumber: 0n, price: usdB.price / usdQ.price, ageSec: usdB.ageSec > usdQ.ageSec ? usdB.ageSec : usdQ.ageSec, confidence: usdB.confidence === 'HIGH' && usdQ.confidence === 'HIGH' ? 'HIGH' : 'MEDIUM' };
     },
     currentUsdPrice: (token: string, maxAgeSec: number): FairPriceObservation | null => poolUsdAt(token, nowSec, maxAgeSec),
   };
@@ -230,10 +237,29 @@ export function markoutReliability(
   summaries: MarkoutSummary[],
   minSampleCount: number,
   maxPoolAgeSec: number,
+  requiredHorizonsSec: number[],
 ): MarkoutReliability {
-  const count = usableMarkoutCount(summaries);
-  if (count < minSampleCount) {
-    return { reliable: false, reason: 'MARKOUT_UNRELIABLE: samples=' + count + ' min=' + minSampleCount, minObservationAgeSec: maxPoolAgeSec };
+  // V1.4 P0-6: MARKOUT_RELIABLE requires sufficient samples for EACH
+  // configured horizon - abundant 1m data must never hide missing 30m data.
+  const missing = requiredHorizonsSec.filter((h) => !summaries.some((s) => s.horizonSec === h));
+  if (missing.length > 0) {
+    return {
+      reliable: false,
+      reason: 'MARKOUT_UNRELIABLE: missing horizons ' + missing.join(',') + ' required=' + requiredHorizonsSec.join(','),
+      minObservationAgeSec: maxPoolAgeSec,
+    };
   }
-  return { reliable: true, reason: 'samples=' + count + ' maxAge=' + maxPoolAgeSec + 's', minObservationAgeSec: maxPoolAgeSec };
+  const below = requiredHorizonsSec.filter((h) => {
+    const s = summaries.find((x) => x.horizonSec === h);
+    return (s?.sampleCount ?? 0) < minSampleCount;
+  });
+  if (below.length > 0) {
+    return {
+      reliable: false,
+      reason: 'MARKOUT_UNRELIABLE: per-horizon samples below min ' + below.map((h) => h + 's:' + (summaries.find((s) => s.horizonSec === h)?.sampleCount ?? 0)).join(',') + ' min=' + minSampleCount,
+      minObservationAgeSec: maxPoolAgeSec,
+    };
+  }
+  const total = usableMarkoutCount(summaries);
+  return { reliable: true, reason: 'per-horizon samples=' + requiredHorizonsSec.map((h) => h + 's:' + (summaries.find((s) => s.horizonSec === h)?.sampleCount ?? 0)).join(',') + ' maxAge=' + maxPoolAgeSec + 's', minObservationAgeSec: maxPoolAgeSec };
 }

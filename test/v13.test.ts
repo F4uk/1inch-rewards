@@ -296,10 +296,12 @@ test('P0-7: a fill cannot exceed available inventory; excess is unserved and reb
     tokenA: ONEINCH,
     tokenB: USDC,
     fairOneInchUsdAt: () => 12,
+    fairUsdAt: (token: string) => (token.toLowerCase() === ONEINCH ? 12 : 1),
     currentUsdTokenA: 12,
     currentUsdTokenB: 1,
     initialTokenSplit: 0.5,
     windowSec: 86400,
+    rebalanceLossBps: 30,
   });
   // Starting 1INCH = $25 / $12 = 2.083 < requested 10 -> capped to ~2.083.
   assert.ok(r.throughput.serviceableFillUsd < 120);
@@ -335,10 +337,12 @@ test('P0-7: two-sided historical flow supports recycling without exhaustion', ()
     tokenA: ONEINCH,
     tokenB: USDC,
     fairOneInchUsdAt: () => 12,
+    fairUsdAt: (token: string) => (token.toLowerCase() === ONEINCH ? 12 : 1),
     currentUsdTokenA: 12,
     currentUsdTokenB: 1,
     initialTokenSplit: 0.5,
     windowSec: 86400 * 3,
+    rebalanceLossBps: 30,
   });
   assert.equal(r.throughput.requiredRebalanceCount, 0);
   assert.ok(r.throughput.serviceableFillUsd > 0);
@@ -456,7 +460,7 @@ test('P1: committed audit artifact contains validatedCodeSha, artifactGeneratedA
   const a = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
   assert.ok(typeof a.validatedCodeSha === 'string' && a.validatedCodeSha.length === 40, 'validatedCodeSha is a 40-char sha');
   assert.ok(typeof a.artifactGeneratedAt === 'string', 'artifactGeneratedAt present');
-  assert.equal(a.modelVersion, 4);
+  assert.equal(a.modelVersion, 5);
   assert.ok(a.cutoffs && typeof a.cutoffs === 'object');
   assert.ok(a.denominatorMarkets && typeof a.denominatorMarkets === 'object');
   assert.ok(a.perMarketDenominatorMetrics && Array.isArray(a.perMarketDenominatorMetrics));
@@ -506,7 +510,11 @@ function minimalCycleData(cfg: AppConfig, uni: RewardUniverse, validationOnly: b
         fillCount: 30,
         pricedFillCount: 30,
         unpricedFillCount: 0,
+        totalOneInchAmount: 300,
+        pricedOneInchAmount: 300,
         pricingCoveragePct: 100,
+        fillCountCoveragePct: 100,
+        oneInchAmountCoveragePct: 100,
         grossFillUsd: 1000,
         dailyFillRateUsd: 500,
         fillShareByStrategy: new Map([['0x' + 'aa'.repeat(32), { fillUsd: 500, share: 0.5, count: 30 }]]),
@@ -521,7 +529,11 @@ function minimalCycleData(cfg: AppConfig, uni: RewardUniverse, validationOnly: b
         fillCount: 30,
         pricedFillCount: 30,
         unpricedFillCount: 0,
+        totalOneInchAmount: 300,
+        pricedOneInchAmount: 300,
         pricingCoveragePct: 100,
+        fillCountCoveragePct: 100,
+        oneInchAmountCoveragePct: 100,
         dailyFillRateUsd: 500,
         fillShareByStrategy: new Map([['0x' + 'aa'.repeat(32), { fillUsd: 500, share: 0.5, count: 30 }]]),
         strategyFees: new Map(),
@@ -560,7 +572,7 @@ function minimalCycleData(cfg: AppConfig, uni: RewardUniverse, validationOnly: b
       [KEY]: new Map([[5, { reshipsPerDay: 0.5, timeInRangePct: 90 }]]),
     },
     rangePathStatsByPair: {
-      [KEY]: { pairKey: KEY, realObservationCount: 200, resampledBarCount: 200, expectedBarCount: 200, coveragePct: 100, largestGapSec: 300, segments: 1, reliable: true, detail: 'test' },
+      [KEY]: { pairKey: KEY, realObservationCount: 200, resampledBarCount: 200, expectedBarCount: 200, coveragePct: 100, largestGapSec: 300, segments: 1, returnCount: 199, reliable: true, detail: 'test' },
     },
     rangePathReliableByPair: { [KEY]: { reliable: true, reason: 'test' } },
     currentPriceOk: { [KEY]: true },
@@ -581,6 +593,7 @@ function minimalCycleData(cfg: AppConfig, uni: RewardUniverse, validationOnly: b
       })),
     },
     oneInchUsdAt: () => 12,
+    fairUsdAt: (token: string) => (token.toLowerCase() === ONEINCH ? 12 : 1),
     dailyVolPctByPair: { [KEY]: 2 },
     capitalUsd: 50,
     lookbackHours: 72,

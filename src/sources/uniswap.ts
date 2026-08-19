@@ -169,7 +169,10 @@ export function selectBestPool(
       qualityPassed: false,
     };
   }
-  const scored = candidates.map((c) => {
+  // V1.4 P0-3: score/rank ONLY qualified candidates. A pool that fails any
+  // hard quality criterion must NEVER win on raw score or be returned with
+  // qualityPassed=true, even if its numeric score is larger.
+  const scored = qualified.map((c) => {
     let score = 0;
     // Depth magnitude dominates: log10(liquidity)*1000 so a 1e18 pool beats a
     // 1e12 pool by ~6000 points regardless of observation density.

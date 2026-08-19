@@ -43,8 +43,11 @@ export function evaluateGates(ctx: GateContext): { passed: GateResult[]; failed:
     'markouts=' + usableMarkoutCount(ctx.markoutSummaries) + ' min=' + ctx.cfg.minCompletedMarkoutCount);
   push('gross-denominator', (ctx.pair?.grossFillUsd ?? 0) > 0 && (ctx.group?.grossGroupFillUsd ?? 0) > 0,
     'pairGrossUsd=' + (ctx.pair?.grossFillUsd ?? 0).toFixed(2) + ' groupGrossUsd=' + (ctx.group?.grossGroupFillUsd ?? 0).toFixed(2));
-  push('denominator-pricing-coverage', (ctx.group?.pricingCoveragePct ?? 0) >= ctx.cfg.pricingCoverageMinPct,
-    'groupPricingCoverage=' + (ctx.group?.pricingCoveragePct ?? 0).toFixed(2) + '% min=' + ctx.cfg.pricingCoverageMinPct + '% (unpriced fills must be visible, never silently continue)');
+  // P1: BOTH fill-count AND 1INCH-amount coverage must clear the threshold -
+  // a small number of huge unpriced fills must never be masked by many tiny
+  // priced fills.
+  push('denominator-pricing-coverage', (ctx.group?.fillCountCoveragePct ?? 0) >= ctx.cfg.pricingCoverageMinPct && (ctx.group?.oneInchAmountCoveragePct ?? 0) >= ctx.cfg.pricingCoverageMinPct,
+    'groupFillCountCoverage=' + (ctx.group?.fillCountCoveragePct ?? 0).toFixed(2) + '% oneInchAmountCoverage=' + (ctx.group?.oneInchAmountCoveragePct ?? 0).toFixed(2) + '% min=' + ctx.cfg.pricingCoverageMinPct + '% (both required; huge unpriced fills must never be masked)');
   push('competition-available', ctx.competition !== null, ctx.competition ? 'active=' + ctx.competition.activeStrategies.length : 'no competition state');
   push('qualification-conservative', ctx.cfg.qualificationHaircut <= 1 && ctx.cfg.qualificationHaircut > 0,
     'haircut=' + ctx.cfg.qualificationHaircut + ' QUALIFICATION_UNVERIFIED');

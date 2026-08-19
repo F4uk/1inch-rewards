@@ -281,8 +281,8 @@ test('markout summary conservative = max(mean, p75); reliability gate', () => {
   ];
   const s = summarizeMarkouts(samples);
   assert.ok(s[0]!.conservativeBps >= s[0]!.weightedMeanBps);
-  assert.equal(markoutReliability(s, 20, 300).reliable, false);
-  assert.equal(markoutReliability(s, 3, 300).reliable, true);
+  assert.equal(markoutReliability(s, 20, 300, [60]).reliable, false);
+  assert.equal(markoutReliability(s, 3, 300, [60]).reliable, true);
 });
 
 // ---------- P0-5 competition / rawBalances ----------

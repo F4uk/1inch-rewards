@@ -51,12 +51,22 @@ inventory buffer applies to **unfilled** capital.
   deliverable inventory; exhaustion triggers a counted rebalance (restore +
   cost). expectedGrossFill = min(requested, serviceable), so rewards and maker
   fees cannot exceed inventory throughput.
+- V1.4 P0-1: candidate USD accounting is share-scaled everywhere
+  (candidateRequestedFillUsd = fullFillUsd x share); a $1,000 fill at share
+  0.001 is a $1 candidate fill.
+- V1.4 P0-2: rebalances move value with FAIR USD prices at the fill timestamp
+  (never 1:1 token units), run only after the triggering fill consumed
+  inventory, count only real value transfers, and deduct a modeled rebalance
+  loss - no free value creation; PnL uses the replay's actual rebalance loss.
 
 ## P0-8 Adverse selection (per-horizon rate)
 
 - adverseRate = max over reliable horizons of totalAdverseUsd/totalNotionalUsd.
 - adverseSelectionUsdPerDay = expectedServiceableFillUsdPerDay x adverseRate.
 - Favorable markout is diagnostic only and never offsets adverse.
+- V1.4 P0-6: MARKOUT_RELIABLE requires every configured horizon (60/300/1800)
+  to exist with at least the per-horizon minimum sample count; abundant 1m
+  data never hides missing 30m data.
 
 ## Adverse selection (markouts)
 

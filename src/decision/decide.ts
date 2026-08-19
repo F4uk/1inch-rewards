@@ -31,7 +31,7 @@ import { atomicWriteJson } from '../index/store.ts';
 import { campaignBudgetByGroup } from '../sources/merkl.ts';
 import type { PriceGroup } from '../constants.ts';
 
-export const MODEL_VERSION = 4;
+export const MODEL_VERSION = 5;
 
 export type CycleData = {
   chainOk: boolean;
@@ -59,6 +59,8 @@ export type CycleData = {
   currentUsdByPair: Record<string, { usdTokenA: number | null; usdTokenB: number | null }>;
   pairFills: Record<string, FillEvent[]>;
   oneInchUsdAt: (ts: bigint) => number | null;
+  /** Fair USD price of any token at a historical timestamp (valuation grade). */
+  fairUsdAt: (token: string, ts: bigint) => number | null;
   dailyVolPctByPair: Record<string, number | null>;
   capitalUsd: number;
   lookbackHours: number;
@@ -130,10 +132,12 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
           tokenA: pair.tokenA,
           tokenB: pair.tokenB,
           fairOneInchUsdAt: cd.oneInchUsdAt,
+          fairUsdAt: cd.fairUsdAt,
           currentUsdTokenA: currentPrices.usdTokenA ?? 0,
           currentUsdTokenB: currentPrices.usdTokenB ?? 0,
           initialTokenSplit: cfg.inventoryInitialTokenSplit,
           windowSec,
+          rebalanceLossBps: cfg.fallbackRebalanceMaxLossBps,
         });
         const gasModel: CandidateGasOutput = computeCandidateGas({
           measurements: cd.gasMeasurements,
@@ -164,6 +168,7 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
             serviceableFillUsdPerDay: inventory.serviceableFillUsdPerDay,
             unservedFillUsdPerDay: inventory.unservedFillUsdPerDay,
             rebalanceCountPerDay: inventory.rebalanceCountPerDay,
+            rebalanceLossUsdPerDay: inventory.rebalanceLossUsdPerDay,
             utilizationPct: inventory.throughput.inventoryUtilizationPct,
             imbalanceUsdPerDay: inventory.throughput.directionalImbalanceUsd,
             detail: inventory.throughput.detail,

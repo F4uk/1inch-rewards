@@ -101,7 +101,11 @@ export function computePairAndGroupMetrics(
       fillCount: 0,
       pricedFillCount: 0,
       unpricedFillCount: 0,
+      totalOneInchAmount: 0,
+      pricedOneInchAmount: 0,
       pricingCoveragePct: 0,
+      fillCountCoveragePct: 0,
+      oneInchAmountCoveragePct: 0,
       dailyFillRateUsd: 0,
       fillShareByStrategy: new Map(),
       strategyFees: new Map(),
@@ -132,7 +136,11 @@ export function computePairAndGroupMetrics(
         fillCount: 0,
         pricedFillCount: 0,
         unpricedFillCount: 0,
+        totalOneInchAmount: 0,
+        pricedOneInchAmount: 0,
         pricingCoveragePct: 0,
+        fillCountCoveragePct: 0,
+        oneInchAmountCoveragePct: 0,
         grossFillUsd: 0,
         dailyFillRateUsd: 0,
         fillShareByStrategy: new Map(),
@@ -142,8 +150,11 @@ export function computePairAndGroupMetrics(
       pairByKey.set(key, pm);
     }
     pm.fillCount += 1;
+    const oneInchAmount = (f.tokenIn.toLowerCase() === ONEINCH ? Number(f.amountIn) : Number(f.amountOut)) / 10 ** 18;
+    pm.totalOneInchAmount += oneInchAmount;
     if (priced) {
       pm.pricedFillCount += 1;
+      pm.pricedOneInchAmount += oneInchAmount;
       pm.grossFillUsd += usd;
       const cur = pm.fillShareByStrategy.get(f.orderHash) ?? { fillUsd: 0, share: 0, count: 0 };
       cur.fillUsd += usd;
@@ -155,8 +166,10 @@ export function computePairAndGroupMetrics(
 
     const gm = groupByGroup.get(elig.group)!;
     gm.fillCount += 1;
+    gm.totalOneInchAmount += oneInchAmount;
     if (priced) {
       gm.pricedFillCount += 1;
+      gm.pricedOneInchAmount += oneInchAmount;
       gm.grossGroupFillUsd += usd;
       const gcur = gm.fillShareByStrategy.get(f.orderHash) ?? { fillUsd: 0, share: 0, count: 0 };
       gcur.fillUsd += usd;
@@ -168,6 +181,8 @@ export function computePairAndGroupMetrics(
   }
   for (const pm of pairByKey.values()) {
     pm.pricingCoveragePct = pm.fillCount > 0 ? (pm.pricedFillCount / pm.fillCount) * 100 : 0;
+    pm.fillCountCoveragePct = pm.pricingCoveragePct;
+    pm.oneInchAmountCoveragePct = pm.totalOneInchAmount > 0 ? (pm.pricedOneInchAmount / pm.totalOneInchAmount) * 100 : 0;
     for (const s of pm.fillShareByStrategy.values()) {
       s.share = pm.grossFillUsd > 0 ? s.fillUsd / pm.grossFillUsd : 0;
     }
@@ -175,6 +190,8 @@ export function computePairAndGroupMetrics(
   }
   for (const gm of groupByGroup.values()) {
     gm.pricingCoveragePct = gm.fillCount > 0 ? (gm.pricedFillCount / gm.fillCount) * 100 : 0;
+    gm.fillCountCoveragePct = gm.pricingCoveragePct;
+    gm.oneInchAmountCoveragePct = gm.totalOneInchAmount > 0 ? (gm.pricedOneInchAmount / gm.totalOneInchAmount) * 100 : 0;
     for (const s of gm.fillShareByStrategy.values()) {
       s.share = gm.grossGroupFillUsd > 0 ? s.fillUsd / gm.grossGroupFillUsd : 0;
     }

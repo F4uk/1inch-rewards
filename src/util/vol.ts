@@ -24,6 +24,7 @@ export function resamplePricePathStats(path: PricePoint[], intervalSec: number, 
     coveragePct: 0,
     largestGapSec: 0,
     segments: 0,
+    returnCount: 0,
     reliable: false,
     detail: 'no path',
   };
@@ -63,6 +64,12 @@ export function resamplePricePathStats(path: PricePoint[], intervalSec: number, 
   }
   if (inSegment) segments++;
   const coveragePct = expectedBarCount > 0 ? (out.length / expectedBarCount) * 100 : 0;
+  // V1.4 P0-4: count only adjacent resampled bars within one interval; a jump
+  // across a missing segment is never a valid return slot.
+  let returnCount = 0;
+  for (let i = 1; i < out.length; i++) {
+    if (out[i]!.timestamp - out[i - 1]!.timestamp <= BigInt(intervalSec)) returnCount++;
+  }
   const stats: RangePathStats = {
     pairKey: '',
     realObservationCount: path.length,
@@ -71,13 +78,15 @@ export function resamplePricePathStats(path: PricePoint[], intervalSec: number, 
     coveragePct,
     largestGapSec,
     segments,
+    returnCount,
     reliable: false, // caller applies config thresholds
     detail:
       'realObs=' + path.length +
       ' bars=' + out.length + '/' + expectedBarCount +
       ' coverage=' + coveragePct.toFixed(1) + '%' +
       ' largestGap=' + largestGapSec + 's' +
-      ' segments=' + segments,
+      ' segments=' + segments +
+      ' returnCount=' + returnCount,
   };
   return { points: out, stats };
 }
@@ -103,13 +112,15 @@ export function realizedDailyVolPct(
   if (points.length < 4) return unreliable;
   const returns: number[] = [];
   for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1]!.price;
+    const prevPoint = points[i - 1]!;
+    const prev = prevPoint.price;
     if (prev <= 0 || points[i]!.price <= 0) continue;
-    // Adjacent grid points are intervalSec apart; if the grid has a hole the
-    // loop would still see consecutive points (holes are not emitted), so no
-    // return can ever span a split segment.
+    // V1.4 P0-4: never compute a return between points on opposite sides of a
+    // missing segment (timestamp jump > intervalSec).
+    if (points[i]!.timestamp - prevPoint.timestamp > BigInt(intervalSec)) continue;
     returns.push(Math.log(points[i]!.price / prev));
   }
+  stats.returnCount = returns.length;
   if (returns.length < 3) return { ...unreliable, detail: 'RANGE_PATH_UNRELIABLE: insufficient returns (' + returns.length + ')' };
   const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
   const variance = returns.reduce((a, b) => a + (b - mean) ** 2, 0) / (returns.length - 1);

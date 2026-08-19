@@ -213,8 +213,16 @@ export type PairMetrics = {
   fillCount: number;
   pricedFillCount: number;
   unpricedFillCount: number;
+  /** Total 1INCH-leg quantity (1INCH token units) across ALL eligible fills. */
+  totalOneInchAmount: number;
+  /** 1INCH-leg quantity across fills with an available fair USD price. */
+  pricedOneInchAmount: number;
   /** Fraction of eligible fills whose 1INCH-leg USD valuation was available (0..1). */
   pricingCoveragePct: number;
+  /** fill-count coverage (== pricingCoveragePct; kept as the documented name). */
+  fillCountCoveragePct: number;
+  /** 1INCH-amount-weighted coverage: huge unpriced fills are never masked by many tiny priced fills. */
+  oneInchAmountCoveragePct: number;
   grossFillUsd: number;
   dailyFillRateUsd: number;
   fillShareByStrategy: Map<string, { fillUsd: number; share: number; count: number }>;
@@ -228,8 +236,15 @@ export type GroupMetrics = {
   fillCount: number;
   pricedFillCount: number;
   unpricedFillCount: number;
-  /** USD-weighted group pricing coverage = sum(perMarketPricedUsd)/sum(perMarketEligibleUsd proxy). */
+  /** Total 1INCH-leg quantity across ALL eligible group fills. */
+  totalOneInchAmount: number;
+  /** 1INCH-leg quantity across group fills with an available fair USD price. */
+  pricedOneInchAmount: number;
+  /** Fill-count group pricing coverage (0..1). */
   pricingCoveragePct: number;
+  fillCountCoveragePct: number;
+  /** 1INCH-amount-weighted group pricing coverage (0..1). */
+  oneInchAmountCoveragePct: number;
   dailyFillRateUsd: number;
   fillShareByStrategy: Map<string, { fillUsd: number; share: number; count: number }>;
   strategyFees: Map<string, number | null>;
@@ -317,6 +332,8 @@ export type RangePathStats = {
   coveragePct: number;
   largestGapSec: number;
   segments: number;
+  /** Number of adjacent resampled-bar pairs within one interval (no cross-segment returns). */
+  returnCount: number;
   reliable: boolean;
   detail: string;
 };
@@ -332,6 +349,10 @@ export type InventoryThroughput = {
   directionalImbalanceUsd: number;
   inventoryUtilizationPct: number;
   requiredRebalanceCount: number;
+  /** Modeled rebalance value loss (USD) over the window (never free value creation). */
+  rebalanceLossUsd: number;
+  /** Inventory USD value after replay (at current fair prices). */
+  inventoryUsdAfter: number;
   realizedTurnoverPerCapital: number;
   detail: string;
 };

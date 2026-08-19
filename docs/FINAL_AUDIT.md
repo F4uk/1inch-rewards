@@ -696,3 +696,86 @@ validation ladder (175/175 tests, typecheck, build, doctor 13/13) and a live
 read-only validation-only cycle; the honest live decision is DO_NOT_TRADE;
 no v4 persistence begins until external architecture ACCEPT; no transaction
 was signed or broadcast.
+
+---
+
+# V1.4 MODEL CORRECTNESS HOTFIX (branch feature/shadow-v1-model-correctness-hotfix)
+
+## BASELINE
+
+- Base: 1e7d064306bc01caac59d3c704ebe38dca1d1a83
+  (feature/shadow-v1-final-model-repair). No main modification, no merge.
+- Narrow correctness hotfix on the V1.3 architecture; modelVersion bumped
+  4 -> 5; v1-v4 snapshots are non-qualifying; no persistence window started.
+
+## FIXES
+
+- P0-1 fill-share scaling: candidate USD accounting is share-scaled
+  everywhere (candidateRequestedFillUsd = F x s); requested tokenIn/out,
+  grossRequested, serviceable, unserved, imbalance, turnover all use the same
+  scaled fill.
+- P0-2 value conservation: rebalances convert with FAIR USD prices at the fill
+  timestamp, run only after the triggering fill consumed inventory, count only
+  actual value transfers, and deduct a modeled rebalance loss (PnL uses the
+  replay's actual loss, not count x capital).
+- P0-3 pool qualification leak: selectBestPool scores/ranks ONLY qualified
+  candidates; a failing pool can never win on raw score.
+- P0-4 volatility segments: no return is computed across a missing segment;
+  returnCount persisted alongside segments.
+- P0-5 composed orientation: pairPrice(base, quote) = USD(base)/USD(quote);
+  reciprocal golden tests; range simulation shares strategy-construction
+  orientation.
+- P0-6 markout horizons: MARKOUT_RELIABLE requires every configured horizon
+  (60/300/1800) to meet the per-horizon minimum; abundant 1m data cannot hide
+  missing 30m data.
+- P1 denominator coverage by size: totalOneInchAmount, pricedOneInchAmount,
+  fillCountCoveragePct, oneInchAmountCoveragePct at pair and group level;
+  BOTH thresholds required for a canary-relevant group.
+
+## NEW INVARIANTS
+
+- candidateRequestedFillUsd <= fullHistoricalFillUsd
+- serviceableFillUsd <= candidateRequestedFillUsd
+- grossRequestedFillUsd == sum of candidate-scaled requested fills
+- inventoryUsdAfter <= inventoryUsdBefore + numericalTolerance (before
+  slippage) and strictly <= inventoryUsdBefore after modeled rebalance loss
+- rebalance count only increments when usdMoved > 0 (actual transfer)
+- selected pool is null OR a member of the qualified set satisfying every hard
+  quality criterion
+- no return across a missing resampled segment (returnCount ==
+  resampledBarCount - segments)
+- pairPrice(base, quote) * pairPrice(quote, base) == 1
+- sum(per-market priced USD volume) == group priced USD volume
+
+## TESTS
+
+- All existing tests preserved; test/v14.test.ts added (189 total). Each
+  regression calls the ACTUAL production function (replayInventoryCapacity,
+  selectBestPool, resamplePricePathStats/realizedDailyVolPct,
+  buildFairPriceProvider.pairUsdRatioAt, markoutReliability,
+  computePairAndGroupMetrics, summarizeMarkouts).
+
+## LIVE VALIDATION
+
+See final report: npm ci / typecheck / npm test / build / doctor /
+shadow-cycle -- --validation-only / decision/status.
+
+## CI
+
+GitHub Actions PASS on pushed head (independent; never equated with local
+tests).
+
+## SAFETY
+
+- No broadcaster/signing; NO_BROADCAST green; canary unsigned with bounded
+  approvals; validation-only mode only; no v5 persistence started.
+
+## KNOWN GAPS
+
+- Same as V1.3: 1INCH/WETH reference-pool freshness gates CURRENT_FAIR_PRICE
+  and RANGE_PATH_RELIABLE conservatively; BTC wrapper / DeFi major / RWA
+  groups excluded; 0.60 qualification haircut remains.
+
+## FINAL VERDICT
+
+**SHADOW_MODEL_READY** (see final report for the live decision).

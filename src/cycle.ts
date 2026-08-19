@@ -243,7 +243,7 @@ export async function runShadowCycle(
     const pf = markoutFills.filter((f) => pairKey(f.tokenIn, f.tokenOut) === pm.pairKey);
     const samples = computeMarkoutSamples(pf, provider, cfg.markoutHorizonsSec, historicalCutoffTimestamp, cfg.markoutMaxPoolAgeSec);
     markoutSummaries[pm.pairKey] = summarizeMarkouts(samples);
-    markoutReliabilities[pm.pairKey] = markoutReliability(markoutSummaries[pm.pairKey]!, cfg.minMarkoutSamplesPerPair, cfg.markoutMaxPoolAgeSec);
+    markoutReliabilities[pm.pairKey] = markoutReliability(markoutSummaries[pm.pairKey]!, cfg.minMarkoutSamplesPerPair, cfg.markoutMaxPoolAgeSec, cfg.markoutHorizonsSec);
     const adv = markoutSummaries[pm.pairKey]!.reduce((a, s) => a + s.totalAdverseUsd, 0);
     const fav = markoutSummaries[pm.pairKey]!.reduce((a, s) => a + s.totalFavorableUsd, 0);
     log('markouts ' + pm.pairKey + ': ' + markoutSummaries[pm.pairKey]!.map((s) => s.horizonSec + 's:' + s.sampleCount).join(' ') + ' adverseUsd=' + adv.toFixed(2) + ' favorableUsd=' + fav.toFixed(2) + ' reliable=' + markoutReliabilities[pm.pairKey]!.reliable);
@@ -301,6 +301,7 @@ export async function runShadowCycle(
         coveragePct: 0,
         largestGapSec: 0,
         segments: 0,
+        returnCount: 0,
         reliable: false,
         detail: 'no composed pair path (missing/insufficient price data)',
       };
@@ -345,6 +346,10 @@ export async function runShadowCycle(
     currentUsdByPair,
     pairFills,
     oneInchUsdAt,
+    fairUsdAt: (token: string, ts: bigint): number | null => {
+      const o = valuationProvider.usdPriceAt(token, ts, cfg.fillPricingMaxAgeSec);
+      return o ? o.price : null;
+    },
     dailyVolPctByPair,
     capitalUsd: cfg.canaryCapUsd,
     lookbackHours: cfg.lookbackHours,
@@ -581,6 +586,10 @@ function writeAuditArtifact(input: AuditInput): string {
       pricedFillCount: pm.pricedFillCount,
       unpricedFillCount: pm.unpricedFillCount,
       pricingCoveragePct: pm.pricingCoveragePct,
+      fillCountCoveragePct: pm.fillCountCoveragePct,
+      totalOneInchAmount: pm.totalOneInchAmount,
+      pricedOneInchAmount: pm.pricedOneInchAmount,
+      oneInchAmountCoveragePct: pm.oneInchAmountCoveragePct,
       volumeUsd: pm.grossFillUsd,
       dailyFillRateUsd: pm.dailyFillRateUsd,
     })),
@@ -590,6 +599,10 @@ function writeAuditArtifact(input: AuditInput): string {
       pricedFillCount: g.pricedFillCount,
       unpricedFillCount: g.unpricedFillCount,
       pricingCoveragePct: g.pricingCoveragePct,
+      fillCountCoveragePct: g.fillCountCoveragePct,
+      totalOneInchAmount: g.totalOneInchAmount,
+      pricedOneInchAmount: g.pricedOneInchAmount,
+      oneInchAmountCoveragePct: g.oneInchAmountCoveragePct,
       grossVolumeUsd: g.grossGroupFillUsd,
       dailyFillRateUsd: g.dailyFillRateUsd,
     })),

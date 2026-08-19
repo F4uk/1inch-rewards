@@ -192,6 +192,35 @@ canary preview. It never signs or broadcasts transactions.
   and the final decision.
 - doctor.err is no longer tracked.
 
+## V1.4 model correctness hotfix (modelVersion 5)
+
+- P0-1: replayInventoryCapacity applies the candidate fill share consistently
+  to quantities AND USD accounting (candidateRequestedFillUsd = F x s; never
+  the full market fill). The same scaled fill drives requested tokenIn/out,
+  grossRequested, serviceable, unserved, imbalance, and turnover.
+- P0-2: inventory rebalances convert value with FAIR USD prices at the fill
+  timestamp (never 1:1 unit conversion), happen only AFTER the triggering fill
+  consumed inventory, count only when an actual value transfer occurs, and
+  deduct a modeled rebalance loss (no free value creation). The PnL model uses
+  the replay's actual rebalance loss instead of a count x capital approximation.
+- P0-3: selectBestPool scores/ranks ONLY qualified candidates; a pool failing
+  any hard criterion can never win on raw score.
+- P0-4: realized volatility never computes a return between resampled points
+  on opposite sides of a missing segment; returnCount and segments are
+  persisted.
+- P0-5: composed pair price has exactly one semantic:
+  pairPrice(base, quote) = USD(base)/USD(quote) (quote units per base); range
+  simulation now shares the same canonical orientation as strategy
+  construction.
+- P0-6: MARKOUT_RELIABLE requires sufficient samples for EVERY configured
+  horizon (per-horizon minimum), never the sum across horizons.
+- P1: denominator pricing coverage is now size-weighted: group and pair levels
+  persist totalOneInchAmount, pricedOneInchAmount, fillCountCoveragePct, and
+  oneInchAmountCoveragePct; BOTH coverage thresholds must clear for a
+  canary-relevant group, so huge unpriced fills can never be masked by many
+  tiny priced fills.
+- modelVersion = 5; v1-v4 snapshots never qualify.
+
 ## Dual-cutoff time model (mandatory)
 
 - liveCutoffBlock - latest finalized block. Used for: active strategy state,

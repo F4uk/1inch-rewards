@@ -26,6 +26,7 @@ export type PnlInputs = {
     serviceableFillUsdPerDay: number;
     unservedFillUsdPerDay: number;
     rebalanceCountPerDay: number;
+    rebalanceLossUsdPerDay: number;
     utilizationPct: number;
     imbalanceUsdPerDay: number;
     detail: string;
@@ -73,7 +74,10 @@ export function computeCandidatePnl(input: PnlInputs): Candidate {
   const favorableMarkoutUsdPerDay = expectedGrossFillUsdPerDay * favorablePerUsd;
   const reshipsPerDay = rangeSim.reshipsPerDay;
   const priceLossBps = cfg.fallbackRebalanceMaxLossBps / 1e4;
-  const rebalanceCostUsdPerDay = (reshipsPerDay + inventory.rebalanceCountPerDay) * capitalUsd * priceLossBps;
+  // V1.4 P0-2: inventory rebalance cost is the ACTUAL modeled value loss from
+  // the replay (value-conserving conversions + modeled loss); never a
+  // count*capital approximation that could double-count or create value.
+  const rebalanceCostUsdPerDay = reshipsPerDay * capitalUsd * priceLossBps + inventory.rebalanceLossUsdPerDay;
   const gasUsdPerDay = gasModel.gasUsdPerDay;
   const expectedNetUsdPerDay = rewardIncomeUsdPerDay + makerFeeIncomeUsdPerDay - adverseSelectionUsdPerDay - rebalanceCostUsdPerDay - gasUsdPerDay;
   const inventoryNotionalUsd = capitalUsd;

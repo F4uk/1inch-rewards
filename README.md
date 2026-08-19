@@ -50,7 +50,7 @@ public read-only RPCs are used by default.
 
 Season-1 eligibility uses the OFFICIAL 1inch market definition only (ETH/LST:
 20 markets; Stable: 25 markets; each paired with 1INCH). Observed on-chain
-pairs never create campaign membership. modelVersion is 4.
+pairs never create campaign membership. modelVersion is 5.
 
 ## Constraints (see AGENTS.md)
 
