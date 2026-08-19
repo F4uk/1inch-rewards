@@ -757,12 +757,35 @@ was signed or broadcast.
 
 ## LIVE VALIDATION
 
-See final report: npm ci / typecheck / npm test / build / doctor /
-shadow-cycle -- --validation-only / decision/status.
+- npm ci - OK (21 packages, lockfile unchanged).
+- npm run typecheck - PASS (0 errors).
+- npm test - PASS 189/189 (after the validation-only cycle regenerated the
+  modelVersion 5 audit artifact; before regeneration the sole failure was the
+  artifact-version assertion by design).
+- npm run build - PASS.
+- npm run doctor - PASS 13/13.
+- npm run shadow-cycle -- --validation-only - PASS (live, DO_NOT_TRADE;
+  no persistence-qualifying snapshot written).
+- npm run decision/status - PASS (modelVersion 5, qualifyingSnapshots=0).
+
+### Live read-only result (2026-08-19 ~11:44 UTC)
+
+- Decision: **DO_NOT_TRADE**; liveCutoffBlock 25788666 /
+  historicalCutoffBlock 25788217; modelVersion 5, validation-only.
+- Denominators validated complete (ETH/LST 20/20, Stable 25/25).
+- Group coverage (P1, by BOTH dimensions):
+  ETH_LST 15,409 fills, $11.01M gross, fillCountCoverage 99.54%,
+  oneInchAmountCoverage 99.35%; STABLE 23,346 fills, $22.97M gross,
+  fillCountCoverage 99.35%, oneInchAmountCoverage 99.54%.
+- Failed gates (honest): current-fair-price-available (1INCH/WETH pool not
+  fresh within 300s), markout-reliable (missing 30m horizon samples -
+  P0-6 now enforces per-horizon minimums), range-path-reliable (coverage
+  below 50%), confidence, base/stress negative.
+- Best rejected candidate: 1INCH/WETH, net -$0.1127/day, stress -$0.2254/day.
 
 ## CI
 
-GitHub Actions PASS on pushed head (independent; never equated with local
+GitHub Actions PASS on the pushed head (independent; never equated with local
 tests).
 
 ## SAFETY
@@ -778,4 +801,8 @@ tests).
 
 ## FINAL VERDICT
 
-**SHADOW_MODEL_READY** (see final report for the live decision).
+**SHADOW_MODEL_READY** - modelVersion 5 passes the full deterministic
+validation ladder (189/189 tests, typecheck, build, doctor 13/13) and a live
+read-only validation-only cycle; the honest live decision is DO_NOT_TRADE; no
+v5 persistence begins until external architecture ACCEPT; no transaction was
+signed or broadcast.
