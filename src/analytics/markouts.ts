@@ -1,6 +1,6 @@
-import type { FillEvent, FairPriceObservation, FairPriceProvider, MarkoutSample, MarkoutSummary, MarkoutReliability } from '../types.ts';
+import type { FairPriceObservation, FairPriceProvider, FillEvent, MarkoutReliability, MarkoutSample, MarkoutSummary } from '../types.ts';
 import { percentile, weightedMean } from '../util/units.ts';
-import { canonicalPairKey, sortLtGt } from '../util/price.ts';
+import { canonicalPairKey } from '../util/price.ts';
 import { poolPriceBaseQuote, type PoolSeries } from '../sources/uniswap.ts';
 import { answersAtOrBefore, type PriceSeries } from '../sources/chainlink.ts';
 import { tokenToFeedName } from './group.ts';
@@ -13,90 +13,78 @@ export const USDT = '0xdac17f958d2ee523a2206206994597c13d831ec7';
 export const DAI = '0x6b175474e89094c44da98b954eedeac495271d0f';
 
 /**
- * FairPriceProvider built on Uniswap V3 swap series (high resolution, ~block
- * granularity) with Chainlink used only as a USD anchor. Freshness is enforced:
- * a stale observation can never masquerade as a fresh 1-minute price.
+ * FairPriceProvider built on depth-selected Uniswap V3 pools (block-granularity)
+ * with Chainlink used ONLY as a USD anchor. Freshness is enforced: a stale
+ * observation can never masquerade as a fresh 1-minute price.
+ *
+ * USD price construction (all legs are fresh pool prices, anchor is slow-moving):
+ * - 1INCH: (1INCH/WETH pool price) * ETH/USD anchor
+ * - WETH:  (WETH/USDC pool price) * USDC/USD anchor (fallback: ETH/USD anchor)
+ * - stablecoins: (WETH/stable pool price, inverted) * ETH/USD anchor
  */
 export function buildFairPriceProvider(
   pools: Record<string, PoolSeries>,
   anchors: Record<string, PriceSeries>,
   nowSec: bigint,
-): FairPriceProvider {
+): FairPriceProvider & {
+  pairUsdRatioAt: (baseToken: string, quoteToken: string, ts: bigint, maxAgeSec: number) => FairPriceObservation | null;
+  currentUsdPrice: (token: string, maxAgeSec: number) => FairPriceObservation | null;
+} {
   const poolSeriesFor = (a: string, b: string): PoolSeries | null => {
     const key = canonicalPairKey(a, b);
     return pools[key] ?? null;
   };
 
-  const usdOf = (token: string, ts: bigint, anchorMaxAgeSec: number): number | null => {
+  const anchorUsdAt = (feedName: string, ts: bigint, maxAgeSec: number): FairPriceObservation | null => {
+    const feed = anchors[feedName];
+    if (!feed) return null;
+    const o = answersAtOrBefore(feed, [ts])[0];
+    if (!o) return null;
+    const ageSec = Number(ts - o.updatedAt);
+    if (ageSec > maxAgeSec) return null;
+    return {
+      source: 'chainlink:' + feedName,
+      timestamp: o.updatedAt,
+      blockNumber: o.blockNumber,
+      price: Number(o.answer) / 10 ** feed.decimals,
+      ageSec,
+      confidence: ageSec <= 600 ? 'HIGH' : 'MEDIUM',
+    };
+  };
+
+  const poolUsdAt = (token: string, ts: bigint, maxAgeSec: number): FairPriceObservation | null => {
     const t = token.toLowerCase();
     if (t === WETH) {
       const pool = poolSeriesFor(WETH, USDC);
       if (pool) {
         const obs = poolPriceBaseQuote(pool, WETH, USDC, ts);
-        if (obs) return obs.priceToken1PerToken0; // USDC per WETH ~ 1; anchor USDC/USD
-      }
-      const feed = anchors['USDC/USD'];
-      if (feed) {
-        const o = answersAtOrBefore(feed, [ts])[0];
-        if (o && Number(nowSec - o.updatedAt) <= anchorMaxAgeSec) return Number(o.answer) / 10 ** feed.decimals;
-      }
-      return null;
-    }
-    // 1INCH / stablecoins: pool against WETH, then anchor ETH/USD (or USDC/USD)
-    const pool = poolSeriesFor(t === ONEINCH ? ONEINCH : t, WETH);
-    const ethFeed = anchors['ETH/USD'];
-    if (!ethFeed) return null;
-    const anchor = answersAtOrBefore(ethFeed, [ts])[0];
-    if (!anchor || Number(ts - anchor.updatedAt) > anchorMaxAgeSec) return null;
-    const ethUsd = Number(anchor.answer) / 10 ** ethFeed.decimals;
-    if (pool) {
-      const obs = poolPriceBaseQuote(pool, t === ONEINCH ? ONEINCH : t, WETH, ts);
-      if (obs) return obs.priceToken1PerToken0 * ethUsd; // WETH per token * ETH/USD
-    }
-    return null;
-  };
-
-  return {
-    usdPriceAt: (token: string, ts: bigint, maxAgeSec: number): FairPriceObservation | null => {
-      const t = token.toLowerCase();
-      const pool = poolSeriesFor(t, t === WETH ? USDC : WETH);
-      if (pool) {
-        const obs = poolPriceBaseQuote(pool, t, t === WETH ? USDC : WETH, ts);
         if (obs) {
           const ageSec = Number(ts - obs.timestamp);
           if (ageSec > maxAgeSec) return null;
-          const usd = usdOf(t, ts, Math.max(maxAgeSec, 3600));
-          if (usd === null) return null;
-          return {
-            source: 'uniswap-v3:' + pool.poolAddress.slice(0, 10),
-            timestamp: obs.timestamp,
-            blockNumber: obs.blockNumber,
-            price: usd,
-            ageSec,
-            confidence: ageSec <= 60 ? 'HIGH' : ageSec <= 600 ? 'MEDIUM' : 'LOW',
-          };
+          const anchor = anchorUsdAt('USDC/USD', ts, 7200);
+          if (!anchor) return null;
+          return { source: 'uniswap-v3:' + pool.poolAddress.slice(0, 10), timestamp: obs.timestamp, blockNumber: obs.blockNumber, price: obs.priceToken1PerToken0 * anchor.price, ageSec, confidence: ageSec <= 60 ? 'HIGH' : ageSec <= 600 ? 'MEDIUM' : 'LOW' };
         }
       }
-      // Chainlink-only fallback: only acceptable when the observation is fresh
-      const feedName = tokenToFeedName(t);
-      const feed = feedName ? anchors[feedName] : undefined;
-      if (feed) {
-        const o = answersAtOrBefore(feed, [ts])[0];
-        if (o) {
-          const ageSec = Number(ts - o.updatedAt);
-          if (ageSec > maxAgeSec) return null;
-          return {
-            source: 'chainlink:' + feedName,
-            timestamp: o.updatedAt,
-            blockNumber: o.blockNumber,
-            price: Number(o.answer) / 10 ** feed.decimals,
-            ageSec,
-            confidence: ageSec <= 60 ? 'HIGH' : ageSec <= 600 ? 'MEDIUM' : 'LOW',
-          };
-        }
+      return anchorUsdAt('ETH/USD', ts, maxAgeSec);
+    }
+    const pool = poolSeriesFor(t === ONEINCH ? ONEINCH : t, WETH);
+    const anchor = anchorUsdAt('ETH/USD', ts, 7200);
+    if (!anchor) return null;
+    if (pool) {
+      const obs = poolPriceBaseQuote(pool, t === ONEINCH ? ONEINCH : t, WETH, ts);
+      if (obs) {
+        const ageSec = Number(ts - obs.timestamp);
+        if (ageSec > maxAgeSec) return null;
+        return { source: 'uniswap-v3:' + pool.poolAddress.slice(0, 10), timestamp: obs.timestamp, blockNumber: obs.blockNumber, price: obs.priceToken1PerToken0 * anchor.price, ageSec, confidence: ageSec <= 60 ? 'HIGH' : ageSec <= 600 ? 'MEDIUM' : 'LOW' };
       }
-      return null;
-    },
+    }
+    const feedName = tokenToFeedName(t);
+    return feedName ? anchorUsdAt(feedName, ts, maxAgeSec) : null;
+  };
+
+  return {
+    usdPriceAt: (token: string, ts: bigint, maxAgeSec: number): FairPriceObservation | null => poolUsdAt(token, ts, maxAgeSec),
     poolPriceAt: (baseToken: string, quoteToken: string, ts: bigint, maxAgeSec: number): FairPriceObservation | null => {
       const pool = poolSeriesFor(baseToken, quoteToken);
       if (!pool) return null;
@@ -104,15 +92,15 @@ export function buildFairPriceProvider(
       if (!obs) return null;
       const ageSec = Number(ts - obs.timestamp);
       if (ageSec > maxAgeSec) return null;
-      return {
-        source: 'uniswap-v3:' + pool.poolAddress.slice(0, 10),
-        timestamp: obs.timestamp,
-        blockNumber: obs.blockNumber,
-        price: obs.priceToken1PerToken0,
-        ageSec,
-        confidence: ageSec <= 60 ? 'HIGH' : ageSec <= 600 ? 'MEDIUM' : 'LOW',
-      };
+      return { source: 'uniswap-v3:' + pool.poolAddress.slice(0, 10), timestamp: obs.timestamp, blockNumber: obs.blockNumber, price: obs.priceToken1PerToken0, ageSec, confidence: ageSec <= 60 ? 'HIGH' : ageSec <= 600 ? 'MEDIUM' : 'LOW' };
     },
+    pairUsdRatioAt: (baseToken: string, quoteToken: string, ts: bigint, maxAgeSec: number): FairPriceObservation | null => {
+      const usdB = poolUsdAt(baseToken, ts, maxAgeSec);
+      const usdQ = poolUsdAt(quoteToken, ts, maxAgeSec);
+      if (!usdB || !usdQ || usdB.price <= 0) return null;
+      return { source: 'composed:' + baseToken.slice(0, 8) + '/' + quoteToken.slice(0, 8), timestamp: usdB.timestamp < usdQ.timestamp ? usdB.timestamp : usdQ.timestamp, blockNumber: 0n, price: usdQ.price / usdB.price, ageSec: usdB.ageSec > usdQ.ageSec ? usdB.ageSec : usdQ.ageSec, confidence: usdB.confidence === 'HIGH' && usdQ.confidence === 'HIGH' ? 'HIGH' : 'MEDIUM' };
+    },
+    currentUsdPrice: (token: string, maxAgeSec: number): FairPriceObservation | null => poolUsdAt(token, nowSec, maxAgeSec),
   };
 }
 
@@ -122,17 +110,18 @@ function decimalsOf(token: string): number {
 }
 
 /**
- * Maker-perspective markout.
+ * TRUE two-leg maker inventory-change markout for the ACTUAL Aqua fill pair.
  *
- * In every Aqua fill the maker RECEIVES tokenIn (taker pays tokenIn) and
- * delivers tokenOut. The maker's post-fill inventory exposure is LONG tokenIn.
- * The relative price of tokenIn is taken from a fresh on-chain pool:
- *   markoutBps = (P(T) - P(T + h)) / P(T) * 1e4   (positive = adverse).
+ * Maker receives +amountIn of tokenIn and delivers -amountOut of tokenOut.
+ *   V_fill     = qtyIn * fairUsd(tokenIn, T)     - qtyOut * fairUsd(tokenOut, T)
+ *   V_horizon  = qtyIn * fairUsd(tokenIn, T + h) - qtyOut * fairUsd(tokenOut, T + h)
+ *   inventoryMovePnl = V_horizon - V_fill
+ *   adverseCostUsd   = max(0, -inventoryMovePnl)      (hard invariant: >= 0)
  *
- * Notional (USD, token-decimals aware) is used only for weighting; the
- * markout itself is a relative pool-price move and does NOT depend on the USD
- * anchor's freshness. Maker fee is charged on gross fill notional and is a
- * separate income line - fee and markout never offset each other.
+ * markoutBps normalizes adverseCostUsd by the fill notional
+ * (qtyIn * fairUsd(tokenIn, T)), which is documented as the denominator.
+ * Favorable post-fill movement is tracked separately and NEVER offsets
+ * adverse cost. The fill-time maker fee/spread is not re-charged here.
  */
 export function computeMarkoutSamples(
   fills: FillEvent[],
@@ -143,18 +132,24 @@ export function computeMarkoutSamples(
 ): MarkoutSample[] {
   const samples: MarkoutSample[] = [];
   for (const f of fills) {
-    const received = f.tokenIn;
-    const quote = received.toLowerCase() === WETH ? USDC : WETH;
-    const pFill = provider.poolPriceAt(received, quote, f.timestamp, maxPoolAgeSec);
-    if (!pFill || pFill.price <= 0) continue;
-    const notionalUsd = (Number(f.amountIn) / 10 ** decimalsOf(received)) * (provider.usdPriceAt(received, f.timestamp, Math.max(maxPoolAgeSec, 3600))?.price ?? 0);
+    const qtyInUsd = Number(f.amountIn) / 10 ** decimalsOf(f.tokenIn);
+    const qtyOutUsd = Number(f.amountOut) / 10 ** decimalsOf(f.tokenOut);
+    const pInFill = provider.usdPriceAt(f.tokenIn, f.timestamp, maxPoolAgeSec);
+    const pOutFill = provider.usdPriceAt(f.tokenOut, f.timestamp, maxPoolAgeSec);
+    if (!pInFill || !pOutFill) continue;
+    const vFill = qtyInUsd * pInFill.price - qtyOutUsd * pOutFill.price;
+    const notionalUsd = qtyInUsd * pInFill.price;
     if (notionalUsd <= 0) continue;
     for (const h of horizonsSec) {
       const target = f.timestamp + BigInt(h);
       if (target > historicalCutoffTs) continue;
-      const pTarget = provider.poolPriceAt(received, quote, target, maxPoolAgeSec);
-      if (!pTarget) continue;
-      const markoutBps = ((pFill.price - pTarget.price) / pFill.price) * 1e4;
+      const pInH = provider.usdPriceAt(f.tokenIn, target, maxPoolAgeSec);
+      const pOutH = provider.usdPriceAt(f.tokenOut, target, maxPoolAgeSec);
+      if (!pInH || !pOutH) continue;
+      const vHorizon = qtyInUsd * pInH.price - qtyOutUsd * pOutH.price;
+      const inventoryPnlUsd = vHorizon - vFill;
+      const adverseUsd = inventoryPnlUsd < 0 ? -inventoryPnlUsd : 0;
+      const markoutBps = (adverseUsd / notionalUsd) * 1e4;
       samples.push({
         fillBlock: f.blockNumber,
         fillTimestamp: f.timestamp,
@@ -162,6 +157,8 @@ export function computeMarkoutSamples(
         markoutBps,
         horizonSec: h,
         complete: true,
+        inventoryPnlUsd,
+        adverseUsd,
       });
     }
   }
@@ -183,15 +180,29 @@ export function summarizeMarkouts(samples: MarkoutSample[]): MarkoutSummary[] {
     const med = percentile(bpsValues, 0.5);
     const p75 = percentile(bpsValues, 0.75);
     const conservativeBps = wm > p75 ? wm : p75;
-    out.push({ horizonSec, sampleCount: arr.length, weightedMeanBps: wm, medianBps: med, p75Bps: p75, conservativeBps });
+    const totalAdverseUsd = arr.reduce((a, s) => a + s.adverseUsd, 0);
+    const totalFavorableUsd = arr.reduce((a, s) => a + (s.inventoryPnlUsd > 0 ? s.inventoryPnlUsd : 0), 0);
+    const totalNotionalUsd = arr.reduce((a, s) => a + s.notionalUsd, 0);
+    out.push({ horizonSec, sampleCount: arr.length, weightedMeanBps: wm, medianBps: med, p75Bps: p75, conservativeBps, totalAdverseUsd, totalFavorableUsd, totalNotionalUsd });
   }
   out.sort((a, b) => a.horizonSec - b.horizonSec);
   return out;
 }
 
-export function conservativeMarkoutBps(summaries: MarkoutSummary[]): number | null {
-  if (summaries.length === 0) return null;
+/** Conservative USD-weighted adverse bps (always >= 0) across horizons. */
+export function conservativeAdverseBps(summaries: MarkoutSummary[]): number {
+  if (summaries.length === 0) return 0;
   return Math.max(...summaries.map((s) => s.conservativeBps));
+}
+
+/** Total adverse USD across the most conservative horizon. */
+export function totalAdverseUsd(summaries: MarkoutSummary[]): number {
+  return summaries.reduce((a, s) => a + s.totalAdverseUsd, 0);
+}
+
+/** Total favorable (diagnostic only) USD. */
+export function totalFavorableUsd(summaries: MarkoutSummary[]): number {
+  return summaries.reduce((a, s) => a + s.totalFavorableUsd, 0);
 }
 
 export function usableMarkoutCount(summaries: MarkoutSummary[]): number {
@@ -208,8 +219,4 @@ export function markoutReliability(
     return { reliable: false, reason: 'MARKOUT_UNRELIABLE: samples=' + count + ' min=' + minSampleCount, minObservationAgeSec: maxPoolAgeSec };
   }
   return { reliable: true, reason: 'samples=' + count + ' maxAge=' + maxPoolAgeSec + 's', minObservationAgeSec: maxPoolAgeSec };
-}
-
-export function sortLtGtFor(tokens: string[]): { tokenLt: string; tokenGt: string } {
-  return sortLtGt(tokens[0]!, tokens[1]!);
 }

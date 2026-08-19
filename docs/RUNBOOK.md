@@ -72,3 +72,5 @@ the shadow cycle running (e.g., every 4-8 hours) to collect snapshots.
 - Campaign coverage incomplete => TRADE forbidden.
 - Markout unreliable or gas unknown => TRADE forbidden.
 - Unknown pair eligibility => reward = 0 and candidate cannot TRADE.
+- Denominator coverage incomplete => TRADE forbidden.
+- Current fresh fair price missing => TRADE forbidden.

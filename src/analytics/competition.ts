@@ -198,20 +198,21 @@ export async function computeCompetition(
       const acc = makerTokenAccessible.get(maker + ':' + tok);
       if (!acc || !acc.known || acc.amount <= 0n) continue;
       const candidates = activeStrategies.filter((s) => s.maker === maker);
-      const advSum = candidates.reduce((acc2, s) => acc2 + (advertised.get(s.strategyHash + ':' + tok)?.known ? advertised.get(s.strategyHash + ':' + tok)!.balance : 0n), 0n);
-      if (advSum <= 0n) {
-        const inRangeOnes = candidates.filter((s) => s.inRange);
-        const share = Number(acc.amount) / (inRangeOnes.length || 1);
-        for (const s of inRangeOnes) {
-          backingByStrategy.set(s.strategyHash + ':' + tok, (backingByStrategy.get(s.strategyHash + ':' + tok) ?? 0) + share);
-        }
-      } else {
-        for (const s of candidates) {
-          const adv = advertised.get(s.strategyHash + ':' + tok);
-          if (!adv || !adv.known) continue;
-          const share = (Number(acc.amount) * Number(adv.balance)) / Number(advSum);
-          backingByStrategy.set(s.strategyHash + ':' + tok, (backingByStrategy.get(s.strategyHash + ':' + tok) ?? 0) + share);
-        }
+      const advEntries = candidates
+        .map((s) => ({ s, adv: advertised.get(s.strategyHash + ':' + tok) }))
+        .filter((e) => e.adv !== undefined && e.adv.known);
+      const advSum = advEntries.reduce((acc2, e) => acc2 + e.adv!.balance, 0n);
+      // effectiveBacking = min(walletAccessible, advertisedTotal).
+      // If rawBalances were read successfully and advertisedTotal == 0,
+      // effectiveBacking MUST be zero - we NEVER evenly distribute wallet
+      // balance across strategies with no advertised backing.
+      if (advSum <= 0n) continue;
+      const effective = acc.amount < advSum ? acc.amount : advSum;
+      for (const e of advEntries) {
+        // per-strategy allocation NEVER exceeds its known advertised rawBalance
+        const share = (Number(effective) * Number(e.adv!.balance)) / Number(advSum);
+        const capped = share > Number(e.adv!.balance) ? Number(e.adv!.balance) : share;
+        backingByStrategy.set(e.s.strategyHash + ':' + tok, (backingByStrategy.get(e.s.strategyHash + ':' + tok) ?? 0) + capped);
       }
     }
   }

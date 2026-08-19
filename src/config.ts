@@ -31,6 +31,8 @@ export type AppConfig = {
   minCampaignHoursRemainingGate: number;
   candidateHalfWidthsPct: number[];
   candidateFeesBps: number[];
+  /** CandidateMarketScope: 1INCH paired assets we may trade in the <=$50 canary. */
+  candidatePairedAssets: string[];
   maxCompetitorFeeBps: number;
   envelopeUsd: number;
   canaryCapUsd: number;
@@ -42,6 +44,10 @@ export type AppConfig = {
   holdingHorizonDays: number;
   /** Max age (seconds) of pool observations used for markouts. */
   markoutMaxPoolAgeSec: number;
+  /** Fixed resampling interval (seconds) for realized-volatility computation. */
+  volResampleIntervalSec: number;
+  /** Max gap (seconds) in the resampled path before it is split. */
+  volMaxGapSec: number;
   /** Minimum completed markout samples per pair for MARKOUT_RELIABLE. */
   minMarkoutSamplesPerPair: number;
   fallbackRebalanceMaxLossBps: number;
@@ -67,10 +73,15 @@ export const DEFAULT_CONFIG: AppConfig = {
   qualificationHaircut: 0.6,
   minPairFillCount: 20,
   minCompletedMarkoutCount: 20,
-  minComparableStrategies: 1,
+  minComparableStrategies: 20,
   minCampaignHoursRemainingGate: 48,
   candidateHalfWidthsPct: [3, 5, 8, 12],
   candidateFeesBps: [5, 10, 20, 30, 50],
+  candidatePairedAssets: [
+    '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+    '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+    '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+  ],
   maxCompetitorFeeBps: 150,
   envelopeUsd: 500,
   canaryCapUsd: 50,
@@ -80,6 +91,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   inventoryBufferMultiple: 2.0,
   holdingHorizonDays: 7,
   markoutMaxPoolAgeSec: 300,
+  volResampleIntervalSec: 300,
+  volMaxGapSec: 3600,
   minMarkoutSamplesPerPair: 20,
   fallbackRebalanceMaxLossBps: 30,
   feedOverrides: {},

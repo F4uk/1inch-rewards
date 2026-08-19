@@ -2,6 +2,7 @@ import type { AppConfig } from '../config.ts';
 import type { RpcContext } from './rpc.ts';
 import { getLogsChunked, withRetry } from './rpc.ts';
 import { sortLtGt, sqrtX96ToPrice, canonicalPairKey } from '../util/price.ts';
+import type { PoolDepthStats, PoolSelection } from '../types.ts';
 
 export const UNISWAP_V3_FACTORY = '0x1F98431c8aD98523631AE4a59f267346ea31F984';
 export const FEE_TIERS = [3000, 500, 10000, 100];
@@ -25,6 +26,8 @@ export type PoolSwapObservation = {
   /** price = token1 per token0 (pool orientation, address-sorted) */
   priceToken1PerToken0: number;
   sqrtPriceX96: bigint;
+  amount0: bigint;
+  amount1: bigint;
 };
 
 export type PoolSeries = {
@@ -49,6 +52,8 @@ export function decodePoolSwap(raw: {
     words.push(BigInt('0x' + (hex.slice(i * 64, (i + 1) * 64) || '0')));
   }
   const sqrtPriceX96 = words[2]!;
+  const amount0 = words[0]!;
+  const amount1 = words[1]!;
   const price = sqrtX96ToPrice(sqrtPriceX96, decimals0, decimals1);
   if (price <= 0 || !Number.isFinite(price)) return null;
   return {
@@ -58,7 +63,90 @@ export function decodePoolSwap(raw: {
     logIndex: raw.logIndex,
     priceToken1PerToken0: price,
     sqrtPriceX96,
+    amount0,
+    amount1,
   };
+}
+
+/**
+ * Depth/quality stats for a pool series. A thin/manipulable/stale pool cannot
+ * qualify solely because it exists.
+ */
+export async function computePoolDepthStats(
+  ctx: RpcContext,
+  cfg: AppConfig,
+  pool: { poolAddress: string; token0: string; token1: string; feeTier: number },
+  series: PoolSeries,
+  nowSec: bigint,
+  windowStartTs: bigint,
+): Promise<PoolDepthStats> {
+  let liquidity = 0n;
+  try {
+    const liq = await withRetry(async () => {
+      return await ctx.client.readContract({
+        address: pool.poolAddress as never,
+        abi: [{ type: 'function', name: 'liquidity', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint128' }] }] as never,
+        functionName: 'liquidity',
+      });
+    }, cfg.maxRetries);
+    liquidity = liq as bigint;
+  } catch {
+    liquidity = 0n;
+  }
+  const inWindow = series.observations.filter((o) => o.timestamp >= windowStartTs);
+  const recentVolumeUsd = inWindow.reduce((a, o) => {
+    const d0 = decimalsOfToken(pool.token0);
+    const d1 = decimalsOfToken(pool.token1);
+    // Volume proxy expressed in token0 units (rankable, not USD-priced).
+    const t0 = Math.abs(Number(o.amount0)) / 10 ** d0;
+    const t1 = Math.abs(Number(o.amount1)) / 10 ** d1;
+    const t1InT0 = o.priceToken1PerToken0 > 0 ? t1 / o.priceToken1PerToken0 : 0;
+    return a + t0 + t1InT0;
+  }, 0);
+  const last = inWindow.length > 0 ? inWindow[inWindow.length - 1] : null;
+  const maxObservationAgeSec = last ? Number(nowSec - last.timestamp) : Number.MAX_SAFE_INTEGER;
+  const sourceConfidence = liquidity > 0n && inWindow.length >= 20 && maxObservationAgeSec <= 900 ? 'HIGH' : liquidity > 0n && inWindow.length >= 5 && maxObservationAgeSec <= 3600 ? 'MEDIUM' : 'LOW';
+  return {
+    poolAddress: pool.poolAddress,
+    token0: pool.token0,
+    token1: pool.token1,
+    feeTier: pool.feeTier,
+    liquidity,
+    observationCount: inWindow.length,
+    recentVolumeUsd,
+    maxObservationAgeSec,
+    sourceConfidence,
+  };
+}
+
+/**
+ * Select the most defensible reference source among candidate pools.
+ * Preference order: depth (liquidity > 0), observation density, volume,
+ * freshness; tie-break by lower fee tier. Pools with zero liquidity or too few
+ * observations cannot win over a deep pool.
+ */
+export function selectBestPool(pairKey: string, candidates: PoolDepthStats[]): PoolSelection {
+  if (candidates.length === 0) {
+    return { pairKey, selected: null, candidates: [], rationale: 'no pool candidates' };
+  }
+  const scored = candidates.map((c) => {
+    let score = 0;
+    if (c.liquidity > 0n) score += 1000;
+    score += Math.min(c.observationCount, 2000);
+    score += Math.min(Math.log10(c.recentVolumeUsd + 1) * 100, 500);
+    if (c.maxObservationAgeSec <= 900) score += 200;
+    else if (c.maxObservationAgeSec <= 3600) score += 50;
+    score += (10000 - c.feeTier) / 1000;
+    return { c, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  const selected = scored[0]!.c;
+  const rationale = 'chosen=' + selected.poolAddress.slice(0, 10) + ' fee=' + selected.feeTier +
+    ' liq=' + selected.liquidity.toString() + ' obs=' + selected.observationCount +
+    ' volUsd=' + selected.recentVolumeUsd.toFixed(0) + ' maxAge=' + selected.maxObservationAgeSec +
+    ' conf=' + selected.sourceConfidence +
+    ' scores=' + scored.map((s) => s.c.feeTier + ':' + s.score.toFixed(0)).join(' ');
+  return { pairKey, selected, candidates, rationale };
 }
 
 export function decimalsOfToken(token: string): number {
@@ -74,9 +162,10 @@ export function decimalsOfToken(token: string): number {
 }
 
 /** Discover the best (lowest-fee, existing) V3 pool for (a, b). */
-export async function discoverPool(ctx: RpcContext, cfg: AppConfig, tokenA: string, tokenB: string): Promise<{ poolAddress: string; token0: string; token1: string; feeTier: number } | null> {
+export async function discoverPool(ctx: RpcContext, cfg: AppConfig, tokenA: string, tokenB: string, feeTier?: number): Promise<{ poolAddress: string; token0: string; token1: string; feeTier: number } | null> {
   const { tokenLt, tokenGt } = sortLtGt(tokenA, tokenB);
-  for (const fee of FEE_TIERS) {
+  const tiers = feeTier !== undefined ? [feeTier] : FEE_TIERS;
+  for (const fee of tiers) {
     try {
       const pool = await withRetry(async () => {
         return await ctx.client.readContract({

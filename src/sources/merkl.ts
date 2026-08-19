@@ -1,6 +1,6 @@
 import type { AppConfig } from '../config.ts';
 import { SEASON1_GROUPS, TOKEN_BY_ADDRESS, type PriceGroup, type TokenMeta } from '../constants.ts';
-import type { CampaignCoverage, CampaignGroup, RewardOpportunity, RewardUniverse } from '../types.ts';
+import type { CampaignCoverage, CampaignGroup, CampaignInventory, MerklCampaignRecord, MerklOpportunityRecord, RewardOpportunity, RewardUniverse } from '../types.ts';
 import { toLowerAddress } from '../types.ts';
 
 const AQUA_KEYWORDS = ['aqua'];
@@ -22,11 +22,18 @@ type MerklRewardsBreakdown = {
 
 type MerklCampaign = {
   id?: string;
+  campaignId?: string;
   startTimestamp?: string;
   endTimestamp?: string;
   dailyRewards?: number;
   rewardToken?: MerklToken;
   status?: string;
+  params?: {
+    targetToken?: string;
+    whitelist?: string[];
+    distributionMethodParameters?: { distributionMethod?: string };
+  };
+  campaignStatus?: { status?: string };
 };
 
 type MerklOpportunity = {
@@ -48,8 +55,9 @@ type MerklOpportunity = {
 
 function groupFromName(name: string): PriceGroup | null {
   const n = name.toLowerCase();
+  // Specific group patterns take precedence; never classify by generic
+  // "ethereum"/"market" substrings alone.
   if (n.includes('stablecoin')) return 'STABLE';
-  if (n.includes('eth') && (n.includes('lst') || n.includes('market'))) return 'ETH_LST';
   if (n.includes('lst')) return 'ETH_LST';
   if (n.includes('btc wrapper')) return 'BTC_WRAPPER';
   if (n.includes('defi major')) return 'DEFI_MAJOR';
@@ -154,11 +162,29 @@ export async function fetchRewardUniverse(cfg: AppConfig, nowSec: bigint): Promi
     // eligible market set is fully covered).
     let campaignsChecked = 0;
     let campaignErrors = 0;
+    const campaignRecords: MerklCampaignRecord[] = [];
     for (const g of groups) {
       try {
         const res = (await fetchJson(base + '/v4/campaigns?chainId=1&opportunityId=' + g.id + '&withOpportunity=true')) as MerklCampaign[] | MerklCampaign;
         const list = Array.isArray(res) ? res : [res];
         campaignsChecked += list.length;
+        for (const c of list) {
+          campaignRecords.push({
+            databaseId: String(c.id ?? ''),
+            onChainCampaignId: String(c.campaignId ?? ''),
+            opportunityId: g.id,
+            rewardToken: c.rewardToken?.address ? toLowerAddress(c.rewardToken.address) : '',
+            rewardTokenSymbol: c.rewardToken?.symbol ?? '',
+            startTimestamp: BigInt(c.startTimestamp ?? '0'),
+            endTimestamp: BigInt(c.endTimestamp ?? '0'),
+            status: c.campaignStatus?.status ?? '',
+            dailyRewardsUsd: c.dailyRewards ?? 0,
+            distributionType: c.params?.distributionMethodParameters?.distributionMethod ?? 'UNKNOWN',
+            targetToken: c.params?.targetToken ? toLowerAddress(c.params.targetToken) : null,
+            whitelist: (c.params?.whitelist ?? []).map((w) => toLowerAddress(w)),
+            sourceTimestamp: nowSec,
+          });
+        }
       } catch {
         campaignErrors++;
       }
@@ -178,6 +204,7 @@ export async function fetchRewardUniverse(cfg: AppConfig, nowSec: bigint): Promi
     };
 
     const opportunities: RewardOpportunity[] = [];
+    const opportunityRecords: MerklOpportunityRecord[] = [];
     for (const o of aquaLive) {
       const group = groupFromName(o.name ?? '');
       if (!group || group === 'OTHER') continue;
@@ -198,9 +225,26 @@ export async function fetchRewardUniverse(cfg: AppConfig, nowSec: bigint): Promi
         campaignId: String(o.rewardsRecord?.breakdowns?.[0]?.campaignId ?? ''),
         status: o.status,
       });
+      opportunityRecords.push({
+        opportunityId: String(o.id),
+        chainId: 1,
+        protocol: o.protocol?.name ?? '',
+        action: o.action ?? '',
+        linkedGroup: group,
+        status: o.status,
+        dailyRewardsUsd: o.dailyRewards ?? 0,
+        sourceTimestamp: nowSec,
+      });
     }
+    const inventory: CampaignInventory = {
+      opportunities: opportunityRecords,
+      campaigns: campaignRecords,
+      aquaCampaignCount: campaignRecords.length,
+      aquaOpportunityCount: aquaLive.length,
+    };
     return {
       opportunities,
+      campaignInventory: inventory,
       campaignGroups: groups,
       coverage,
       fetchedAt: nowSec,
@@ -211,6 +255,7 @@ export async function fetchRewardUniverse(cfg: AppConfig, nowSec: bigint): Promi
     return {
       opportunities: [],
       campaignGroups: [],
+      campaignInventory: { opportunities: [], campaigns: [], aquaCampaignCount: 0, aquaOpportunityCount: 0 },
       coverage: {
         complete: false,
         parsedCampaignCount: 0,

@@ -20,6 +20,12 @@ function pairMetrics(): PairMetrics {
   fees.set('0x' + 'aa'.repeat(32), 20);
   const widths = new Map<string, number>();
   widths.set('0x' + 'aa'.repeat(32), 5);
+  for (let i = 3; i < 23; i++) {
+    const h = '0x' + (10 + i).toString(16).padStart(2, '0').repeat(32);
+    shares.set(h, { fillUsd: 40, share: 0.02, count: 5 });
+    fees.set(h, 20);
+    widths.set(h, 5);
+  }
   return {
     pairKey: KEY,
     group: 'STABLE',
@@ -81,7 +87,7 @@ function cycleData(over: Partial<CycleData> & { adverseBps?: number; capitalUsd?
   comps.set(KEY, comp);
   const markouts = {
     [KEY]: [
-      { horizonSec: 60, sampleCount: 30, weightedMeanBps: adverseBps, medianBps: adverseBps, p75Bps: adverseBps, conservativeBps: adverseBps },
+      { horizonSec: 60, sampleCount: 30, weightedMeanBps: adverseBps, medianBps: adverseBps, p75Bps: adverseBps, conservativeBps: adverseBps, totalAdverseUsd: (adverseBps / 1e4) * 1000, totalFavorableUsd: 0, totalNotionalUsd: 1000 },
     ],
   };
   const reliability = {
@@ -94,10 +100,11 @@ function cycleData(over: Partial<CycleData> & { adverseBps?: number; capitalUsd?
     uni.coverage.complete = false;
     uni.coverage.detail = 'CAMPAIGN_COVERAGE_INCOMPLETE';
   }
-  const gasModel = {
-    gasKnown: over.gasKnown ?? true,
-    output: { gasUsdPerDay: 0.5, entryExitAmortizedUsdPerDay: 0.4, reshipGasUsdPerDay: 0.1, gasKnown: over.gasKnown ?? true, detail: 'test' },
-    detail: 'test',
+  const gasMeasurements = {
+    gasPriceUsdPerUnit: over.gasKnown ?? true ? 2e-8 : null,
+    gasUnits: { approve: 46500, ship: 158895, dock: 70343, reship: 229238, emergencyReserve: 70343 },
+    gasUnitsSource: 'test',
+    measured: true,
   };
   const base: CycleData = {
     chainOk: true,
@@ -109,19 +116,26 @@ function cycleData(over: Partial<CycleData> & { adverseBps?: number; capitalUsd?
     historicalCutoffBlock: 900n,
     historicalCutoffTimestamp: 999000n,
     universe: uni,
+    campaignInventory: uni ? uni.campaignInventory : { opportunities: [], campaigns: [], aquaCampaignCount: 0, aquaOpportunityCount: 0 },
+    denominatorScopes: {
+      ETH_LST: { group: 'ETH_LST', markets: [], complete: true, unresolvedTokens: [], detail: 'test' },
+      STABLE: { group: 'STABLE', markets: [], complete: true, unresolvedTokens: [], detail: 'test' },
+    },
+    poolSelections: [],
     pairMetrics: [pm],
     groupMetrics: [groupMetrics()],
     competitions: comps,
     markoutSummaries: markouts,
     markoutReliabilities: reliability,
-    rangeSims,
-    dailyVolPct: 2,
+    rangeSimsByPair: { [KEY]: rangeSims },
+    dailyVolPctByPair: { [KEY]: 2 },
+    currentPriceOk: { [KEY]: true },
     capitalUsd: over.capitalUsd ?? 50,
     lookbackHours: 72,
     sourceTimestamps: { live: '1000000', merkl: '1000000', feeds: '1000000' },
     rewardsFresh: over.universeHealthy !== false,
     feedsFresh: true,
-    gasModel,
+    gasMeasurements,
   };
   const { adverseBps: _a, capitalUsd: _c, universeHealthy: _u, grossUsd: _g, markoutReliable: _m, gasKnown: _k, coverageComplete: _cc, ...rest } = over;
   return { ...base, ...rest };

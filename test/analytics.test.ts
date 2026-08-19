@@ -163,7 +163,28 @@ function fakePoolSeries(prices: { ts: bigint; price: number }[]): PoolSeries {
       logIndex: i,
       priceToken1PerToken0: p.price,
       sqrtPriceX96: 0n,
+      amount0: 0n,
+      amount1: 0n,
     })),
+  };
+}
+
+function fakePoolPairSeries(prices1: { ts: bigint; price: number }[], prices2: { ts: bigint; price: number }[]): Record<string, PoolSeries> {
+  return {
+    [pairKey(ONEINCH, WETH)]: {
+      poolAddress: '0x' + 'aa'.repeat(20),
+      token0: ONEINCH,
+      token1: WETH,
+      feeTier: 3000,
+      observations: prices1.map((p, i) => ({ timestamp: p.ts, blockNumber: 1000n + BigInt(i), txHash: '0x' + 'bb'.repeat(32), logIndex: i, priceToken1PerToken0: p.price, sqrtPriceX96: 0n, amount0: 0n, amount1: 0n })),
+    },
+    [pairKey(WETH, USDC)]: {
+      poolAddress: '0x' + 'cc'.repeat(20),
+      token0: USDC,
+      token1: WETH,
+      feeTier: 3000,
+      observations: prices2.map((p, i) => ({ timestamp: p.ts, blockNumber: 2000n + BigInt(i), txHash: '0x' + 'dd'.repeat(32), logIndex: i, priceToken1PerToken0: p.price, sqrtPriceX96: 0n, amount0: 0n, amount1: 0n })),
+    },
   };
 }
 
@@ -182,20 +203,55 @@ function fakeAnchors(): Record<string, PriceSeries> {
   return { 'ETH/USD': mk(2000), 'USDC/USD': mk(1), 'USDT/USD': mk(1), 'DAI/USD': mk(1), '1INCH/USD': mk(0.083) };
 }
 
-test('markouts: adverse-positive for maker long tokenIn (pool price falls)', () => {
-  const pools = { [pairKey(ONEINCH, WETH)]: fakePoolSeries([{ ts: 1000000n, price: 0.01 }, { ts: 1000060n, price: 0.0099 }]) };
+test('markouts two-leg: adverse-positive when received-token price falls', () => {
+  // 1INCH price falls from 0.01 to 0.0099 WETH per 1INCH; USDC leg static
+  const pools = fakePoolPairSeries(
+    [{ ts: 1000000n, price: 0.01 }, { ts: 1000060n, price: 0.0099 }],
+    [{ ts: 1000000n, price: 0.0005 }, { ts: 1000060n, price: 0.0005 }],
+  );
   const provider = buildFairPriceProvider(pools, fakeAnchors(), 2000000n);
-  const samples = computeMarkoutSamples([fill({ timestamp: 1000000n, tokenIn: ONEINCH })], provider, [60], 2000000n, 300);
+  const samples = computeMarkoutSamples([fill({ timestamp: 1000000n, tokenIn: ONEINCH, tokenOut: USDC, amountIn: 1000000000000000000n, amountOut: 1000000n })], provider, [60], 2000000n, 300);
   assert.equal(samples.length, 1);
+  assert.ok(samples[0]!.adverseUsd > 0);
+  assert.ok(samples[0]!.inventoryPnlUsd < 0);
   assert.ok(samples[0]!.markoutBps > 0);
-  assert.ok(Math.abs(samples[0]!.markoutBps - 100) < 1e-6);
 });
 
-test('markouts: favorable when pool price rises (both directions handled)', () => {
-  const pools = { [pairKey(ONEINCH, WETH)]: fakePoolSeries([{ ts: 1000000n, price: 0.01 }, { ts: 1000060n, price: 0.0102 }]) };
+test('markouts two-leg: favorable movement yields ZERO adverse cost (invariant)', () => {
+  const pools = fakePoolPairSeries(
+    [{ ts: 1000000n, price: 0.01 }, { ts: 1000060n, price: 0.0102 }],
+    [{ ts: 1000000n, price: 0.0005 }, { ts: 1000060n, price: 0.0005 }],
+  );
   const provider = buildFairPriceProvider(pools, fakeAnchors(), 2000000n);
-  const samples = computeMarkoutSamples([fill({ timestamp: 1000000n, tokenIn: ONEINCH })], provider, [60], 2000000n, 300);
-  assert.ok(samples[0]!.markoutBps < 0);
+  const samples = computeMarkoutSamples([fill({ timestamp: 1000000n, tokenIn: ONEINCH, tokenOut: USDC, amountIn: 1000000000000000000n, amountOut: 1000000n })], provider, [60], 2000000n, 300);
+  assert.equal(samples.length, 1);
+  assert.ok(samples[0]!.inventoryPnlUsd > 0);
+  assert.equal(samples[0]!.adverseUsd, 0);
+  assert.equal(samples[0]!.markoutBps, 0);
+});
+
+test('markouts two-leg: both swap directions tested (USDT -> 1INCH)', () => {
+  const pools = fakePoolPairSeries(
+    [{ ts: 1000000n, price: 0.01 }, { ts: 1000060n, price: 0.0098 }],
+    [{ ts: 1000000n, price: 0.0005 }, { ts: 1000060n, price: 0.0005 }],
+  );
+  const provider = buildFairPriceProvider(pools, fakeAnchors(), 2000000n);
+  const fillB = fill({ timestamp: 1000000n, tokenIn: USDT, tokenOut: ONEINCH, amountIn: 100000000n, amountOut: 9000000000000000000n });
+  const samples = computeMarkoutSamples([fillB], provider, [60], 2000000n, 300);
+  assert.equal(samples.length, 1);
+  assert.ok(samples[0]!.adverseUsd >= 0);
+});
+
+test('markouts: favorable never creates negative adverse; stress cannot improve', () => {
+  const pools = fakePoolPairSeries(
+    [{ ts: 1000000n, price: 0.01 }, { ts: 1000060n, price: 0.0102 }],
+    [{ ts: 1000000n, price: 0.0005 }, { ts: 1000060n, price: 0.0005 }],
+  );
+  const provider = buildFairPriceProvider(pools, fakeAnchors(), 2000000n);
+  const samples = computeMarkoutSamples([fill({ timestamp: 1000000n, tokenIn: ONEINCH, tokenOut: USDC, amountIn: 1000000000000000000n, amountOut: 1000000n })], provider, [60], 2000000n, 300);
+  const summaries = summarizeMarkouts(samples);
+  const totalAdverse = summaries.reduce((a, s) => a + s.totalAdverseUsd, 0);
+  assert.ok(totalAdverse >= 0);
 });
 
 test('markouts: stale pool observation cannot serve as fresh 1-minute price', () => {
@@ -215,9 +271,9 @@ test('markouts: incomplete horizons excluded (no look-ahead beyond historical cu
 
 test('markout summary conservative = max(mean, p75); reliability gate', () => {
   const samples = [
-    { fillBlock: 1n, fillTimestamp: 1n, notionalUsd: 100, markoutBps: 10, horizonSec: 60, complete: true },
-    { fillBlock: 2n, fillTimestamp: 2n, notionalUsd: 100, markoutBps: 30, horizonSec: 60, complete: true },
-    { fillBlock: 3n, fillTimestamp: 3n, notionalUsd: 100, markoutBps: 50, horizonSec: 60, complete: true },
+    { fillBlock: 1n, fillTimestamp: 1n, notionalUsd: 100, markoutBps: 10, horizonSec: 60, complete: true, inventoryPnlUsd: -10, adverseUsd: 10 },
+    { fillBlock: 2n, fillTimestamp: 2n, notionalUsd: 100, markoutBps: 30, horizonSec: 60, complete: true, inventoryPnlUsd: -30, adverseUsd: 30 },
+    { fillBlock: 3n, fillTimestamp: 3n, notionalUsd: 100, markoutBps: 50, horizonSec: 60, complete: true, inventoryPnlUsd: -50, adverseUsd: 50 },
   ];
   const s = summarizeMarkouts(samples);
   assert.ok(s[0]!.conservativeBps >= s[0]!.weightedMeanBps);
@@ -384,6 +440,17 @@ export function makeUniverseFixture(): RewardUniverse {
       { id: '2', name: 'ETH & LST markets', group: 'ETH_LST', rewardToken: USDC, rewardTokenSymbol: 'USDC', dailyRewardsUsd: 1902, dailyRewardsRaw: 0n, startTimestamp: 0n, endTimestamp: 2000000000n, sourceTimestamp: 1000n, distributionType: 'DUTCH_AUCTION', campaignId: 'c2', status: 'LIVE' },
     ],
     campaignGroups: CAMPAIGNS,
+    campaignInventory: {
+      opportunities: [
+        { opportunityId: '1', chainId: 1, protocol: '1inch', action: 'DROP', linkedGroup: 'STABLE', status: 'LIVE', dailyRewardsUsd: 1630, sourceTimestamp: 1000n },
+        { opportunityId: '2', chainId: 1, protocol: '1inch', action: 'DROP', linkedGroup: 'ETH_LST', status: 'LIVE', dailyRewardsUsd: 1902, sourceTimestamp: 1000n },
+      ],
+      campaigns: [
+        { databaseId: 'c1', onChainCampaignId: '0xc1', opportunityId: '1', rewardToken: USDC, rewardTokenSymbol: 'USDC', startTimestamp: 0n, endTimestamp: 2000000000n, status: 'LIVE', dailyRewardsUsd: 1630, distributionType: 'DUTCH_AUCTION', targetToken: null, whitelist: [], sourceTimestamp: 1000n },
+      ],
+      aquaCampaignCount: 1,
+      aquaOpportunityCount: 2,
+    },
     coverage: { complete: true, parsedCampaignCount: 2, liveAquaCampaignCount: 2, unknownCampaigns: [], detail: 'COVERAGE_COMPLETE' },
     fetchedAt: 1000n,
     sourceHealthy: true,

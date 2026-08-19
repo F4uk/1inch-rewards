@@ -2,24 +2,30 @@ import type { AppConfig } from '../config.ts';
 import { configFingerprint } from '../config.ts';
 import type {
   Candidate,
+  CandidateGasOutput,
+  CampaignInventory,
   CompetitionState,
   DecisionResult,
+  DenominatorState,
+  GasMeasurements,
   GateResult,
   GroupMetrics,
   MarkoutReliability,
   MarkoutSummary,
   PairMetrics,
+  PoolSelection,
   RewardUniverse,
   Snapshot,
 } from '../types.ts';
 import { computeCandidatePnl } from '../model/pnl.ts';
+import { computeCandidateGas } from '../model/gas.ts';
 import { blendFillShare, type FillShareInput } from '../model/fillShare.ts';
 import { assessConfidence } from '../model/confidence.ts';
 import { campaignHoursRemaining, evaluateGates } from './gates.ts';
 import { evaluatePersistence, latestDecisionMdPath, latestDecisionPath, writeSnapshot } from './persistence.ts';
 import { atomicWriteJson } from '../index/store.ts';
 
-export const MODEL_VERSION = 2;
+export const MODEL_VERSION = 3;
 
 export type CycleData = {
   chainOk: boolean;
@@ -31,23 +37,23 @@ export type CycleData = {
   historicalCutoffBlock: bigint;
   historicalCutoffTimestamp: bigint;
   universe: RewardUniverse | null;
+  campaignInventory: CampaignInventory;
+  denominatorScopes: Record<string, DenominatorState>;
+  poolSelections: PoolSelection[];
   pairMetrics: PairMetrics[];
   groupMetrics: GroupMetrics[];
   competitions: Map<string, CompetitionState>;
   markoutSummaries: Record<string, MarkoutSummary[]>;
   markoutReliabilities: Record<string, MarkoutReliability>;
-  rangeSims: Map<number, { reshipsPerDay: number; timeInRangePct: number }>;
-  dailyVolPct: number;
+  rangeSimsByPair: Record<string, Map<number, { reshipsPerDay: number; timeInRangePct: number }>>;
+  dailyVolPctByPair: Record<string, number>;
+  currentPriceOk: Record<string, boolean>;
   capitalUsd: number;
   lookbackHours: number;
   sourceTimestamps: Record<string, string>;
   rewardsFresh: boolean;
   feedsFresh: boolean;
-  gasModel: {
-    gasKnown: boolean;
-    output: ReturnType<typeof computeGasModelForCycle>;
-    detail: string;
-  } | null;
+  gasMeasurements: GasMeasurements;
 };
 
 export type DecideResult = {
@@ -56,13 +62,6 @@ export type DecideResult = {
   snapshot: Snapshot;
   persistence: ReturnType<typeof evaluatePersistence>;
 };
-
-import { computeGasModel } from '../model/gas.ts';
-import type { GasModelInput } from '../types.ts';
-
-function computeGasModelForCycle(input: GasModelInput) {
-  return computeGasModel(input);
-}
 
 export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
   const candidates: Candidate[] = [];
@@ -81,8 +80,13 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
     budgetByGroup.set(g, budgetForGroup(cd.universe, g));
   }
 
+  const candidatePaired = new Set(cfg.candidatePairedAssets.map((a) => a.toLowerCase()));
   for (const [pairKey, ctx] of byPair) {
     const { pair, group, competition, markouts, reliability } = ctx;
+    // CandidateMarketScope filter: only explicitly approved pairs may TRADE.
+    if (!candidatePaired.has(pair.tokenB.toLowerCase())) continue;
+    const rangeSims = cd.rangeSimsByPair[pairKey] ?? new Map();
+    const dailyVolPct = cd.dailyVolPctByPair[pairKey] ?? 0;
     for (const halfWidthPct of cfg.candidateHalfWidthsPct) {
       for (const feeBps of cfg.candidateFeesBps) {
         const fsi: FillShareInput = {
@@ -90,15 +94,20 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
           competition,
           candidateFeeBps: feeBps,
           candidateHalfWidthPct: halfWidthPct,
-          candidateBackingUsd: cd.capitalUsd * 2,
+          candidateBackingUsd: cd.capitalUsd,
           comparableFeeTolerance: 5,
           comparableWidthTolerance: 4,
           minComparableStrategies: cfg.minComparableStrategies,
         };
         const fs = blendFillShare(fsi);
-        const rangeSim = cd.rangeSims.get(halfWidthPct) ?? { reshipsPerDay: 0, timeInRangePct: 100 };
-        const gasModelOut = cd.gasModel ? cd.gasModel.output : { gasUsdPerDay: 0, entryExitAmortizedUsdPerDay: 0, reshipGasUsdPerDay: 0, gasKnown: false, detail: 'GAS_UNKNOWN' };
-        const rewardEligible = true; // pairMetrics are only built for eligible pairs
+        const rangeSim = rangeSims.get(halfWidthPct) ?? { reshipsPerDay: 0, timeInRangePct: 100 };
+        const gasModel: CandidateGasOutput = computeCandidateGas({
+          measurements: cd.gasMeasurements,
+          holdingHorizonDays: cfg.holdingHorizonDays,
+          reshipsPerDay: rangeSim.reshipsPerDay,
+          expectedRebalanceTxsPerDay: rangeSim.reshipsPerDay,
+        });
+        const rewardEligible = true; // pair metrics are only built for eligible 1INCH pairs
         const candidate = computeCandidatePnl({
           cfg,
           pairMetrics: pair,
@@ -107,7 +116,7 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
           budgetUsdPerDay: budgetByGroup.get(pair.group) ?? 0,
           markoutSummaries: markouts,
           markoutReliability: reliability,
-          gasModel: gasModelOut,
+          gasModel,
           rangeSim,
           fillShare: fs.blended,
           fillShareSource: fs.source,
@@ -115,7 +124,7 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
           halfWidthPct,
           feeBps,
           capitalUsd: cd.capitalUsd,
-          dailyVolPct: cd.dailyVolPct,
+          dailyVolPct,
           rewardEligible,
         });
         candidate.empiricalFillShare = fs.empirical;
@@ -163,7 +172,9 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
         competition: byPair.get(gateCandidate.pairKey)?.competition ?? null,
         markoutSummaries: byPair.get(gateCandidate.pairKey)?.markouts ?? [],
         markoutReliability: byPair.get(gateCandidate.pairKey)?.reliability ?? { reliable: false, reason: 'no data', minObservationAgeSec: 0 },
-        gasKnown: cd.gasModel?.gasKnown ?? false,
+        denominator: cd.denominatorScopes[gateCandidate.group] ?? null,
+        currentPriceOk: cd.currentPriceOk[gateCandidate.pairKey] ?? false,
+        gasKnown: gateCandidate.gasKnown,
         candidate: gateCandidate,
         campaignHoursRemaining: hoursRemaining,
         capitalUsd: cd.capitalUsd,
@@ -198,7 +209,7 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
   };
 
   const snapshot: Snapshot = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     modelVersion: MODEL_VERSION,
     createdAt: cd.nowSec,
     chainId: '1',
@@ -209,11 +220,14 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
     historicalCutoffTimestamp: cd.historicalCutoffTimestamp.toString(),
     sourceTimestamps: cd.sourceTimestamps,
     rewardUniverse: cd.universe,
+    campaignInventory: cd.campaignInventory,
+    denominatorScopes: cd.denominatorScopes,
+    poolSelections: cd.poolSelections,
     pairMetrics: cd.pairMetrics,
     groupMetrics: cd.groupMetrics,
     competition: [...cd.competitions.values()],
     markoutSummaries: cd.markoutSummaries,
-    rangeSimulations: [...cd.rangeSims.entries()].map(([w, s]) => ({
+    rangeSimulations: [...(cd.rangeSimsByPair[Object.keys(cd.rangeSimsByPair)[0] ?? ''] ?? new Map()).entries()].map(([w, s]) => ({
       halfWidthPct: w,
       windowSec: 0,
       exits: 0,
@@ -252,8 +266,12 @@ function buildReasons(
   if (cd.universe && !cd.universe.coverage.complete) reasons.push('CAMPAIGN_COVERAGE_INCOMPLETE: ' + cd.universe.coverage.detail);
   if (!cd.rewardsFresh) reasons.push('REWARDS_NOT_FRESH');
   if (!cd.feedsFresh) reasons.push('FEEDS_NOT_FRESH');
+  for (const [g, d] of Object.entries(cd.denominatorScopes)) {
+    if (!d.complete) reasons.push('DENOMINATOR_COVERAGE_INCOMPLETE(' + g + '): ' + d.detail);
+  }
   if (best) {
-    reasons.push('best candidate: pair=' + best.pairKey + ' width=' + best.halfWidthPct + '% fee=' + best.feeBps + 'bps fillShare=' + best.fillShare.toFixed(4) + ' (' + best.fillShareSource + ')');
+    reasons.push('best candidate: pair=' + best.pairKey + ' width=' + best.halfWidthPct + '% fee=' + best.feeBps + 'bps fillShare=' + best.fillShare.toFixed(5) + ' (' + best.fillShareSource + ')');
+    reasons.push('rewardShare=' + best.conservativeGroupRewardShare.toExponential(3) + ' pairShareOfGroup=' + best.pairShareOfGroup.toFixed(4) + ' groupBudget=' + best.groupBudgetUsd.toFixed(2));
     reasons.push('net=' + best.expectedNetUsdPerDay.toFixed(4) + ' stressNet=' + best.stressNetUsdPerDay.toFixed(4) + ' confidence=' + best.confidence);
     if (!best.markoutReliable) reasons.push(best.markoutUnreliableReason ?? 'MARKOUT_UNRELIABLE');
     if (!best.gasKnown) reasons.push('GAS_UNKNOWN');

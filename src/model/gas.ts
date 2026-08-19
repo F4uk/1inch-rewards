@@ -1,53 +1,55 @@
-import type { GasModelInput, GasModelOutput } from '../types.ts';
+import type { CandidateGasInput, CandidateGasOutput, GasMeasurements } from '../types.ts';
 
 /**
- * Lifecycle gas model (P0-7).
+ * Lifecycle gas model, split into:
+ *  A) measurements - current gas price and gas units (pair-independent)
+ *  B) candidate calculation - amortized entry/exit + reships + rebalance
  *
- * Unavoidable lifecycle gas is NEVER allowed to disappear just because
- * reshipsPerDay == 0. Components:
- *  - approve (one-time, bounded amount)
- *  - initial ship
- *  - eventual dock
- *  - expected re-range/reship (per reship)
- *  - expected inventory rebalance
- *  - emergency exit reserve (extra dock)
- *
- * Entry/exit components are amortized over an explicitly documented
- * conservative holding horizon. If the gas price is unknown the model reports
- * gasKnown=false and the decision must not TRADE.
+ * Unavoidable lifecycle gas NEVER disappears just because reshipsPerDay == 0:
+ * approve, initial ship, eventual dock and the emergency exit reserve are
+ * amortized over an explicitly documented conservative holding horizon.
+ * Candidate range width changes expected gas through reshipsPerDay and
+ * expectedRebalanceTxsPerDay.
  */
-export function computeGasModel(input: GasModelInput): GasModelOutput {
-  const { gasPriceUsdPerUnit, gasUnits, holdingHorizonDays, reshipsPerDay } = input;
-  if (gasPriceUsdPerUnit === null || gasPriceUsdPerUnit <= 0) {
+export function computeCandidateGas(input: CandidateGasInput): CandidateGasOutput {
+  const { measurements, holdingHorizonDays, reshipsPerDay, expectedRebalanceTxsPerDay } = input;
+  const price = measurements.gasPriceUsdPerUnit;
+  if (price === null || price <= 0) {
     return {
       gasUsdPerDay: 0,
       entryExitAmortizedUsdPerDay: 0,
-      reshipGasUsdPerDay: 0,
+      rerangeGasUsdPerDay: 0,
+      rebalanceTxGasUsdPerDay: 0,
       gasKnown: false,
       detail: 'GAS_UNKNOWN: no current gas price or ETH/USD available',
     };
   }
   const horizonDays = holdingHorizonDays > 0 ? holdingHorizonDays : 7;
-  const entryExitUnits = gasUnits.approve + gasUnits.ship + gasUnits.dock + gasUnits.emergencyReserve + gasUnits.inventoryRebalance;
-  const entryExitUsd = entryExitUnits * gasPriceUsdPerUnit;
-  const entryExitAmortizedUsdPerDay = entryExitUsd / horizonDays;
-  const reshipUnitsPerReship = gasUnits.reship;
-  const reshipGasUsdPerDay = reshipsPerDay * reshipUnitsPerReship * gasPriceUsdPerUnit;
-  const gasUsdPerDay = entryExitAmortizedUsdPerDay + reshipGasUsdPerDay;
+  const entryExitUnits = measurements.gasUnits.approve + measurements.gasUnits.ship + measurements.gasUnits.dock + measurements.gasUnits.emergencyReserve;
+  const entryExitAmortizedUsdPerDay = (entryExitUnits * price) / horizonDays;
+  const rerangeGasUsdPerDay = reshipsPerDay * measurements.gasUnits.reship * price;
+  const rebalanceTxGasUsdPerDay = expectedRebalanceTxsPerDay * measurements.gasUnits.ship * price;
+  const gasUsdPerDay = entryExitAmortizedUsdPerDay + rerangeGasUsdPerDay + rebalanceTxGasUsdPerDay;
   return {
     gasUsdPerDay,
     entryExitAmortizedUsdPerDay,
-    reshipGasUsdPerDay,
+    rerangeGasUsdPerDay,
+    rebalanceTxGasUsdPerDay,
     gasKnown: true,
     detail:
-      'units{approve=' + gasUnits.approve +
-      ',ship=' + gasUnits.ship +
-      ',dock=' + gasUnits.dock +
-      ',reship=' + gasUnits.reship +
-      ',rebalance=' + gasUnits.inventoryRebalance +
-      ',emergency=' + gasUnits.emergencyReserve +
-      '} price=' + gasPriceUsdPerUnit.toExponential(3) +
+      'units{approve=' + measurements.gasUnits.approve +
+      ',ship=' + measurements.gasUnits.ship +
+      ',dock=' + measurements.gasUnits.dock +
+      ',reship=' + measurements.gasUnits.reship +
+      ',emergency=' + measurements.gasUnits.emergencyReserve +
+      '} price=' + price.toExponential(3) +
       ' horizonDays=' + horizonDays +
-      ' source=' + input.gasUnitsSource,
+      ' reshipsPerDay=' + reshipsPerDay.toFixed(3) +
+      ' rebalanceTxsPerDay=' + expectedRebalanceTxsPerDay.toFixed(3) +
+      ' source=' + measurements.gasUnitsSource,
   };
+}
+
+export function gasMeasurementsKnown(m: GasMeasurements): boolean {
+  return m.gasPriceUsdPerUnit !== null && m.gasPriceUsdPerUnit > 0;
 }

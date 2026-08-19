@@ -1,0 +1,26 @@
+V1.2 economic accounting and pair-state repair (modelVersion 3)
+
+- Full reward denominator scope (every active eligible market, address-resolved
+  from on-chain metadata) separate from the narrow candidate scope;
+  DENOMINATOR_COVERAGE_INCOMPLETE forbids TRADE
+- Canonical Opportunity vs Campaign inventory; specific group parsing;
+  campaign coverage audited from campaign-aware endpoints
+- Correct reward formula: pair qualifying fill / whole eligible group volume x
+  budget; pair share of group carries the 0.1 factor regression
+- Backing: effective = min(walletAccessible, advertisedTotal); per-strategy cap
+  by advertised rawBalance; known-zero => zero; unknown => DATA_UNKNOWN
+- Candidate capital = 50 total backing (never 100); structural backing fixed
+- True two-leg inventory-change markout with adverse >= 0 invariant, both
+  swap directions; favorable never offsets adverse
+- Depth-qualified fair-price selection across all fee tiers; fresh current
+  price gate (CURRENT_FAIR_PRICE_UNKNOWN forbids TRADE)
+- Per-pair range sims and time-normalized realized volatility; re-ship
+  re-centers at current price after cooldown (trending paths tested)
+- Gas split into measurements (A) and candidate calculation (B); width changes
+  gas; 2 reships/day > 0 reships/day regression
+- Comparable-sample threshold raised to 20; structural-only stays LOW
+- modelVersion 3; v1/v2 snapshots never qualify; persistence window not started
+- CI (npm ci/typecheck/test/build) + sanitized audit/latest-shadow artifacts
+- 132 tests green; live read-only cycle: denominator incomplete (one
+  unresolvable observed token), stale 1INCH current price, LOW confidence;
+  honest DO_NOT_TRADE; V1.1 +$328 estimate invalidated

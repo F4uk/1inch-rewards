@@ -29,9 +29,11 @@ inventory buffer applies to **unfilled** capital.
 
 ## Rewards
 
-- Group denominator covers the whole eligible incentive group (ETH/LST markets,
-  stablecoin markets), not single proxies.
-- rewardIncome = dailyBudget * min(fillShare, backingShare) * qualificationHaircut.
+- Group denominator covers EVERY active eligible market in the group
+  (DENOMINATOR_SCOPE), not just candidate or proxy pairs.
+- rewardIncome = groupBudget *
+  (pairQualifyingFill / wholeEligibleGroupGrossFillUsd); backing competition
+  is NOT re-applied to group rewards (already inside fill-share).
 - No verified resolver whitelist exists publicly; a conservative configurable
   haircut (0.60) is applied and QUALIFICATION_UNVERIFIED is surfaced in the
   decision reasons/confidence.
@@ -54,6 +56,10 @@ inventory buffer applies to **unfilled** capital.
   it never offsets or double-counts the markout cost.
 - Conservative planning cost: max(weightedMean, p75) across horizons.
 - MARKOUT_UNRELIABLE (insufficient fresh samples) forbids TRADE.
+- TRUE two-leg maker inventory-change markout:
+  V = qtyIn*fairUsd(tokenIn,T) - qtyOut*fairUsd(tokenOut,T);
+  adverseUsd = max(0, -(V_horizon - V_fill)); favorable movement never offsets
+  adverse; notional denominator = qtyIn*fairUsd(tokenIn,T) (documented).
 
 ## Lifecycle gas (V1.1)
 

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { blendFillShare, type FillShareInput } from '../src/model/fillShare.ts';
 import { computeStressNet } from '../src/model/pnl.ts';
-import { computeGasModel } from '../src/model/gas.ts';
+import { computeCandidateGas } from '../src/model/gas.ts';
 import { assessConfidence } from '../src/model/confidence.ts';
 import { DEFAULT_CONFIG, type AppConfig } from '../src/config.ts';
 import type { CompetitionState, PairMetrics } from '../src/types.ts';
@@ -25,6 +25,12 @@ function pairMetrics(over: Partial<PairMetrics> = {}): PairMetrics {
   widths.set('0x' + 'aa'.repeat(32), 5);
   widths.set('0x' + 'bb'.repeat(32), 5);
   widths.set('0x' + 'cc'.repeat(32), 5);
+  for (let i = 3; i < 22; i++) {
+    const h = '0x' + (10 + i).toString(16).padStart(2, '0').repeat(32);
+    shares.set(h, { fillUsd: 50, share: 0.02, count: 5 });
+    fees.set(h, 20);
+    widths.set(h, 5);
+  }
   return {
     pairKey: ONEINCH + '/' + USDC,
     group: 'STABLE',
@@ -77,9 +83,9 @@ function fsi(over: Partial<FillShareInput> = {}): FillShareInput {
 
 test('fill share: blend = min(empirical, structural), capped at 1', () => {
   const r = blendFillShare(fsi());
-  assert.ok(Math.abs(r.blended - 0.15) < 1e-9); // p25 of [0.1,0.2,0.5]
+  assert.ok(Math.abs(r.blended - 0.02) < 1e-9); // p25 of [0.02 x19, 0.1, 0.2, 0.5]
   assert.equal(r.source, 'min(empirical,structural)');
-  assert.equal(r.comparableStrategyCount, 3);
+  assert.equal(r.comparableStrategyCount, 22);
 });
 
 test('fill share: null fee/width strategies are NEVER automatically comparable', () => {
@@ -129,9 +135,9 @@ test('confidence: LOW when critical data missing (incl. backing DATA_UNKNOWN maj
 test('confidence: MEDIUM/HIGH with sufficient samples', () => {
   const pm = pairMetrics({ fillCount: 100 });
   const mk = [
-    { horizonSec: 60, sampleCount: 100, weightedMeanBps: 5, medianBps: 5, p75Bps: 10, conservativeBps: 10 },
-    { horizonSec: 300, sampleCount: 100, weightedMeanBps: 5, medianBps: 5, p75Bps: 10, conservativeBps: 10 },
-    { horizonSec: 1800, sampleCount: 100, weightedMeanBps: 5, medianBps: 5, p75Bps: 10, conservativeBps: 10 },
+    { horizonSec: 60, sampleCount: 100, weightedMeanBps: 5, medianBps: 5, p75Bps: 10, conservativeBps: 10, totalAdverseUsd: 1, totalFavorableUsd: 0, totalNotionalUsd: 1000 },
+    { horizonSec: 300, sampleCount: 100, weightedMeanBps: 5, medianBps: 5, p75Bps: 10, conservativeBps: 10, totalAdverseUsd: 1, totalFavorableUsd: 0, totalNotionalUsd: 1000 },
+    { horizonSec: 1800, sampleCount: 100, weightedMeanBps: 5, medianBps: 5, p75Bps: 10, conservativeBps: 10, totalAdverseUsd: 1, totalFavorableUsd: 0, totalNotionalUsd: 1000 },
   ];
   const c = assessConfidence({
     cfg,
@@ -156,7 +162,7 @@ test('stress arithmetic uses configured factors exactly', () => {
     budgetUsdPerDay: 100,
     markoutSummaries: [],
     markoutReliability: { reliable: true, reason: 'ok', minObservationAgeSec: 300 },
-    gasModel: { gasUsdPerDay: 4, entryExitAmortizedUsdPerDay: 2, reshipGasUsdPerDay: 2, gasKnown: true, detail: 'ok' },
+    gasModel: { gasUsdPerDay: 4, entryExitAmortizedUsdPerDay: 2, rerangeGasUsdPerDay: 1, rebalanceTxGasUsdPerDay: 1, gasKnown: true, detail: 'ok' },
     rangeSim: { reshipsPerDay: 1, timeInRangePct: 90 },
     fillShare: 0.5,
     fillShareSource: 'test',
@@ -173,7 +179,6 @@ test('stress arithmetic uses configured factors exactly', () => {
     adverseSelectionUsdPerDay: 20,
     rebalanceCostUsdPerDay: 5,
     gasUsdPerDay: 4,
-    grossFillUsdPerDay: 250,
   });
   assert.equal(s.sensitivity['rewardBudget'], 70);
   assert.equal(s.sensitivity['adverseSelection'], 30);
@@ -182,19 +187,20 @@ test('stress arithmetic uses configured factors exactly', () => {
   assert.equal(s.net, 70 + 7 - 30 - 7.5 - 8 - 2);
 });
 
-test('gas model: lifecycle gas never vanishes when reshipsPerDay=0; unknown price => gasKnown=false', () => {
-  const input = {
-    gasPriceUsdPerUnit: 2e-8, // ~20 gwei, ETH=2000
-    gasUnits: { approve: 46500, ship: 320000, dock: 90000, reship: 410000, inventoryRebalance: 160000, emergencyReserve: 90000 },
+test('gas model: lifecycle gas never vanishes at 0 reships; candidate gas scales with reships', () => {
+  const measurements = {
+    gasPriceUsdPerUnit: 2e-8,
+    gasUnits: { approve: 46500, ship: 320000, dock: 90000, reship: 410000, emergencyReserve: 90000 },
     gasUnitsSource: 'MEASURED',
-    holdingHorizonDays: 7,
-    reshipsPerDay: 0,
+    measured: true,
   };
-  const out = computeGasModel(input);
+  const out = computeCandidateGas({ measurements, holdingHorizonDays: 7, reshipsPerDay: 0, expectedRebalanceTxsPerDay: 0 });
   assert.equal(out.gasKnown, true);
   assert.ok(out.entryExitAmortizedUsdPerDay > 0);
-  assert.equal(out.reshipGasUsdPerDay, 0);
+  assert.equal(out.rerangeGasUsdPerDay, 0);
   assert.ok(out.gasUsdPerDay > 0);
-  const unknown = computeGasModel({ ...input, gasPriceUsdPerUnit: null });
+  const busy = computeCandidateGas({ measurements, holdingHorizonDays: 7, reshipsPerDay: 2, expectedRebalanceTxsPerDay: 2 });
+  assert.ok(busy.gasUsdPerDay > out.gasUsdPerDay, '2 reships/day MUST cost more than 0 reships/day');
+  const unknown = computeCandidateGas({ measurements: { ...measurements, gasPriceUsdPerUnit: null }, holdingHorizonDays: 7, reshipsPerDay: 1, expectedRebalanceTxsPerDay: 1 });
   assert.equal(unknown.gasKnown, false);
 });

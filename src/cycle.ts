@@ -1,23 +1,26 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import type { AppConfig } from './config.ts';
 import { CHAINLINK_FEEDS } from './constants.ts';
-import type { FillEvent, GroupMetrics, LifecycleEvent, PairMetrics } from './types.ts';
+import type { FillEvent, GasMeasurements, GroupMetrics, LifecycleEvent, PairMetrics, PoolSelection } from './types.ts';
 import { toLowerAddress } from './types.ts';
-import { makeClient, getFinalizedBlock, getBlockAtOrBeforeTimestamp, assertChainOk, assertContractsDeployed, deploymentBlocks, getLogsChunked, type RpcContext } from './sources/rpc.ts';
+import { makeClient, getFinalizedBlock, getBlockAtOrBeforeTimestamp, assertChainOk, assertContractsDeployed, deploymentBlocks, type RpcContext } from './sources/rpc.ts';
 import { fetchRewardUniverse } from './sources/merkl.ts';
 import { fetchPriceSeries, answersAtOrBefore, type PriceSeries } from './sources/chainlink.ts';
-import { discoverPool, fetchPoolSeries, poolPriceBaseQuote, type PoolSeries } from './sources/uniswap.ts';
+import { discoverPool, fetchPoolSeries, computePoolDepthStats, selectBestPool, FEE_TIERS, type PoolSeries } from './sources/uniswap.ts';
 import { indexLifecycleEvents } from './index/events.ts';
 import { indexFillEvents } from './index/fills.ts';
 import { loadCheckpoint, saveCheckpoint, loadJsonl, appendJsonl, dedupeByKey, eventKey, ensureDataDir, type Checkpoint } from './index/store.ts';
 import { computePairAndGroupMetrics, pairKey, tokenToFeedName, ONEINCH } from './analytics/group.ts';
+import { buildDenominatorScopes, denominatorCampaignGroups } from './analytics/denominator.ts';
 import { buildStrategies, computeCompetition, activeStrategiesAt } from './analytics/competition.ts';
 import { buildFairPriceProvider, computeMarkoutSamples, summarizeMarkouts, markoutReliability, WETH, USDC, USDT, DAI } from './analytics/markouts.ts';
-import { simulateAllWidths, samplePath, type PricePoint } from './analytics/rangeCross.ts';
+import { simulateAllWidths, type PricePoint } from './analytics/rangeCross.ts';
+import { realizedDailyVolPct } from './util/vol.ts';
 import { decide, type CycleData } from './decision/decide.ts';
 import { rangeHalfWidthPct } from './util/price.ts';
-import { computeGasModel } from './model/gas.ts';
-import type { GasModelInput } from './types.ts';
-import { AQUA_REGISTRY, AQUA_ROUTER, REGISTRY_DEPLOY_BLOCK } from './constants.ts';
+import { AQUA_ROUTER, REGISTRY_DEPLOY_BLOCK } from './constants.ts';
 
 export type CycleResult = {
   liveCutoffBlock: bigint;
@@ -30,10 +33,10 @@ export type CycleResult = {
   groupMetrics: GroupMetrics[];
   decision: ReturnType<typeof decide>['decision'];
   durationSec: number;
+  auditPath: string;
 };
 
 const MAX_MARKOUT_HORIZON_SEC = 1800;
-const SWAP_TOPIC = '0x54bc5c027d15d7aa8ae083f994ab4411d2f223291672ecd3a344f3d92dcaf8b2';
 
 export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string) => void } = {}): Promise<CycleResult> {
   const log = opts.log ?? (() => undefined);
@@ -74,9 +77,21 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
   log('lifecycle=' + mergedLife.length + ' fills=' + mergedFills.length);
 
   const universe = await fetchRewardUniverse(cfg, nowSec);
-  log('merkl healthy=' + universe.sourceHealthy + ' opportunities=' + universe.opportunities.length + ' coverage=' + universe.coverage.detail);
+  log('merkl healthy=' + universe.sourceHealthy + ' opportunities=' + universe.opportunities.length +
+    ' campaigns=' + universe.campaignInventory.aquaCampaignCount +
+    ' coverage=' + universe.coverage.detail);
 
-  // Chainlink anchor series (USD anchors only; markouts use pool prices)
+  const strategies = buildStrategies(mergedLife);
+  log('strategies=' + strategies.size + ' active=' + activeStrategiesAt(strategies, liveCutoffBlock, AQUA_ROUTER).length);
+
+  // Full reward-denominator scopes (candidate scope is separate and narrower)
+  const denominatorScopes = await buildDenominatorScopes(ctx, cfg, strategies, universe.campaignGroups);
+  for (const [g, d] of Object.entries(denominatorScopes)) {
+    log('denominator ' + g + ': ' + d.detail + ' markets=' + d.markets.map((m) => m.symbol).join(','));
+  }
+  const workingGroups = denominatorCampaignGroups(universe.campaignGroups, denominatorScopes);
+
+  // Chainlink anchors (USD anchors only)
   const seriesStartBlock = fillWindowStartBlock;
   const anchors: Record<string, PriceSeries> = {};
   const anchorNames = ['ETH/USD', 'USDC/USD', 'USDT/USD', 'DAI/USD', '1INCH/USD'];
@@ -104,7 +119,7 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
   const { pairMetrics, groupMetrics } = computePairAndGroupMetrics(fillsInWindow, {
     usdPrice: usdPriceAtTs,
     latestUsdPrice: latestUsd,
-  }, Number(historicalCutoffTimestamp - fillWindowStartTs), universe.campaignGroups);
+  }, Number(historicalCutoffTimestamp - fillWindowStartTs), workingGroups);
   for (const pm of pairMetrics) {
     log('pair ' + pm.pairKey + ' group=' + pm.group + ' fills=' + pm.fillCount + ' grossUsd=' + pm.grossFillUsd.toFixed(2) + ' dailyRate=' + pm.dailyFillRateUsd.toFixed(2));
   }
@@ -112,8 +127,7 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
     log('group ' + g.group + ' fills=' + g.fillCount + ' grossUsd=' + g.grossGroupFillUsd.toFixed(2) + ' dailyRate=' + g.dailyFillRateUsd.toFixed(2));
   }
 
-  // Join orderHash -> decoded strategy metadata (fee/width) for empirical fill share
-  const strategies = buildStrategies(mergedLife);
+  // Join orderHash -> decoded strategy metadata for empirical fill share
   const decodedByHash = new Map<string, { fee: number; width: number }>();
   for (const rec of strategies.values()) {
     if (rec.decoded.feeBpsIn === null || rec.decoded.sqrtPriceMin === null || rec.decoded.sqrtPriceMax === null) continue;
@@ -127,32 +141,51 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
         pm.strategyWidths.set(hash, meta.width);
       }
     }
-    log('join: pair=' + pm.pairKey + ' hashes=' + pm.fillShareByStrategy.size + ' withMeta=' + pm.strategyFees.size);
   }
-  log('strategies=' + strategies.size + ' active=' + activeStrategiesAt(strategies, liveCutoffBlock, AQUA_ROUTER).length);
 
-  // Uniswap V3 pools needed for markouts / range sims
-  const neededPools = new Map<string, { a: string; b: string }>();
+  // Pools: discover ALL fee tiers, measure depth, select the most defensible
+  const neededPairs = new Map<string, { a: string; b: string }>();
   for (const pm of pairMetrics) {
-    neededPools.set(pairKey(ONEINCH, WETH), { a: ONEINCH, b: WETH });
+    neededPairs.set(pairKey(ONEINCH, WETH), { a: ONEINCH, b: WETH });
     if (pm.tokenB.toLowerCase() === WETH) continue;
-    neededPools.set(pairKey(WETH, pm.tokenB), { a: WETH, b: pm.tokenB });
+    neededPairs.set(pairKey(WETH, pm.tokenB), { a: WETH, b: pm.tokenB });
   }
-  const poolMeta = new Map<string, { poolAddress: string; token0: string; token1: string; feeTier: number }>();
-  for (const [key, p] of neededPools) {
-    const found = await discoverPool(ctx, cfg, p.a, p.b);
-    if (found) {
-      poolMeta.set(key, found);
-      log('pool ' + key + ' => ' + found.poolAddress.slice(0, 12) + ' fee=' + found.feeTier);
+  const poolCandidates = new Map<string, { poolAddress: string; token0: string; token1: string; feeTier: number }[]>();
+  for (const [key, p] of neededPairs) {
+    const found = [];
+    for (const fee of FEE_TIERS) {
+      const pool = await discoverPool(ctx, cfg, p.a, p.b, fee);
+      if (pool) {
+        found.push(pool);
+        log('pool-candidate ' + key.slice(0, 10) + ' fee=' + fee + ' ' + pool.poolAddress.slice(0, 10));
+      }
     }
+    if (found.length > 0) poolCandidates.set(key, found);
   }
-  const pools: Record<string, PoolSeries> = {};
-  await Promise.all([...poolMeta.entries()].map(async ([key, meta]) => {
-    pools[key] = await fetchPoolSeries(ctx, cfg, meta, seriesStartBlock, liveCutoffBlock, (f, t, n) => log('  pool ' + key.slice(0, 10) + ' ' + f + '-' + t + ': ' + n));
-    log('pool ' + key + ' swaps=' + pools[key]!.observations.length);
+  const allSeries: Record<string, PoolSeries[]> = {};
+  await Promise.all([...poolCandidates.entries()].map(async ([key, pools]) => {
+    const series = await Promise.all(pools.map((p) => fetchPoolSeries(ctx, cfg, p, seriesStartBlock, liveCutoffBlock, (f, t, n) => log('  pool ' + key.slice(0, 10) + ':' + p.feeTier + ' ' + f + '-' + t + ': ' + n))));
+    allSeries[key] = series;
+    for (const s of series) log('pool-series ' + key.slice(0, 10) + ':' + s.feeTier + ' swaps=' + s.observations.length);
   }));
+  const pools: Record<string, PoolSeries> = {};
+  const poolSelections: PoolSelection[] = [];
+  for (const [key, seriesList] of Object.entries(allSeries)) {
+    const stats = [];
+    for (let i = 0; i < seriesList.length; i++) {
+      const meta = poolCandidates.get(key)![i]!;
+      const s = seriesList[i]!;
+      stats.push(await computePoolDepthStats(ctx, cfg, meta, s, nowSec, historicalCutoffTimestamp - BigInt(lookbackSec)));
+    }
+    const selection = selectBestPool(key, stats);
+    poolSelections.push(selection);
+    if (selection.selected) {
+      const chosenSeries = seriesList.find((s) => s.poolAddress === selection.selected!.poolAddress);
+      if (chosenSeries) pools[key] = chosenSeries;
+    }
+    log('pool-select ' + key.slice(0, 10) + ': ' + selection.rationale);
+  }
 
-  // Fair price provider for markouts (fresh pool prices + Chainlink USD anchors)
   const provider = buildFairPriceProvider(pools, anchors, nowSec);
   const markoutFills = mergedFills.filter((f) => f.timestamp + BigInt(maxHorizon) <= historicalCutoffTimestamp);
   const markoutSummaries: Record<string, ReturnType<typeof summarizeMarkouts>> = {};
@@ -162,10 +195,12 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
     const samples = computeMarkoutSamples(pf, provider, cfg.markoutHorizonsSec, historicalCutoffTimestamp, cfg.markoutMaxPoolAgeSec);
     markoutSummaries[pm.pairKey] = summarizeMarkouts(samples);
     markoutReliabilities[pm.pairKey] = markoutReliability(markoutSummaries[pm.pairKey]!, cfg.minMarkoutSamplesPerPair, cfg.markoutMaxPoolAgeSec);
-    log('markouts ' + pm.pairKey + ': ' + markoutSummaries[pm.pairKey]!.map((s) => s.horizonSec + 's:' + s.sampleCount).join(' ') + ' reliable=' + markoutReliabilities[pm.pairKey]!.reliable);
+    const adv = markoutSummaries[pm.pairKey]!.reduce((a, s) => a + s.totalAdverseUsd, 0);
+    const fav = markoutSummaries[pm.pairKey]!.reduce((a, s) => a + s.totalFavorableUsd, 0);
+    log('markouts ' + pm.pairKey + ': ' + markoutSummaries[pm.pairKey]!.map((s) => s.horizonSec + 's:' + s.sampleCount).join(' ') + ' adverseUsd=' + adv.toFixed(2) + ' favorableUsd=' + fav.toFixed(2) + ' reliable=' + markoutReliabilities[pm.pairKey]!.reliable);
   }
 
-  // Competition for each eligible pair (canonical keys; no cross-wiring)
+  // Competition per pair (canonical keys, no cross-wiring)
   const competitions = new Map<string, Awaited<ReturnType<typeof computeCompetition>>>();
   for (const pm of pairMetrics) {
     if (competitions.has(pm.pairKey)) continue;
@@ -174,29 +209,27 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
     log('competition ' + pm.pairKey + ' active=' + comp.activeStrategies.length + ' inRange=' + comp.inRangeCount + ' backingUsd=' + comp.totalInRangeBackingUsd.toFixed(2) + ' unknownBacking=' + comp.dataUnknownCount);
   }
 
-  // Range simulations on the most competitive pair (pool path when available)
-  let rangeSims = new Map<number, { reshipsPerDay: number; timeInRangePct: number }>();
-  let dailyVolPct = 0;
-  const compValues = [...competitions.values()];
-  const comp0 = compValues.length > 0
-    ? compValues.reduce((a, b) => (b.inRangeCount > a.inRangeCount ? b : a), compValues[0]!)
-    : undefined;
-  if (comp0) {
-    const pool = pools[pairKey(comp0.tokenA, comp0.tokenB)] ?? pools[pairKey(ONEINCH, WETH)];
-    if (pool && pool.observations.length > 1) {
-      const path = samplePath(pool.observations
-        .filter((o) => o.timestamp >= historicalCutoffTimestamp - BigInt(lookbackSec) && o.timestamp <= historicalCutoffTimestamp)
-        .map((o) => ({ timestamp: o.timestamp, price: o.priceToken1PerToken0 })));
-      if (path.length > 1) {
-        rangeSims = new Map(simulateAllWidths(path, cfg.candidateHalfWidthsPct, cfg.reshipCooldownSec).map((s) => [s.halfWidthPct, { reshipsPerDay: s.reshipsPerDay, timeInRangePct: s.timeInRangePct }]));
-        dailyVolPct = estimateDailyVolPct(path);
-      }
+  // Per-pair range sims + realized volatility (composed paths only)
+  const rangeSimsByPair: Record<string, Map<number, { reshipsPerDay: number; timeInRangePct: number }>> = {};
+  const dailyVolPctByPair: Record<string, number> = {};
+  const currentPriceOk: Record<string, boolean> = {};
+  for (const pm of pairMetrics) {
+    const cur1 = provider.currentUsdPrice(ONEINCH, cfg.markoutMaxPoolAgeSec);
+    const cur2 = provider.currentUsdPrice(pm.tokenB, cfg.markoutMaxPoolAgeSec);
+    currentPriceOk[pm.pairKey] = cur1 !== null && cur2 !== null;
+    const path = buildComposedPairPath(provider, pm.tokenA, pm.tokenB, pools, historicalCutoffTimestamp - BigInt(lookbackSec), historicalCutoffTimestamp, cfg.markoutMaxPoolAgeSec);
+    if (path.length > 1) {
+      rangeSimsByPair[pm.pairKey] = new Map(simulateAllWidths(path, cfg.candidateHalfWidthsPct, cfg.reshipCooldownSec).map((s) => [s.halfWidthPct, { reshipsPerDay: s.reshipsPerDay, timeInRangePct: s.timeInRangePct }]));
+      const vol = realizedDailyVolPct(path, cfg.volResampleIntervalSec, cfg.volMaxGapSec);
+      dailyVolPctByPair[pm.pairKey] = vol.volPct;
+      log('pairpath ' + pm.pairKey + ' points=' + path.length + ' sims=' + [...rangeSimsByPair[pm.pairKey]!.entries()].map(([w, s]) => w + '%:' + s.reshipsPerDay.toFixed(2) + '/d').join(' ') + ' vol=' + vol.volPct.toFixed(2) + '% (' + vol.detail + ')');
+    } else {
+      log('pairpath ' + pm.pairKey + ' NO_PATH currentPriceOk=' + currentPriceOk[pm.pairKey]);
     }
   }
-  log('rangeSims=' + [...rangeSims.entries()].map(([w, s]) => w + '%:' + s.reshipsPerDay.toFixed(2) + '/d').join(' ') + ' dailyVol=' + dailyVolPct.toFixed(2) + '%');
 
-  // Lifecycle gas: measured receipt percentiles + current gas price + ETH/USD
-  const gasModel = await buildGasModel(ctx, cfg, mergedLife, latestUsd(WETH), nowSec, log);
+  // Gas measurements (part A) - pair-independent
+  const gasMeasurements = await buildGasMeasurements(ctx, cfg, mergedLife, latestUsd(WETH), nowSec, log);
 
   const cd: CycleData = {
     chainOk: true,
@@ -208,13 +241,17 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
     historicalCutoffBlock,
     historicalCutoffTimestamp,
     universe,
+    campaignInventory: universe.campaignInventory,
+    denominatorScopes,
+    poolSelections,
     pairMetrics,
     groupMetrics,
     competitions,
     markoutSummaries,
     markoutReliabilities,
-    rangeSims,
-    dailyVolPct,
+    rangeSimsByPair,
+    dailyVolPctByPair,
+    currentPriceOk,
     capitalUsd: cfg.canaryCapUsd,
     lookbackHours: cfg.lookbackHours,
     sourceTimestamps: {
@@ -224,10 +261,15 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
     },
     rewardsFresh: universe.sourceHealthy,
     feedsFresh: anchorNames.every((fn) => anchors[fn] !== undefined && anchors[fn]!.observations.length > 0),
-    gasModel,
+    gasMeasurements,
   };
   const result = decide(cfg, cd);
   log('decision=' + result.decision.decision + ' pair=' + (result.decision.pair ?? 'none') + ' net=' + result.decision.expectedNetUsdPerDay.toFixed(4) + ' stress=' + result.decision.stressNetUsdPerDay.toFixed(4));
+  const auditPath = writeAuditArtifact(result, {
+    headSha: process.env.GITHUB_SHA ?? '',
+    liveCutoffBlock,
+    historicalCutoffBlock,
+  });
   return {
     liveCutoffBlock,
     liveCutoffTimestamp: latest.timestamp,
@@ -239,39 +281,41 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
     groupMetrics,
     decision: result.decision,
     durationSec: (Date.now() - start) / 1000,
+    auditPath,
   };
 }
 
-export function estimateDailyVolPct(path: PricePoint[]): number {
-  if (path.length < 4) return 0;
-  const returns: number[] = [];
-  for (let i = 1; i < path.length; i++) {
-    const prev = path[i - 1]!.price;
-    if (prev <= 0) continue;
-    returns.push(Math.log(path[i]!.price / prev));
+/** Composed pair path (paired per 1INCH) sampled on pool-observation timestamps. */
+function buildComposedPairPath(
+  provider: ReturnType<typeof buildFairPriceProvider>,
+  tokenA: string,
+  tokenB: string,
+  pools: Record<string, PoolSeries>,
+  fromTs: bigint,
+  toTs: bigint,
+  maxAgeSec: number,
+): PricePoint[] {
+  const samples: PricePoint[] = [];
+  const p1 = pools[pairKey(ONEINCH, WETH)];
+  const p2 = pools[pairKey(WETH, tokenB)];
+  const times = new Set<bigint>();
+  if (p1) for (const o of p1.observations) if (o.timestamp >= fromTs && o.timestamp <= toTs) times.add(o.timestamp);
+  if (p2) for (const o of p2.observations) if (o.timestamp >= fromTs && o.timestamp <= toTs) times.add(o.timestamp);
+  for (const ts of [...times].sort((a, b) => (a < b ? -1 : 1))) {
+    const ratio = provider.pairUsdRatioAt(tokenA, tokenB, ts, maxAgeSec);
+    if (ratio) samples.push({ timestamp: ts, price: ratio.price });
   }
-  if (returns.length < 2) return 0;
-  const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
-  const variance = returns.reduce((a, b) => a + (b - mean) ** 2, 0) / (returns.length - 1);
-  const sd = Math.sqrt(variance);
-  const windowHours = Number(path[path.length - 1]!.timestamp - path[0]!.timestamp) / 3600;
-  if (windowHours <= 0) return 0;
-  const vol = sd * Math.sqrt(24 / windowHours) * 100;
-  return vol > 100 ? 100 : vol;
+  return samples;
 }
 
-/**
- * Measure lifecycle gas from historical Aqua transaction receipts (conservative
- * p75) and the current gas price converted to USD via ETH/USD.
- */
-async function buildGasModel(
+async function buildGasMeasurements(
   ctx: RpcContext,
   cfg: AppConfig,
   lifecycle: LifecycleEvent[],
   ethUsd: number | null,
   nowSec: bigint,
   log: (m: string) => void,
-): Promise<{ gasKnown: boolean; output: ReturnType<typeof computeGasModel>; detail: string }> {
+): Promise<GasMeasurements> {
   const ships = [...new Set(lifecycle.filter((e) => e.kind === 'Shipped').map((e) => e.txHash))].slice(0, 40);
   const docks = [...new Set(lifecycle.filter((e) => e.kind === 'Docked').map((e) => e.txHash))].slice(0, 40);
   const shipUnits = await receiptGasPercentiles(ctx, cfg, ships, log, 'ship');
@@ -280,33 +324,27 @@ async function buildGasModel(
   try {
     const block = await ctx.client.getBlock({ blockTag: 'latest' });
     const baseFee = block.baseFeePerGas ?? 0n;
-    const priorityFee = 1_000_000_000n; // conservative 1 gwei priority
-    const totalWei = baseFee * 2n + priorityFee;
-    if (ethUsd !== null && ethUsd > 0) {
-      gasPriceUsdPerUnit = (Number(totalWei) / 1e18) * ethUsd;
-    }
+    const totalWei = baseFee * 2n + 1_000_000_000n;
+    if (ethUsd !== null && ethUsd > 0) gasPriceUsdPerUnit = (Number(totalWei) / 1e18) * ethUsd;
   } catch {
     gasPriceUsdPerUnit = null;
   }
-  const input: GasModelInput = {
+  const measurements: GasMeasurements = {
     gasPriceUsdPerUnit,
     gasUnits: {
       approve: 46500,
       ship: shipUnits,
       dock: dockUnits,
       reship: shipUnits + dockUnits,
-      inventoryRebalance: Math.floor(shipUnits / 2),
       emergencyReserve: dockUnits,
     },
     gasUnitsSource: shipUnits > 0 || dockUnits > 0
       ? 'MEASURED_RECEIPTS(p75): ship=' + shipUnits + ' dock=' + dockUnits
       : 'CONFIGURED_FALLBACK',
-    holdingHorizonDays: cfg.holdingHorizonDays,
-    reshipsPerDay: 0,
+    measured: shipUnits > 0 || dockUnits > 0,
   };
-  const output = computeGasModel(input);
-  log('gas: ' + output.detail + ' usdPerDay(0 reships)=' + output.gasUsdPerDay.toFixed(5));
-  return { gasKnown: output.gasKnown, output, detail: output.detail };
+  log('gas measurements: ' + measurements.gasUnitsSource + ' price=' + (gasPriceUsdPerUnit === null ? 'UNKNOWN' : gasPriceUsdPerUnit.toExponential(3)));
+  return measurements;
 }
 
 async function receiptGasPercentiles(ctx: RpcContext, cfg: AppConfig, txHashes: string[], log: (m: string) => void, kind: string): Promise<number> {
@@ -331,7 +369,7 @@ async function receiptGasPercentiles(ctx: RpcContext, cfg: AppConfig, txHashes: 
         }
       }
     } catch {
-      // batch failed; skip this batch
+      // batch failed; skip
     }
   }
   if (units.length === 0) {
@@ -342,4 +380,63 @@ async function receiptGasPercentiles(ctx: RpcContext, cfg: AppConfig, txHashes: 
   const p75 = units[Math.min(units.length - 1, Math.floor(units.length * 0.75))]!;
   log('gas ' + kind + ': receipts=' + units.length + ' p50=' + units[Math.floor(units.length * 0.5)] + ' p75=' + p75);
   return p75;
+}
+
+function writeAuditArtifact(
+  result: ReturnType<typeof decide>,
+  meta: { headSha: string; liveCutoffBlock: bigint; historicalCutoffBlock: bigint },
+): string {
+  const dir = join(process.cwd(), 'audit');
+  mkdirSync(dir, { recursive: true });
+  let headSha = meta.headSha;
+  if (!headSha) {
+    try {
+      const r = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', timeout: 5000 });
+      if (r.status === 0 && r.stdout) headSha = r.stdout.trim();
+    } catch {
+      headSha = '';
+    }
+  }
+  const d = result.decision;
+  const audit = {
+    headSha,
+    modelVersion: d.modelVersion,
+    timestamp: new Date(Number(d.generatedAt) * 1000).toISOString(),
+    liveCutoffBlock: meta.liveCutoffBlock.toString(),
+    historicalCutoffBlock: meta.historicalCutoffBlock.toString(),
+    decision: d.decision,
+    pair: d.pair,
+    capitalUsd: d.capitalUsd,
+    confidence: d.confidence,
+    expectedNetUsdPerDay: d.expectedNetUsdPerDay,
+    stressNetUsdPerDay: d.stressNetUsdPerDay,
+    failedGates: d.failedGates,
+    passedGates: d.passedGates,
+    reasons: d.reasons,
+    candidateCount: result.candidates.length,
+  };
+  const jsonPath = join(dir, 'latest-shadow.json');
+  writeFileSync(jsonPath, JSON.stringify(audit, null, 2), 'utf8');
+  const mdLines: string[] = [];
+  mdLines.push('# Aqua Reward Farmer - Latest Shadow Audit (model v' + d.modelVersion + ')');
+  mdLines.push('');
+  mdLines.push('- headSha: ' + meta.headSha);
+  mdLines.push('- timestamp: ' + audit.timestamp);
+  mdLines.push('- liveCutoffBlock: ' + meta.liveCutoffBlock.toString());
+  mdLines.push('- historicalCutoffBlock: ' + meta.historicalCutoffBlock.toString());
+  mdLines.push('- decision: **' + d.decision + '**');
+  mdLines.push('- pair: ' + (d.pair ?? 'none'));
+  mdLines.push('- expectedNetUsdPerDay: ' + d.expectedNetUsdPerDay.toFixed(4));
+  mdLines.push('- stressNetUsdPerDay: ' + d.stressNetUsdPerDay.toFixed(4));
+  mdLines.push('- confidence: ' + d.confidence);
+  mdLines.push('');
+  mdLines.push('## Failed gates');
+  for (const g of d.failedGates) mdLines.push('- ' + g.name + ': ' + g.detail);
+  mdLines.push('');
+  mdLines.push('## Reasons');
+  for (const r of d.reasons) mdLines.push('- ' + r);
+  mdLines.push('');
+  mdLines.push('_Read-only shadow audit; no transaction was signed or broadcast._');
+  writeFileSync(join(dir, 'latest-shadow.md'), mdLines.join('\n'), 'utf8');
+  return jsonPath;
 }

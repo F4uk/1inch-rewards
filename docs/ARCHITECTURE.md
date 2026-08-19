@@ -72,6 +72,27 @@ canary preview. It never signs or broadcasts transactions.
 - Merkl is paginated; every live Aqua campaign must parse or
   CAMPAIGN_COVERAGE_INCOMPLETE forbids TRADE.
 
+## V1.2 economic accounting
+
+- CandidateMarketScope (1INCH/USDC, 1INCH/USDT, 1INCH/WETH) is SEPARATE from
+  RewardDenominatorScope (every active eligible market of the group, resolved
+  from configured lists + on-chain observed pairs with ERC20 metadata reads;
+  unresolvable markets => DENOMINATOR_COVERAGE_INCOMPLETE => no TRADE).
+- Opportunity and Campaign are canonical separate records (CampaignInventory
+  persisted); "opportunity count" is never called "campaign count".
+- Reward formula: qualifying fill / whole eligible group gross volume x group
+  budget (candidate backing share is NOT re-applied to group rewards).
+- Backing: effective = min(walletAccessible, advertisedTotal); per-strategy
+  allocation capped by its advertised rawBalance; known-zero advertised => 0;
+  unknown => DATA_UNKNOWN.
+- Fair price: depth-selected pools (liquidity/activity/freshness across ALL
+  fee tiers); stale pools never qualify; current in-range price must be fresh
+  (CURRENT_FAIR_PRICE_UNKNOWN => no TRADE).
+- True two-leg inventory-change markout with adverse >= 0 invariant.
+- Per-pair range sims and time-normalized realized volatility.
+- Gas: measurements (A) + candidate calculation (B); width changes gas.
+- modelVersion=3; v1/v2 snapshots never qualify.
+
 ## Dual-cutoff time model (mandatory)
 
 - liveCutoffBlock - latest finalized block. Used for: active strategy state,

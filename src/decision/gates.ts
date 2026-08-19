@@ -1,5 +1,5 @@
 import type { AppConfig } from '../config.ts';
-import type { Candidate, CompetitionState, GateResult, GroupMetrics, MarkoutReliability, MarkoutSummary, PairMetrics, RewardUniverse } from '../types.ts';
+import type { Candidate, CompetitionState, DenominatorState, GateResult, GroupMetrics, MarkoutReliability, MarkoutSummary, PairMetrics, RewardUniverse } from '../types.ts';
 import { usableMarkoutCount } from '../analytics/markouts.ts';
 import { activeCampaigns } from '../sources/merkl.ts';
 import { confidenceAtLeast } from '../model/confidence.ts';
@@ -17,6 +17,8 @@ export type GateContext = {
   competition: CompetitionState | null;
   markoutSummaries: MarkoutSummary[];
   markoutReliability: MarkoutReliability;
+  denominator: DenominatorState | null;
+  currentPriceOk: boolean;
   gasKnown: boolean;
   candidate: Candidate;
   campaignHoursRemaining: number;
@@ -46,6 +48,9 @@ export function evaluateGates(ctx: GateContext): { passed: GateResult[]; failed:
     'haircut=' + ctx.cfg.qualificationHaircut + ' QUALIFICATION_UNVERIFIED');
   push('campaign-coverage-complete', ctx.universe !== null && ctx.universe.coverage.complete,
     ctx.universe ? ctx.universe.coverage.detail : 'no universe');
+  push('denominator-coverage-complete', ctx.denominator !== null && ctx.denominator.complete,
+    ctx.denominator ? ctx.denominator.detail : 'no denominator state');
+  push('current-fair-price-available', ctx.currentPriceOk, 'freshDepthQualifiedCurrentPrice=' + ctx.currentPriceOk);
   push('pair-reward-eligible', ctx.candidate.rewardEligible, 'eligible=' + ctx.candidate.rewardEligible);
   push('markout-reliable', ctx.candidate.markoutReliable,
     ctx.candidate.markoutUnreliableReason ?? 'reliable maxAge=' + ctx.markoutReliability.minObservationAgeSec + 's');

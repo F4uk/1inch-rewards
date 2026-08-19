@@ -1,0 +1,129 @@
+{
+  "headSha": "20072a35dc09d6276f95372095a7cb33f8ed4c09",
+  "modelVersion": 3,
+  "timestamp": "2026-08-19T06:14:47.000Z",
+  "liveCutoffBlock": "25787294",
+  "historicalCutoffBlock": "25786844",
+  "decision": "DO_NOT_TRADE",
+  "pair": null,
+  "capitalUsd": 50,
+  "confidence": "LOW",
+  "expectedNetUsdPerDay": 0,
+  "stressNetUsdPerDay": 0,
+  "failedGates": [
+    {
+      "name": "denominator-coverage-complete",
+      "pass": false,
+      "detail": "campaign=Provide liquidity to stablecoin markets on 1inch Aqua - Season 1 (USDC rewards) markets=42 configured=2 observed=142 otherGroup=99 unresolved=0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2 DENOMINATOR_COVERAGE_INCOMPLETE"
+    },
+    {
+      "name": "current-fair-price-available",
+      "pass": false,
+      "detail": "freshDepthQualifiedCurrentPrice=false"
+    },
+    {
+      "name": "confidence",
+      "pass": false,
+      "detail": "confidence=LOW"
+    }
+  ],
+  "passedGates": [
+    {
+      "name": "chain-and-contracts",
+      "pass": true,
+      "detail": "chainId=1 and official contracts verified"
+    },
+    {
+      "name": "index-health",
+      "pass": true,
+      "detail": "strategy/fill index healthy"
+    },
+    {
+      "name": "live-reward-campaign",
+      "pass": true,
+      "detail": "campaigns=10"
+    },
+    {
+      "name": "campaign-time-remaining",
+      "pass": true,
+      "detail": "remaining=1684.8h min=48h"
+    },
+    {
+      "name": "lookback-72h",
+      "pass": true,
+      "detail": "lookback=72h"
+    },
+    {
+      "name": "pair-fill-count",
+      "pass": true,
+      "detail": "pairFills=9464 min=20"
+    },
+    {
+      "name": "completed-markouts",
+      "pass": true,
+      "detail": "markouts=563 min=20"
+    },
+    {
+      "name": "gross-denominator",
+      "pass": true,
+      "detail": "pairGrossUsd=8917286.57 groupGrossUsd=15620279.44"
+    },
+    {
+      "name": "competition-available",
+      "pass": true,
+      "detail": "active=226"
+    },
+    {
+      "name": "qualification-conservative",
+      "pass": true,
+      "detail": "haircut=0.6 QUALIFICATION_UNVERIFIED"
+    },
+    {
+      "name": "campaign-coverage-complete",
+      "pass": true,
+      "detail": "liveAqua=10 parsed=10 campaignDetailErrors=0 unknown=0 COVERAGE_COMPLETE"
+    },
+    {
+      "name": "pair-reward-eligible",
+      "pass": true,
+      "detail": "eligible=true"
+    },
+    {
+      "name": "markout-reliable",
+      "pass": true,
+      "detail": "reliable maxAge=300s"
+    },
+    {
+      "name": "gas-known",
+      "pass": true,
+      "detail": "gasKnown=true"
+    },
+    {
+      "name": "base-net-positive",
+      "pass": true,
+      "detail": "net=179.9208 usd/day"
+    },
+    {
+      "name": "stress-net-nonnegative",
+      "pass": true,
+      "detail": "stressNet=116.0781 usd/day"
+    },
+    {
+      "name": "canary-cap",
+      "pass": true,
+      "detail": "capital=50 cap=50"
+    }
+  ],
+  "reasons": [
+    "DENOMINATOR_COVERAGE_INCOMPLETE(ETH_LST): campaign=Provide liquidity to ETH & LST markets on 1inch Aqua - Season 1 (USDC rewards) markets=15 configured=6 observed=142 otherGroup=128 unresolved=0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2 DENOMINATOR_COVERAGE_INCOMPLETE",
+    "DENOMINATOR_COVERAGE_INCOMPLETE(STABLE): campaign=Provide liquidity to stablecoin markets on 1inch Aqua - Season 1 (USDC rewards) markets=42 configured=2 observed=142 otherGroup=99 unresolved=0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2 DENOMINATOR_COVERAGE_INCOMPLETE",
+    "no candidate passes gates; best rejected: pair=0x111111111117dC0aa78b770fA6A738034120C302/0xdAC17F958D2ee523a2206206994597C13D831ec7 net=179.9208 stress=116.0781 conf=LOW eligible=true markoutReliable=true gasKnown=true",
+    "GATE_FAIL: denominator-coverage-complete - campaign=Provide liquidity to stablecoin markets on 1inch Aqua - Season 1 (USDC rewards) markets=42 configured=2 observed=142 otherGroup=99 unresolved=0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2 DENOMINATOR_COVERAGE_INCOMPLETE",
+    "GATE_FAIL: current-fair-price-available - freshDepthQualifiedCurrentPrice=false",
+    "GATE_FAIL: confidence - confidence=LOW",
+    "QUALIFICATION_UNVERIFIED: haircut=0.6",
+    "modelVersion=3 qualifyingSnapshots=0 span=0.0h (total snapshots=14)",
+    "FAIL: need >= 3 qualifying snapshots (same modelVersion/configFingerprint/pair/regime, all gates passing)"
+  ],
+  "candidateCount": 60
+}

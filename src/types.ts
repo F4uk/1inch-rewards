@@ -105,9 +105,81 @@ export type CampaignCoverage = {
   detail: string;
 };
 
+/** Canonical Merkl Opportunity (activity row), distinct from Campaign. */
+export type MerklOpportunityRecord = {
+  opportunityId: string;
+  chainId: number;
+  protocol: string;
+  action: string;
+  linkedGroup: PriceGroup | null;
+  status: string;
+  dailyRewardsUsd: number;
+  sourceTimestamp: bigint;
+};
+
+/** Canonical Merkl Campaign (reward program row). */
+export type MerklCampaignRecord = {
+  databaseId: string;
+  onChainCampaignId: string;
+  opportunityId: string;
+  rewardToken: string;
+  rewardTokenSymbol: string;
+  startTimestamp: bigint;
+  endTimestamp: bigint;
+  status: string;
+  dailyRewardsUsd: number;
+  distributionType: string;
+  targetToken: string | null;
+  whitelist: string[];
+  sourceTimestamp: bigint;
+};
+
+export type CampaignInventory = {
+  opportunities: MerklOpportunityRecord[];
+  campaigns: MerklCampaignRecord[];
+  aquaCampaignCount: number;
+  aquaOpportunityCount: number;
+};
+
+export type DenominatorMarket = {
+  token: string;
+  symbol: string;
+  decimals: number;
+  kind: 'ETH_LST' | 'STABLE' | 'OTHER';
+  source: 'CONFIGURED' | 'ONCHAIN_OBSERVED' | 'ONCHAIN_METADATA';
+};
+
+export type DenominatorState = {
+  group: PriceGroup;
+  markets: DenominatorMarket[];
+  complete: boolean;
+  unresolvedTokens: string[];
+  detail: string;
+};
+
+export type PoolDepthStats = {
+  poolAddress: string;
+  token0: string;
+  token1: string;
+  feeTier: number;
+  liquidity: bigint;
+  observationCount: number;
+  recentVolumeUsd: number;
+  maxObservationAgeSec: number;
+  sourceConfidence: 'HIGH' | 'MEDIUM' | 'LOW';
+};
+
+export type PoolSelection = {
+  pairKey: string;
+  selected: PoolDepthStats | null;
+  candidates: PoolDepthStats[];
+  rationale: string;
+};
+
 export type RewardUniverse = {
   opportunities: RewardOpportunity[];
   campaignGroups: CampaignGroup[];
+  campaignInventory: CampaignInventory;
   coverage: CampaignCoverage;
   fetchedAt: bigint;
   sourceHealthy: boolean;
@@ -185,6 +257,10 @@ export type MarkoutSample = {
   markoutBps: number;
   horizonSec: number;
   complete: boolean;
+  /** Two-leg inventory move PnL (USD) at the horizon; positive = favorable. */
+  inventoryPnlUsd: number;
+  /** Adverse cost (USD) = max(0, -inventoryPnlUsd); never negative. */
+  adverseUsd: number;
 };
 
 export type MarkoutReliability = {
@@ -200,6 +276,9 @@ export type MarkoutSummary = {
   medianBps: number;
   p75Bps: number;
   conservativeBps: number;
+  totalAdverseUsd: number;
+  totalFavorableUsd: number;
+  totalNotionalUsd: number;
 };
 
 export type RangeSimulation = {
@@ -223,6 +302,12 @@ export type Candidate = {
   fillShareSource: string;
   comparableStrategyCount: number;
   grossGroupFillUsdPerDay: number;
+  pairDailyGrossFillUsd: number;
+  wholeGroupDailyGrossFillUsd: number;
+  pairShareOfGroup: number;
+  conservativeGroupRewardShare: number;
+  groupBudgetUsd: number;
+  candidateBackingUsd: number;
   pairFillCount: number;
   groupFillCount: number;
   expectedGrossFillUsdPerDay: number;
@@ -247,6 +332,8 @@ export type Candidate = {
   markoutReliable: boolean;
   gasKnown: boolean;
   markoutUnreliableReason: string | null;
+  totalAdverseUsdPerDay: number;
+  favorableMarkoutUsdPerDay: number;
 };
 
 export type GateResult = {
@@ -297,6 +384,37 @@ export type GasModelInput = {
   reshipsPerDay: number;
 };
 
+/** Part A: current gas/unit measurements (pair-independent). */
+export type GasMeasurements = {
+  gasPriceUsdPerUnit: number | null;
+  gasUnits: {
+    approve: number;
+    ship: number;
+    dock: number;
+    reship: number;
+    emergencyReserve: number;
+  };
+  gasUnitsSource: string;
+  measured: boolean;
+};
+
+/** Part B: candidate lifecycle gas calculation. */
+export type CandidateGasInput = {
+  measurements: GasMeasurements;
+  holdingHorizonDays: number;
+  reshipsPerDay: number;
+  expectedRebalanceTxsPerDay: number;
+};
+
+export type CandidateGasOutput = {
+  gasUsdPerDay: number;
+  entryExitAmortizedUsdPerDay: number;
+  rerangeGasUsdPerDay: number;
+  rebalanceTxGasUsdPerDay: number;
+  gasKnown: boolean;
+  detail: string;
+};
+
 export type GasModelOutput = {
   gasUsdPerDay: number;
   entryExitAmortizedUsdPerDay: number;
@@ -324,6 +442,9 @@ export type Snapshot = {
   historicalCutoffTimestamp: string;
   sourceTimestamps: Record<string, string>;
   rewardUniverse: RewardUniverse | null;
+  campaignInventory: CampaignInventory;
+  denominatorScopes: Record<PriceGroup, DenominatorState>;
+  poolSelections: PoolSelection[];
   pairMetrics: PairMetrics[];
   groupMetrics: GroupMetrics[];
   competition: CompetitionState[];

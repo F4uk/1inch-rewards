@@ -354,3 +354,199 @@ implemented here by design.
 deterministic validation and a full live read-only cycle; the honest live
 decision is DO_NOT_TRADE (economic + persistence reasons), and no broadcaster
 was implemented.
+
+---
+
+# V1.2 ECONOMIC ACCOUNTING & PAIR-STATE REPAIR (branch feature/shadow-v1-economic-repair)
+
+## BASELINE (v1.2)
+
+- Base: 20072a35dc09d6276f95372095a7cb33f8ed4c09 (feature/shadow-v1-integrity-repair).
+- Branch: feature/shadow-v1-economic-repair. No main modification, no merge.
+- V1.1 result explicitly treated as REWORK_REQUIRED; the +$328/day estimate is
+  INVALID and was not used as a baseline. Persistence window NOT started.
+
+## ROOT CAUSES (v1.2)
+
+1. Reward denominator conflated the narrow candidate scope with the whole
+   eligible group (denominator must contain EVERY active eligible market).
+2. "Opportunity count" was reported as "campaign count"; campaign details were
+   fetched and discarded.
+3. Reward formula applied pair fillShare directly to group budget instead of
+   pair-qualifying-fill / whole-group denominator.
+4. Backing: wallet balance was evenly distributed when advertised total was
+   zero; effective backing was not capped by advertised total.
+5. Candidate backing assumed capital*2 (100 for a 50 canary).
+6. Markout used tokenIn-vs-WETH, not the true two-leg inventory change; the
+   favorable leg could not offset adverse (invariant already ok in v1.1 but
+   the math was single-leg).
+7. Fair-price source picked the first existing fee tier without depth/activity
+   qualification; current in-range price could come from a stale Chainlink
+   heartbeat.
+8. Range sims and volatility were global (comp0-driven) and volatility
+   annualized irregular swap-to-swap returns.
+9. Gas runtime constructed candidates with reshipsPerDay=0 (width could not
+   change gas).
+10. Comparable-sample confidence threshold was 1 (not defensible).
+
+## REWARD ACCOUNTING
+
+- Formula (implemented + persisted): pairExpectedGrossFillUsd =
+  pairDailyGrossFillUsd * candidatePairFillShare; qualifying = gross * haircut;
+  conservativeGroupRewardShare = qualifying / wholeEligibleGroupGrossFillUsd;
+  rewardIncomeUsd = activeGroupRewardBudgetUsd * conservativeGroupRewardShare.
+- Backing competition is NOT re-applied to group rewards (already inside the
+  fill-share model). Regression: pair with 10% of group volume carries a 0.1
+  reward factor vs a 100% pair (tested).
+
+## DENOMINATOR COVERAGE
+
+- CandidateMarketScope (1INCH/USDC, 1INCH/USDT, 1INCH/WETH) is separate from
+  RewardDenominatorScope (every active eligible market of the group).
+- Denominator scope = configured official lists + on-chain observed
+  1INCH-paired tokens, address-resolved via ERC20 symbol/decimals reads
+  (never guessed) and filtered by group kind.
+- Live: STABLE denominator 42 markets (USDC, USDT, DAI, PYUSD, USDS, TUSD,
+  GUSD, OUSD, USDe, FRAX, RLUSD, ...), ETH/LST 15 markets (WETH, wstETH,
+  weETH, rETH, ETHx, sfETH, stETH, ezETH, cbETH, ...).
+- One observed 1INCH-paired token (0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2)
+  reverts symbol()/name() and cannot be classified => both groups are
+  DENOMINATOR_COVERAGE_INCOMPLETE => TRADE forbidden (fail closed, as speced).
+
+## CAMPAIGN MODEL
+
+- Canonical Opportunity (id/chain/protocol/action/linked group/status/budget)
+  vs Campaign (databaseId, onchain campaignId, opportunityId, reward token,
+  start/end, status, daily rewards, distribution, targetToken, whitelist,
+  source timestamp) structures persisted as CampaignInventory.
+- Group parsing uses specific patterns (stablecoin / lst / btc wrapper /
+  defi major / rwa) - generic "ethereum"/"market" strings never classify.
+- Live: 10 opportunities, 10 campaigns, COVERAGE_COMPLETE (parsed=10 unknown=0).
+
+## COMPETITION BACKING
+
+- effectiveBacking = min(walletAccessible, advertisedTotal) per maker/token;
+  per-strategy allocation never exceeds its known advertised rawBalance;
+  known-zero advertised total => zero backing (no even distribution);
+  balanceOf/allowance/rawBalances failures are DATA_UNKNOWN and count in
+  confidence. Live: unknownBacking=0.
+
+## FAIR PRICE
+
+- All fee tiers discovered per pair; depth stats (liquidity, observation
+  count, volume proxy, max age, confidence) computed; most defensible source
+  selected (live picks: 1INCH/WETH 1% pool obs=67 MEDIUM; WETH/DAI 0.05%
+  obs=731 HIGH; WETH/USDT 0.01% obs=25242 HIGH; WETH/USDC 0.01% obs=38658
+  HIGH). Selection stats persisted.
+- Current in-range price uses the fresh depth-qualified framework; missing
+  fresh price => CURRENT_FAIR_PRICE_UNKNOWN => pair cannot TRADE (live gate
+  fired for 1INCH/USDT because the 1INCH leg's last observation was ~40min old).
+
+## MARKOUT
+
+- True two-leg inventory-change markout:
+  V = qtyIn*fairUsd(tokenIn,T) - qtyOut*fairUsd(tokenOut,T); adverse =
+  max(0, -(V_h - V_fill)); normalized by fill notional (documented).
+  Favorable movement is tracked separately and NEVER offsets adverse
+  (invariant adverseSelectionUsd >= 0; stress cannot improve from it).
+- Live adverse (72h window): 1INCH/USDC $142.33 adverse / $156.86 favorable;
+  1INCH/USDT $119.23 / $92.68; 1INCH/WETH $27.59 / $157.61; 1INCH/DAI
+  $15.77 / $11.62 - all reliable with the fresh two-leg gate.
+
+## PAIR-SPECIFIC RANGE/VOL
+
+- rangeSimsByPair / dailyVolPctByPair with composed per-pair price paths
+  (labeled 'composed:', both legs fresh). Live paths: 1INCH/USDC 824 points
+  (vol 2.18%), 1INCH/USDT 563 (2.07%), 1INCH/DAI 54 (1.58%), 1INCH/WETH 5
+  (1.14%, thin 1INCH leg).
+- Re-ship simulator re-centers at the CURRENT price after cooldown (monotonic
+  trend regression test: repeated re-ships).
+- Realized volatility is time-normalized (fixed 300s resampling, gap-aware;
+  no sqrt(24/windowHours) scaling of irregular returns).
+
+## GAS
+
+- Split: measurements (A) = receipts p75 ship=158,895 / dock=70,343 gas,
+  approve 46.5k, current price ~2.065e-6 USD/unit; candidate calculation (B)
+  = amortized entry/exit/emergency + reshipsPerDay*rerange + rebalance tx gas.
+- Width now changes gas via reshipsPerDay (regression: 2 reships/day > 0).
+
+## FILL SHARE
+
+- minComparableStrategies raised to 20; structural-only candidates remain LOW
+  and cannot TRADE. Live: fee=50bps candidates have zero comparables =>
+  LOW; fee=5bps bucket has 1,000+ comparables but empirical shares ~0.002%
+  cannot cover lifecycle gas => DO_NOT_TRADE is the honest outcome.
+
+## PERSISTENCE RESET
+
+- modelVersion=3; v1/v2 snapshots never qualify (live: 14 total snapshots,
+  0 qualifying). 16h window intentionally NOT started.
+
+## CI
+
+- .github/workflows/ci.yml: npm ci, typecheck, test, build on push/PR
+  (no secrets, no RPC).
+
+## CHANGED FILES
+
+- src/config.ts, types.ts, constants.ts; src/util/price.ts, src/util/vol.ts
+  (new); src/model/gas.ts (A/B split), pnl.ts (new reward formula), fillShare.ts;
+  src/sources/merkl.ts (opportunity/campaign inventory), uniswap.ts (depth
+  selection); src/analytics/denominator.ts (new), markouts.ts (two-leg),
+  competition.ts (backing caps), rangeCross.ts (re-ship fix), group.ts;
+  src/decision/decide.ts (v3, per-pair), gates.ts (denominator/current-price),
+  persistence.ts; src/cycle.ts (orchestration + audit artifact);
+  test/v12.test.ts (new regression suite) + updated tests; docs; CI workflow;
+  audit/latest-shadow.json + .md.
+
+## TESTS
+
+- 132 tests pass (including the full v1.2 regression list: denominator scope,
+  opportunity!=campaign, reward group-share 0.1 factor, backing 50!=100,
+  advertised cap, known-zero backing, DATA_UNKNOWN, two-leg markout both
+  directions, favorable never negative adverse, stress no-improvement, thin vs
+  deep pool, stale current price, per-pair sims differ, monotonic re-ships,
+  time-normalized vol, 2-vs-0 reship gas, v2 persistence exclusion, <=50 cap,
+  NO_BROADCAST).
+
+## VALIDATION (all executed)
+
+- npm ci OK; npm run typecheck PASS; npm test 132/132 PASS; npm run build
+  PASS; npm run doctor 13/13 PASS; npm run shadow-cycle live PASS (v3);
+  npm run decision/status PASS; npm run canary-preview refuses (exit 1).
+
+## LIVE READ-ONLY RESULT (v1.2, 2026-08-19 ~06:14 UTC)
+
+- Decision: **DO_NOT_TRADE** (modelVersion 3).
+- liveCutoff 25787294 / historicalCutoff 25786844; campaign coverage
+  complete (10/10); STABLE group $5.21M/day across 19,026 fills; ETH/LST
+  $2.63M/day across 11,020 fills; pair volumes: 1INCH/USDC $1.93M/day,
+  1INCH/USDT $2.97M/day, 1INCH/DAI $0.31M/day, 1INCH/WETH $2.63M/day.
+- Failed gates: denominator-coverage-complete (unresolvable observed token),
+  current-fair-price-available (1INCH leg stale), confidence (no 20+
+  comparables at 50bps; empirical ~0.002% cannot cover gas).
+- Best rejected candidate: 1INCH/USDT fee=50bps, net $179.92/day (structural
+  share), confidence LOW. V1.1's +$328 estimate is superseded/invalid.
+
+## SAFETY
+
+- No signer/broadcast; NO_BROADCAST green; canary unsigned, bounded
+  approvals, cap fails closed; no transaction signed or broadcast.
+
+## KNOWN GAPS (v1.2)
+
+- One observed 1INCH-paired token unclassifiable (symbol()/name() revert) =>
+  denominator incomplete (fail closed; would need the official market list or
+  on-chain campaign params to resolve).
+- BTC wrapper / DeFi major / RWA asset lists remain unverified (excluded).
+- 1INCH/USDT and 1INCH/USDC current-price availability depends on the thin
+  1INCH/WETH 1% pool freshness (2400s last obs); a deeper/refresh source for
+  1INCH microstructure is needed for a future TRADE.
+- Qualification haircut 0.60 remains (QUALIFICATION_UNVERIFIED).
+
+## FINAL VERDICT
+
+**SHADOW_MODEL_READY** - modelVersion 3 passes all deterministic validation
+and the live read-only cycle; the honest live decision is DO_NOT_TRADE; the
+16h persistence window must NOT start until architecture review accepts v3.

@@ -23,18 +23,22 @@ export function simulateRangeReships(
   let prevTs = path[0]!.timestamp;
   for (let i = 1; i < path.length; i++) {
     const p = path[i]!;
-    const low = center * (1 - w);
-    const high = center * (1 + w);
-    const inRange = p.price >= low && p.price <= high;
-    if (!inRange && cooldownUntil === 0) {
-      exits += 1;
-      cooldownUntil = Number(p.timestamp) + cooldownSec;
-    }
-    if (inRange && cooldownUntil !== 0 && Number(p.timestamp) >= cooldownUntil) {
+    if (cooldownUntil === 0) {
+      const low = center * (1 - w);
+      const high = center * (1 + w);
+      const inRange = p.price >= low && p.price <= high;
+      if (!inRange) {
+        exits += 1;
+        cooldownUntil = Number(p.timestamp) + cooldownSec;
+      } else {
+        inRangeSec += Number(p.timestamp - prevTs);
+      }
+    } else if (Number(p.timestamp) >= cooldownUntil) {
+      // Re-ship at the CURRENT fair price at the first usable observation
+      // at/after the cooldown. We do NOT require price to return inside the
+      // old range before re-centering (trending regimes must not undercount).
       center = p.price;
       cooldownUntil = 0;
-    }
-    if (cooldownUntil === 0) {
       inRangeSec += Number(p.timestamp - prevTs);
     }
     prevTs = p.timestamp;
