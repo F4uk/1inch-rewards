@@ -39,6 +39,24 @@ inventory buffer applies to **unfilled** capital.
   decision reasons/confidence.
 - Gross fill USD (for maker fee + adverse cost) is NOT haircut - the haircut
   applies only to the reward numerator.
+- Denominator volume (V1.3) is valued from the 1INCH leg only:
+  volumeUsd = 1INCH-leg raw amount / 1e18 x fair1inchUsd(fillTs). Group budget
+  is derived from ACTIVE campaign records, not opportunity summaries.
+
+## P0-7 Inventory throughput
+
+- Replay exact-pair directional fills at the candidate fill share with
+  starting inventory = capital split per token at current fair prices.
+- Maker receives tokenIn and delivers tokenOut; requested fill is capped by
+  deliverable inventory; exhaustion triggers a counted rebalance (restore +
+  cost). expectedGrossFill = min(requested, serviceable), so rewards and maker
+  fees cannot exceed inventory throughput.
+
+## P0-8 Adverse selection (per-horizon rate)
+
+- adverseRate = max over reliable horizons of totalAdverseUsd/totalNotionalUsd.
+- adverseSelectionUsdPerDay = expectedServiceableFillUsdPerDay x adverseRate.
+- Favorable markout is diagnostic only and never offsets adverse.
 
 ## Adverse selection (markouts)
 

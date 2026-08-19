@@ -1,8 +1,7 @@
 import type { AppConfig } from '../config.ts';
-import { SEASON1_GROUPS, TOKEN_BY_ADDRESS, type PriceGroup, type TokenMeta } from '../constants.ts';
-import type { CampaignGroup, DenominatorMarket, DenominatorState, StrategyRecord } from '../types.ts';
+import { SEASON1_GROUPS, type PriceGroup, type OfficialMarket } from '../constants.ts';
+import type { CampaignGroup, DenominatorMarket, DenominatorState } from '../types.ts';
 import { toLowerAddress } from '../types.ts';
-import { ONEINCH } from './group.ts';
 import type { RpcContext } from '../sources/rpc.ts';
 import { withRetry } from '../sources/rpc.ts';
 
@@ -11,108 +10,71 @@ const ERC20_META_ABI = [
   { type: 'function', name: 'decimals', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] },
 ] as const;
 
-function classifyKind(symbol: string, decimals: number): 'ETH_LST' | 'STABLE' | 'OTHER' | 'UNKNOWN' {
-  if (!symbol) return 'UNKNOWN';
-  const s = symbol.toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (s === 'weth' || s === 'eth' || s.includes('steth') || s.includes('reth') || s.includes('weeth') || s.includes('ethx') || s.includes('sfrxeth') || s.includes('ethw') || s.includes('ezeth')) return 'ETH_LST';
-  if (s.includes('usd') || s.includes('dai') || s.includes('tusd') || s.includes('frax') || s.includes('lusd') || s.includes('gusd') || s.includes('usde') || s.includes('usdz')) return 'STABLE';
-  if (decimals <= 6 && (s.includes('us') || s.includes('stable'))) return 'STABLE';
-  return 'OTHER';
-}
-
-function knownMeta(token: string): TokenMeta | null {
-  return TOKEN_BY_ADDRESS.get(toLowerAddress(token)) ?? null;
+function normalizeSymbol(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 /**
- * Build the FULL reward-denominator scope per group:
- * configured verified list + every 1INCH-paired token observed on-chain,
- * with addresses resolved (never guessed) and kinds classified from symbol/
- * decimals metadata. If any active official market cannot be resolved or
- * classified, DENOMINATOR_COVERAGE_INCOMPLETE for that group.
+ * Build the FULL reward-denominator scope per group from the OFFICIAL Season-1
+ * market definition ONLY (P0-1). Membership is NEVER inferred from observed
+ * Aqua strategies, token symbol substrings, decimals, or the mere existence of
+ * a 1INCH pair on-chain.
+ *
+ * Every official symbol was resolved to an exact Ethereum address from an
+ * authoritative source (official 1inch blog market list + Aave address book
+ * chainId=1) and the resolution provenance is persisted with each market.
+ * On-chain symbol()/decimals() reads VALIDATE the known addresses but can
+ * never create campaign membership. If any official member cannot be validated
+ * (or is missing from the frozen registry), the group is
+ * DENOMINATOR_COVERAGE_INCOMPLETE and TRADE must be blocked.
  */
 export async function buildDenominatorScopes(
   ctx: RpcContext,
   cfg: AppConfig,
-  strategies: Map<string, StrategyRecord>,
-  campaignGroups: CampaignGroup[],
 ): Promise<Record<PriceGroup, DenominatorState>> {
   const out = {} as Record<PriceGroup, DenominatorState>;
   for (const g of ['ETH_LST', 'STABLE'] as PriceGroup[]) {
-    const campaign = campaignGroups.find((cg) => cg.group === g && cg.active) ?? null;
-    const configured = SEASON1_GROUPS[g].pairedAssets.map((a) => a.toLowerCase());
-    const observed = new Set<string>();
-    for (const rec of strategies.values()) {
-      if (!rec.tokens.includes(ONEINCH)) continue;
-      for (const t of rec.tokens) {
-        if (t.toLowerCase() === ONEINCH) continue;
-        observed.add(t.toLowerCase());
-      }
-    }
-    const tokens = [...new Set([...configured, ...observed])];
+    const official: OfficialMarket[] = SEASON1_GROUPS[g].officialMarkets;
     const markets: DenominatorMarket[] = [];
     const unresolved: string[] = [];
-    const otherKind: string[] = [];
-    for (const token of tokens) {
-      const meta = knownMeta(token);
-      if (meta) {
-        const kind = meta.kind === '1INCH' || meta.kind === 'OTHER' ? 'OTHER' : meta.kind;
-        if (kind !== g) {
-          otherKind.push(token + ':' + meta.symbol);
-          continue; // belongs to another group's denominator
-        }
-        markets.push({
-          token,
-          symbol: meta.symbol,
-          decimals: meta.decimals,
-          kind,
-          source: configured.includes(token) ? 'CONFIGURED' : 'ONCHAIN_OBSERVED',
-        });
-        continue;
+    const validationFailed: string[] = [];
+    for (const m of official) {
+      const token = toLowerAddress(m.address.toString());
+      const { symbol, decimals, validated, detail } = await validateOfficialAddress(ctx, cfg, m);
+      if (!validated) {
+        validationFailed.push(token + ':' + m.symbol + ' (' + detail + ')');
       }
-      // resolve metadata on-chain (never guess addresses)
-      let symbol = '';
-      let decimals = 18;
-      try {
-        const res = await withRetry(async () => {
-          return await ctx.client.multicall({
-            contracts: [
-              { address: token as never, abi: ERC20_META_ABI as never, functionName: 'symbol' },
-              { address: token as never, abi: ERC20_META_ABI as never, functionName: 'decimals' },
-            ],
-          } as never);
-        }, cfg.maxRetries);
-        const sym = res[0] as { status: string; result?: unknown };
-        const dec = res[1] as { status: string; result?: unknown };
-        if (sym && sym.status === 'success' && typeof sym.result === 'string') symbol = sym.result;
-        if (dec && dec.status === 'success' && typeof dec.result === 'number') decimals = dec.result;
-      } catch {
-        symbol = '';
-      }
-      if (!symbol) {
-        unresolved.push(token);
-        continue;
-      }
-      const kind = classifyKind(symbol, decimals);
-      if (kind === 'UNKNOWN') {
-        unresolved.push(token + ':' + (symbol || '?'));
-        continue;
-      }
-      if (kind !== g) {
-        otherKind.push(token + ':' + symbol);
-        continue;
-      }
-      markets.push({ token, symbol, decimals, kind, source: 'ONCHAIN_METADATA' });
+      markets.push({
+        token,
+        officialSymbol: m.symbol,
+        symbol,
+        decimals,
+        kind: m.kind,
+        source: 'CONFIGURED',
+        validated,
+        validationDetail: detail,
+        provenance: {
+          marketListSource: m.provenance.marketListSource,
+          marketListUrl: m.provenance.marketListUrl,
+          marketListFetchedAt: m.provenance.marketListFetchedAt,
+          addressResolvedFrom: m.provenance.addressResolvedFrom,
+          addressResolvedAt: m.provenance.addressResolvedAt,
+        },
+      });
     }
-    const complete = campaign !== null && unresolved.length === 0;
+    const complete = official.length > 0 && validationFailed.length === 0 && unresolved.length === 0;
     out[g] = {
       group: g,
       markets,
       complete,
+      officialMemberCount: official.length,
+      validatedMemberCount: markets.filter((m) => m.validated).length,
       unresolvedTokens: unresolved,
-      detail: 'campaign=' + (campaign ? campaign.name : 'NONE') + ' markets=' + markets.length +
-        ' configured=' + configured.length + ' observed=' + observed.size +
-        ' otherGroup=' + otherKind.length +
+      validationFailedTokens: validationFailed,
+      detail:
+        'official=' + official.length +
+        ' validated=' + markets.filter((m) => m.validated).length +
+        ' validationFailed=' + validationFailed.join(',') +
         ' unresolved=' + unresolved.join(',') +
         (complete ? ' DENOMINATOR_COVERAGE_COMPLETE' : ' DENOMINATOR_COVERAGE_INCOMPLETE'),
     };
@@ -120,7 +82,39 @@ export async function buildDenominatorScopes(
   return out;
 }
 
-/** Working campaign groups whose pairedAssets are the FULL denominator scope. */
+async function validateOfficialAddress(
+  ctx: RpcContext,
+  cfg: AppConfig,
+  m: OfficialMarket,
+): Promise<{ symbol: string; decimals: number; validated: boolean; detail: string }> {
+  const address = m.address.toString();
+  try {
+    const res = await withRetry(async () => {
+      return await ctx.client.multicall({
+        contracts: [
+          { address: address as never, abi: ERC20_META_ABI as never, functionName: 'symbol' },
+          { address: address as never, abi: ERC20_META_ABI as never, functionName: 'decimals' },
+        ],
+      } as never);
+    }, cfg.maxRetries);
+    const sym = res[0] as { status: string; result?: unknown };
+    const dec = res[1] as { status: string; result?: unknown };
+    if (!sym || sym.status !== 'success' || typeof sym.result !== 'string') {
+      return { symbol: '', decimals: m.decimals, validated: false, detail: 'symbol() read failed' };
+    }
+    if (normalizeSymbol(sym.result) !== normalizeSymbol(m.symbol)) {
+      return { symbol: sym.result, decimals: m.decimals, validated: false, detail: 'symbol mismatch: onchain=' + sym.result };
+    }
+    if (!dec || dec.status !== 'success' || typeof dec.result !== 'number' || dec.result !== m.decimals) {
+      return { symbol: sym.result, decimals: m.decimals, validated: false, detail: 'decimals mismatch/failed: onchain=' + JSON.stringify(dec?.result) };
+    }
+    return { symbol: sym.result, decimals: dec.result, validated: true, detail: 'ONCHAIN_VALIDATED symbol()/decimals()' };
+  } catch (e) {
+    return { symbol: '', decimals: m.decimals, validated: false, detail: 'read error: ' + (e instanceof Error ? e.message.slice(0, 120) : String(e)) };
+  }
+}
+
+/** Working campaign groups whose pairedAssets are the FULL official denominator scope. */
 export function denominatorCampaignGroups(campaignGroups: CampaignGroup[], scopes: Record<PriceGroup, DenominatorState>): CampaignGroup[] {
   return campaignGroups.map((cg) => {
     const scope = scopes[cg.group];

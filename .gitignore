@@ -4,5 +4,6 @@ dist/
 data/
 !data/.gitkeep
 *.log
+doctor.err
 .DS_Store
 coverage/

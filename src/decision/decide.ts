@@ -7,6 +7,7 @@ import type {
   CompetitionState,
   DecisionResult,
   DenominatorState,
+  FillEvent,
   GasMeasurements,
   GateResult,
   GroupMetrics,
@@ -14,23 +15,29 @@ import type {
   MarkoutSummary,
   PairMetrics,
   PoolSelection,
+  RangePathStats,
   RewardUniverse,
   Snapshot,
 } from '../types.ts';
 import { computeCandidatePnl } from '../model/pnl.ts';
 import { computeCandidateGas } from '../model/gas.ts';
 import { blendFillShare, type FillShareInput } from '../model/fillShare.ts';
+import { replayInventoryCapacity } from '../model/inventory.ts';
 import { assessConfidence } from '../model/confidence.ts';
+import { conservativeAdverseRateUsdPerUsd } from '../analytics/markouts.ts';
 import { campaignHoursRemaining, evaluateGates } from './gates.ts';
 import { evaluatePersistence, latestDecisionMdPath, latestDecisionPath, writeSnapshot } from './persistence.ts';
 import { atomicWriteJson } from '../index/store.ts';
+import { campaignBudgetByGroup } from '../sources/merkl.ts';
+import type { PriceGroup } from '../constants.ts';
 
-export const MODEL_VERSION = 3;
+export const MODEL_VERSION = 4;
 
 export type CycleData = {
   chainOk: boolean;
   contractsOk: boolean;
   indexHealthy: boolean;
+  validationOnly: boolean;
   nowSec: bigint;
   liveCutoffBlock: bigint;
   liveCutoffTimestamp: bigint;
@@ -46,8 +53,13 @@ export type CycleData = {
   markoutSummaries: Record<string, MarkoutSummary[]>;
   markoutReliabilities: Record<string, MarkoutReliability>;
   rangeSimsByPair: Record<string, Map<number, { reshipsPerDay: number; timeInRangePct: number }>>;
-  dailyVolPctByPair: Record<string, number>;
+  rangePathStatsByPair: Record<string, RangePathStats>;
+  rangePathReliableByPair: Record<string, { reliable: boolean; reason: string }>;
   currentPriceOk: Record<string, boolean>;
+  currentUsdByPair: Record<string, { usdTokenA: number | null; usdTokenB: number | null }>;
+  pairFills: Record<string, FillEvent[]>;
+  oneInchUsdAt: (ts: bigint) => number | null;
+  dailyVolPctByPair: Record<string, number | null>;
   capitalUsd: number;
   lookbackHours: number;
   sourceTimestamps: Record<string, string>;
@@ -76,17 +88,24 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
   }
 
   const budgetByGroup = new Map<string, number>();
-  for (const g of ['ETH_LST', 'STABLE'] as const) {
-    budgetByGroup.set(g, budgetForGroup(cd.universe, g));
+  if (cd.universe) {
+    const b = campaignBudgetByGroup(cd.universe, cd.nowSec);
+    for (const g of ['ETH_LST', 'STABLE'] as const) budgetByGroup.set(g, b[g] ?? 0);
+  } else {
+    for (const g of ['ETH_LST', 'STABLE'] as const) budgetByGroup.set(g, 0);
   }
 
   const candidatePaired = new Set(cfg.candidatePairedAssets.map((a) => a.toLowerCase()));
+  const windowSec = cd.lookbackHours * 3600;
   for (const [pairKey, ctx] of byPair) {
     const { pair, group, competition, markouts, reliability } = ctx;
     // CandidateMarketScope filter: only explicitly approved pairs may TRADE.
     if (!candidatePaired.has(pair.tokenB.toLowerCase())) continue;
     const rangeSims = cd.rangeSimsByPair[pairKey] ?? new Map();
-    const dailyVolPct = cd.dailyVolPctByPair[pairKey] ?? 0;
+    const dailyVolPct = cd.dailyVolPctByPair[pairKey] ?? null;
+    const pathReliability = cd.rangePathReliableByPair[pairKey] ?? { reliable: false, reason: 'RANGE_PATH_RELIABLE: no path data' };
+    const currentPrices = cd.currentUsdByPair[pairKey] ?? { usdTokenA: null, usdTokenB: null };
+    const adverseRate = conservativeAdverseRateUsdPerUsd(markouts);
     for (const halfWidthPct of cfg.candidateHalfWidthsPct) {
       for (const feeBps of cfg.candidateFeesBps) {
         const fsi: FillShareInput = {
@@ -100,12 +119,27 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
           minComparableStrategies: cfg.minComparableStrategies,
         };
         const fs = blendFillShare(fsi);
-        const rangeSim = rangeSims.get(halfWidthPct) ?? { reshipsPerDay: 0, timeInRangePct: 100 };
+        // P0-6: a missing/insufficient pair path must never default to
+        // reshipsPerDay=0 / timeInRange=100 / volatility=0; it blocks TRADE.
+        const rangeSim = rangeSims.get(halfWidthPct) ?? { reshipsPerDay: 0, timeInRangePct: 0 };
+        const inventory = replayInventoryCapacity({
+          pairKey,
+          fills: cd.pairFills[pairKey] ?? [],
+          fillShare: fs.blended,
+          capitalUsd: cd.capitalUsd,
+          tokenA: pair.tokenA,
+          tokenB: pair.tokenB,
+          fairOneInchUsdAt: cd.oneInchUsdAt,
+          currentUsdTokenA: currentPrices.usdTokenA ?? 0,
+          currentUsdTokenB: currentPrices.usdTokenB ?? 0,
+          initialTokenSplit: cfg.inventoryInitialTokenSplit,
+          windowSec,
+        });
         const gasModel: CandidateGasOutput = computeCandidateGas({
           measurements: cd.gasMeasurements,
           holdingHorizonDays: cfg.holdingHorizonDays,
           reshipsPerDay: rangeSim.reshipsPerDay,
-          expectedRebalanceTxsPerDay: rangeSim.reshipsPerDay,
+          expectedRebalanceTxsPerDay: rangeSim.reshipsPerDay + inventory.rebalanceCountPerDay,
         });
         const rewardEligible = true; // pair metrics are only built for eligible 1INCH pairs
         const candidate = computeCandidatePnl({
@@ -124,8 +158,18 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
           halfWidthPct,
           feeBps,
           capitalUsd: cd.capitalUsd,
-          dailyVolPct,
+          dailyVolPct: dailyVolPct ?? 0,
           rewardEligible,
+          inventory: {
+            serviceableFillUsdPerDay: inventory.serviceableFillUsdPerDay,
+            unservedFillUsdPerDay: inventory.unservedFillUsdPerDay,
+            rebalanceCountPerDay: inventory.rebalanceCountPerDay,
+            utilizationPct: inventory.throughput.inventoryUtilizationPct,
+            imbalanceUsdPerDay: inventory.throughput.directionalImbalanceUsd,
+            detail: inventory.throughput.detail,
+          },
+          adverseRate,
+          rangePathUnreliableReason: pathReliability.reliable ? null : pathReliability.reason,
         });
         candidate.empiricalFillShare = fs.empirical;
         candidate.structuralShare = fs.structural;
@@ -152,6 +196,7 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
       c.confidence !== 'LOW' &&
       c.rewardEligible &&
       c.markoutReliable &&
+      c.rangePathUnreliableReason === null &&
       c.gasKnown)
     .sort((a, b) => b.expectedNetUsdPerDay - a.expectedNetUsdPerDay);
   const best = tradable[0] ?? null;
@@ -209,8 +254,9 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
   };
 
   const snapshot: Snapshot = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     modelVersion: MODEL_VERSION,
+    validationOnly: cd.validationOnly,
     createdAt: cd.nowSec,
     chainId: '1',
     configFingerprint: configFingerprint(cfg),
@@ -234,11 +280,16 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
       reshipsPerDay: s.reshipsPerDay,
       timeInRangePct: s.timeInRangePct,
     })),
+    rangePathStats: cd.rangePathStatsByPair,
+    campaignBudgets: cd.universe ? cd.universe.campaignBudgets : {},
     candidates,
     decision,
     persistence: { snapshotCount: 0, spanHours: 0, gatePassed: false, details: [] },
   };
 
+  // P0-9: validation-only runs never create persistence-qualifying snapshots.
+  // If a snapshot is written at all it carries validationOnly=true and
+  // evaluatePersistence excludes it.
   writeSnapshot(cfg, snapshot);
   const persistence = evaluatePersistence(cfg, decision);
   snapshot.persistence = persistence;
@@ -264,19 +315,24 @@ function buildReasons(
   const reasons: string[] = [];
   if (cd.universe === null || !cd.universe.sourceHealthy) reasons.push('MERKL_UNREACHABLE');
   if (cd.universe && !cd.universe.coverage.complete) reasons.push('CAMPAIGN_COVERAGE_INCOMPLETE: ' + cd.universe.coverage.detail);
+  if (cd.universe && cd.universe.coverage.campaignBudgetMismatch.length > 0) reasons.push('CAMPAIGN_BUDGET_MISMATCH: ' + cd.universe.coverage.campaignBudgetMismatch.join('; '));
   if (!cd.rewardsFresh) reasons.push('REWARDS_NOT_FRESH');
   if (!cd.feedsFresh) reasons.push('FEEDS_NOT_FRESH');
   for (const [g, d] of Object.entries(cd.denominatorScopes)) {
     if (!d.complete) reasons.push('DENOMINATOR_COVERAGE_INCOMPLETE(' + g + '): ' + d.detail);
   }
+  if (cd.validationOnly) reasons.push('VALIDATION_ONLY: no persistence-qualifying snapshot written (external ACCEPT pending)');
   if (best) {
     reasons.push('best candidate: pair=' + best.pairKey + ' width=' + best.halfWidthPct + '% fee=' + best.feeBps + 'bps fillShare=' + best.fillShare.toFixed(5) + ' (' + best.fillShareSource + ')');
     reasons.push('rewardShare=' + best.conservativeGroupRewardShare.toExponential(3) + ' pairShareOfGroup=' + best.pairShareOfGroup.toFixed(4) + ' groupBudget=' + best.groupBudgetUsd.toFixed(2));
     reasons.push('net=' + best.expectedNetUsdPerDay.toFixed(4) + ' stressNet=' + best.stressNetUsdPerDay.toFixed(4) + ' confidence=' + best.confidence);
+    reasons.push('inventory: serviceable=' + best.expectedServiceableFillUsdPerDay.toFixed(4) + ' unserved=' + best.unservedFillUsdPerDay.toFixed(4) + ' rebalances=' + best.inventoryRebalanceCountPerDay.toFixed(3) + '/d utilization=' + best.inventoryUtilizationPct.toFixed(1) + '%');
+    reasons.push('adverseRateBps=' + best.adverseRateBps.toFixed(4) + ' favorableUsdPerDay=' + best.favorableMarkoutUsdPerDay.toFixed(4) + ' (diagnostic only)');
     if (!best.markoutReliable) reasons.push(best.markoutUnreliableReason ?? 'MARKOUT_UNRELIABLE');
+    if (best.rangePathUnreliableReason !== null) reasons.push(best.rangePathUnreliableReason);
     if (!best.gasKnown) reasons.push('GAS_UNKNOWN');
   } else if (rejected) {
-    reasons.push('no candidate passes gates; best rejected: pair=' + rejected.pairKey + ' net=' + rejected.expectedNetUsdPerDay.toFixed(4) + ' stress=' + rejected.stressNetUsdPerDay.toFixed(4) + ' conf=' + rejected.confidence + ' eligible=' + rejected.rewardEligible + ' markoutReliable=' + rejected.markoutReliable + ' gasKnown=' + rejected.gasKnown);
+    reasons.push('no candidate passes gates; best rejected: pair=' + rejected.pairKey + ' net=' + rejected.expectedNetUsdPerDay.toFixed(4) + ' stress=' + rejected.stressNetUsdPerDay.toFixed(4) + ' conf=' + rejected.confidence + ' eligible=' + rejected.rewardEligible + ' markoutReliable=' + rejected.markoutReliable + ' gasKnown=' + rejected.gasKnown + ' rangePathReliable=' + (rejected.rangePathUnreliableReason === null));
   } else {
     reasons.push('no candidates produced (no eligible pair data)');
   }
@@ -285,18 +341,9 @@ function buildReasons(
   return reasons;
 }
 
-export function budgetForGroup(universe: RewardUniverse | null, group: string): number {
+export function budgetForGroup(universe: RewardUniverse | null, group: string, nowSec: bigint): number {
   if (!universe) return 0;
-  const seen = new Set<string>();
-  let budget = 0;
-  for (const o of universe.opportunities) {
-    if (o.group !== group) continue;
-    const key = o.campaignId || o.id;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    budget += o.dailyRewardsUsd;
-  }
-  return budget;
+  return campaignBudgetByGroup(universe, nowSec)[group as PriceGroup] ?? 0;
 }
 
 export function renderDecisionMd(d: DecisionResult): string {

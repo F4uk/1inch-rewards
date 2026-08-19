@@ -37,6 +37,9 @@ function pairMetrics(over: Partial<PairMetrics> = {}): PairMetrics {
     tokenA: ONEINCH,
     tokenB: USDC,
     fillCount: 30,
+    pricedFillCount: 30,
+    unpricedFillCount: 0,
+    pricingCoveragePct: 100,
     grossFillUsd: 1000,
     dailyFillRateUsd: 500,
     fillShareByStrategy: shares,
@@ -157,7 +160,7 @@ test('stress arithmetic uses configured factors exactly', () => {
   const input = {
     cfg,
     pairMetrics: pairMetrics(),
-    group: { group: 'STABLE' as const, grossGroupFillUsd: 1000, fillCount: 30, dailyFillRateUsd: 500, fillShareByStrategy: new Map(), strategyFees: new Map(), strategyWidths: new Map() },
+    group: { group: 'STABLE' as const, grossGroupFillUsd: 1000, fillCount: 30, pricedFillCount: 30, unpricedFillCount: 0, pricingCoveragePct: 100, dailyFillRateUsd: 500, fillShareByStrategy: new Map(), strategyFees: new Map(), strategyWidths: new Map() },
     competition: competition(),
     budgetUsdPerDay: 100,
     markoutSummaries: [],
@@ -172,6 +175,16 @@ test('stress arithmetic uses configured factors exactly', () => {
     capitalUsd: 50,
     dailyVolPct: 2,
     rewardEligible: true,
+    inventory: {
+      serviceableFillUsdPerDay: 250,
+      unservedFillUsdPerDay: 0,
+      rebalanceCountPerDay: 0,
+      utilizationPct: 50,
+      imbalanceUsdPerDay: 0,
+      detail: 'test',
+    },
+    adverseRate: 20 / 1000, // 20 adverse USD per 1000 notional
+    rangePathUnreliableReason: null,
   };
   const s = computeStressNet(input, {
     rewardIncomeUsdPerDay: 100,

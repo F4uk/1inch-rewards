@@ -46,8 +46,8 @@ export function classifyPairLegacy(tokenA: string, tokenB: string): PriceGroup |
 export const classifyPair = classifyPairLegacy;
 
 export type FillPricing = {
-  usdPrice: (token: string, timestamp: bigint) => number | null;
-  latestUsdPrice: (token: string) => number | null;
+  /** Fair USD price of 1INCH at a historical timestamp (depth-qualified framework). */
+  oneInchUsdAt: (timestamp: bigint) => number | null;
 };
 
 export function tokenToFeedName(token: string): string | null {
@@ -76,8 +76,15 @@ export function tokenMetaOf(token: string): TokenMeta | null {
 
 /**
  * Pair-level metrics + group denominator for REWARD-ELIGIBLE fills only
- * (1INCH + allowed paired asset). Non-eligible fills (e.g. USDC/USDT,
+ * (1INCH + official allowed paired asset). Non-eligible fills (e.g. USDC/USDT,
  * WETH/USDC) are excluded from the reward denominator.
+ *
+ * P0-2: every fill is valued CONSISTENTLY from its 1INCH leg:
+ *   tokenIn == 1INCH : volumeUsd = amountIn(1INCH) * fair1inchUsd(fillTs)
+ *   tokenOut == 1INCH: volumeUsd = amountOut(1INCH) * fair1inchUsd(fillTs)
+ * No USD oracle is required for the paired asset. Fills whose 1INCH fair price
+ * is unavailable are counted as unpriced and lower the market's
+ * pricingCoveragePct; they are visible, never silently dropped.
  */
 export function computePairAndGroupMetrics(
   fills: FillEvent[],
@@ -92,6 +99,9 @@ export function computePairAndGroupMetrics(
       group: g,
       grossGroupFillUsd: 0,
       fillCount: 0,
+      pricedFillCount: 0,
+      unpricedFillCount: 0,
+      pricingCoveragePct: 0,
       dailyFillRateUsd: 0,
       fillShareByStrategy: new Map(),
       strategyFees: new Map(),
@@ -104,10 +114,13 @@ export function computePairAndGroupMetrics(
   for (const f of fills) {
     const elig = classifyEligiblePair(f.tokenIn, f.tokenOut, campaignForTokens(campaignsByGroup, f.tokenIn, f.tokenOut));
     if (!elig) continue;
-    const pIn = pricing.usdPrice(f.tokenIn, f.timestamp);
-    const pOut = pricing.usdPrice(f.tokenOut, f.timestamp);
-    if (pIn === null || pOut === null) continue;
-    const usd = (Number(f.amountIn) / 10 ** decimalsOf(f.tokenIn)) * pIn;
+    const oneInchUsd = pricing.oneInchUsdAt(f.timestamp);
+    const priced = oneInchUsd !== null && oneInchUsd > 0;
+    const usd = priced
+      ? (f.tokenIn.toLowerCase() === ONEINCH
+          ? (Number(f.amountIn) / 10 ** decimalsOf(ONEINCH)) * oneInchUsd
+          : (Number(f.amountOut) / 10 ** decimalsOf(ONEINCH)) * oneInchUsd)
+      : 0;
     const key = pairKey(f.tokenIn, f.tokenOut);
     let pm = pairByKey.get(key);
     if (!pm) {
@@ -117,6 +130,9 @@ export function computePairAndGroupMetrics(
         tokenA: ONEINCH,
         tokenB: elig.pairedAsset,
         fillCount: 0,
+        pricedFillCount: 0,
+        unpricedFillCount: 0,
+        pricingCoveragePct: 0,
         grossFillUsd: 0,
         dailyFillRateUsd: 0,
         fillShareByStrategy: new Map(),
@@ -126,31 +142,53 @@ export function computePairAndGroupMetrics(
       pairByKey.set(key, pm);
     }
     pm.fillCount += 1;
-    pm.grossFillUsd += usd;
-    const cur = pm.fillShareByStrategy.get(f.orderHash) ?? { fillUsd: 0, share: 0, count: 0 };
-    cur.fillUsd += usd;
-    cur.count += 1;
-    pm.fillShareByStrategy.set(f.orderHash, cur);
+    if (priced) {
+      pm.pricedFillCount += 1;
+      pm.grossFillUsd += usd;
+      const cur = pm.fillShareByStrategy.get(f.orderHash) ?? { fillUsd: 0, share: 0, count: 0 };
+      cur.fillUsd += usd;
+      cur.count += 1;
+      pm.fillShareByStrategy.set(f.orderHash, cur);
+    } else {
+      pm.unpricedFillCount += 1;
+    }
 
     const gm = groupByGroup.get(elig.group)!;
-    gm.grossGroupFillUsd += usd;
     gm.fillCount += 1;
-    const gcur = gm.fillShareByStrategy.get(f.orderHash) ?? { fillUsd: 0, share: 0, count: 0 };
-    gcur.fillUsd += usd;
-    gcur.count += 1;
-    gm.fillShareByStrategy.set(f.orderHash, gcur);
+    if (priced) {
+      gm.pricedFillCount += 1;
+      gm.grossGroupFillUsd += usd;
+      const gcur = gm.fillShareByStrategy.get(f.orderHash) ?? { fillUsd: 0, share: 0, count: 0 };
+      gcur.fillUsd += usd;
+      gcur.count += 1;
+      gm.fillShareByStrategy.set(f.orderHash, gcur);
+    } else {
+      gm.unpricedFillCount += 1;
+    }
   }
   for (const pm of pairByKey.values()) {
+    pm.pricingCoveragePct = pm.fillCount > 0 ? (pm.pricedFillCount / pm.fillCount) * 100 : 0;
     for (const s of pm.fillShareByStrategy.values()) {
       s.share = pm.grossFillUsd > 0 ? s.fillUsd / pm.grossFillUsd : 0;
     }
     pm.dailyFillRateUsd = windowSec > 0 ? (pm.grossFillUsd * 86400) / windowSec : 0;
   }
   for (const gm of groupByGroup.values()) {
+    gm.pricingCoveragePct = gm.fillCount > 0 ? (gm.pricedFillCount / gm.fillCount) * 100 : 0;
     for (const s of gm.fillShareByStrategy.values()) {
       s.share = gm.grossGroupFillUsd > 0 ? s.fillUsd / gm.grossGroupFillUsd : 0;
     }
     gm.dailyFillRateUsd = windowSec > 0 ? (gm.grossGroupFillUsd * 86400) / windowSec : 0;
+  }
+  // P0-2 invariant: group gross volume MUST equal the sum of per-market priced
+  // volumes (within numeric tolerance). Violations fail the group denominator.
+  for (const gm of groupByGroup.values()) {
+    const perMarketSum = [...pairByKey.values()]
+      .filter((p) => p.group === gm.group)
+      .reduce((a, p) => a + p.grossFillUsd, 0);
+    if (Math.abs(perMarketSum - gm.grossGroupFillUsd) > Math.max(1e-6, gm.grossGroupFillUsd * 1e-9)) {
+      throw new Error('DENOMINATOR_INVARIANT_VIOLATION group=' + gm.group + ' perMarketSum=' + perMarketSum + ' groupGross=' + gm.grossGroupFillUsd);
+    }
   }
   return {
     pairMetrics: [...pairByKey.values()],

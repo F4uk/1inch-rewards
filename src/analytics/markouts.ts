@@ -195,6 +195,23 @@ export function conservativeAdverseBps(summaries: MarkoutSummary[]): number {
   return Math.max(...summaries.map((s) => s.conservativeBps));
 }
 
+/**
+ * P0-8: per-horizon conservative adverse RATE (USD adverse per USD notional),
+ * defined as max over reliable configured horizons of
+ *   totalAdverseUsd(h) / totalNotionalUsd(h).
+ * Never pool horizons into one average (that dilutes the worst horizon);
+ * favorable markout is diagnostic only and never offsets the rate.
+ */
+export function conservativeAdverseRateUsdPerUsd(summaries: MarkoutSummary[]): number {
+  let worst = 0;
+  for (const s of summaries) {
+    if (s.totalNotionalUsd <= 0) continue;
+    const rate = s.totalAdverseUsd / s.totalNotionalUsd;
+    if (rate > worst) worst = rate;
+  }
+  return worst;
+}
+
 /** Total adverse USD across the most conservative horizon. */
 export function totalAdverseUsd(summaries: MarkoutSummary[]): number {
   return summaries.reduce((a, s) => a + s.totalAdverseUsd, 0);

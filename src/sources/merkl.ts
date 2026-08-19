@@ -6,6 +6,8 @@ import { toLowerAddress } from '../types.ts';
 const AQUA_KEYWORDS = ['aqua'];
 const MAX_PAGES = 60;
 const PAGE_SIZE = 100;
+/** Merkl lifecycle statuses that end a campaign even inside its time window. */
+const TERMINATED_CAMPAIGN_STATUSES = new Set(['ENDED', 'CANCELLED', 'TERMINATED', 'EXPIRED']);
 
 type MerklToken = {
   address: string;
@@ -162,12 +164,15 @@ export async function fetchRewardUniverse(cfg: AppConfig, nowSec: bigint): Promi
     // eligible market set is fully covered).
     let campaignsChecked = 0;
     let campaignErrors = 0;
+    const campaignsByOpportunity = new Map<string, number>();
+    const opportunitiesWithoutCampaigns: string[] = [];
     const campaignRecords: MerklCampaignRecord[] = [];
     for (const g of groups) {
       try {
         const res = (await fetchJson(base + '/v4/campaigns?chainId=1&opportunityId=' + g.id + '&withOpportunity=true')) as MerklCampaign[] | MerklCampaign;
         const list = Array.isArray(res) ? res : [res];
         campaignsChecked += list.length;
+        campaignsByOpportunity.set(g.id, list.length);
         for (const c of list) {
           campaignRecords.push({
             databaseId: String(c.id ?? ''),
@@ -189,17 +194,32 @@ export async function fetchRewardUniverse(cfg: AppConfig, nowSec: bigint): Promi
         campaignErrors++;
       }
     }
-    const coverageComplete = unknown.length === 0 && campaignErrors === 0 && aquaLive.length > 0 && groups.length === aquaLive.length;
+    // P0-3: every live opportunity that claims active rewards must have >= 1
+    // linked Campaign record; HTTP success alone is not campaign coverage.
+    for (const g of groups) {
+      if ((campaignsByOpportunity.get(g.id) ?? 0) < 1 && g.dailyRewardsUsd > 0) {
+        opportunitiesWithoutCampaigns.push(g.id + ':' + g.name);
+      }
+    }
+    const campaignBudgets = computeCampaignBudgets(campaignRecords, groups, nowSec, cfg.budgetMismatchTolerancePct);
+    const mismatchList = Object.entries(campaignBudgets)
+      .filter(([, b]) => b.mismatchPct !== null && b.mismatchPct > cfg.budgetMismatchTolerancePct)
+      .map(([g, b]) => g + ':' + b.detail);
+    const coverageComplete = unknown.length === 0 && campaignErrors === 0 && opportunitiesWithoutCampaigns.length === 0 && mismatchList.length === 0 && aquaLive.length > 0 && groups.length === aquaLive.length;
     const coverage: CampaignCoverage = {
       complete: coverageComplete,
       parsedCampaignCount: groups.length,
       liveAquaCampaignCount: aquaLive.length,
       unknownCampaigns: unknown,
+      opportunitiesWithoutCampaigns,
+      campaignBudgetMismatch: mismatchList,
       detail:
         'liveAqua=' + aquaLive.length +
         ' parsed=' + groups.length +
         ' campaignDetailErrors=' + campaignErrors +
         ' unknown=' + unknown.length +
+        ' withoutCampaignRecords=' + opportunitiesWithoutCampaigns.length +
+        ' budgetMismatch=' + mismatchList.length +
         (coverageComplete ? ' COVERAGE_COMPLETE' : ' CAMPAIGN_COVERAGE_INCOMPLETE'),
     };
 
@@ -246,6 +266,7 @@ export async function fetchRewardUniverse(cfg: AppConfig, nowSec: bigint): Promi
       opportunities,
       campaignInventory: inventory,
       campaignGroups: groups,
+      campaignBudgets,
       coverage,
       fetchedAt: nowSec,
       sourceHealthy: true,
@@ -256,11 +277,14 @@ export async function fetchRewardUniverse(cfg: AppConfig, nowSec: bigint): Promi
       opportunities: [],
       campaignGroups: [],
       campaignInventory: { opportunities: [], campaigns: [], aquaCampaignCount: 0, aquaOpportunityCount: 0 },
+      campaignBudgets: {},
       coverage: {
         complete: false,
         parsedCampaignCount: 0,
         liveAquaCampaignCount: 0,
         unknownCampaigns: [],
+        opportunitiesWithoutCampaigns: [],
+        campaignBudgetMismatch: [],
         detail: 'MERKL_UNREACHABLE: ' + (e instanceof Error ? e.message : String(e)),
       },
       fetchedAt: nowSec,
@@ -279,6 +303,88 @@ export function rewardBudgetByGroup(universe: RewardUniverse): Record<PriceGroup
     if (seen.has(key)) continue;
     seen.add(key);
     out[o.group] += o.dailyRewardsUsd;
+  }
+  return out;
+}
+
+/** Is a Campaign record currently active (window-based, status-aware)? */
+export function campaignRecordActive(c: MerklCampaignRecord, nowSec: bigint): boolean {
+  if (c.startTimestamp > nowSec || c.endTimestamp < nowSec) return false;
+  const status = (c.status ?? '').toUpperCase();
+  if (TERMINATED_CAMPAIGN_STATUSES.has(status)) return false;
+  return true;
+}
+
+/**
+ * P0-3: derive current group reward budget from ACTIVE CAMPAIGN records only.
+ * Opportunity-level dailyRewards remain a diagnostic cross-check.
+ */
+export function campaignBudgetByGroup(universe: RewardUniverse, nowSec: bigint): Record<PriceGroup, number> {
+  const out: Record<PriceGroup, number> = { ETH_LST: 0, STABLE: 0, BTC_WRAPPER: 0, DEFI_MAJOR: 0, RWA: 0, OTHER: 0 };
+  const oppGroup = new Map<string, PriceGroup>();
+  for (const o of universe.opportunities) oppGroup.set(o.id, o.group);
+  const seen = new Set<string>();
+  for (const c of universe.campaignInventory.campaigns) {
+    const group = oppGroup.get(c.opportunityId);
+    if (!group) continue;
+    if (!campaignRecordActive(c, nowSec)) continue;
+    const key = c.onChainCampaignId || c.databaseId;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out[group] += c.dailyRewardsUsd;
+  }
+  return out;
+}
+
+/**
+ * Compute per-group active-campaign budgets and compare with the
+ * Opportunity-level summary (dedup by campaignId). A material disagreement
+ * yields mismatchPct != null and must fail closed (CAMPAIGN_BUDGET_MISMATCH).
+ */
+export function computeCampaignBudgets(
+  campaignRecords: MerklCampaignRecord[],
+  groups: CampaignGroup[],
+  nowSec: bigint,
+  tolerancePct: number,
+): Record<string, { activeCampaignBudgetUsd: number; opportunitySummaryUsd: number; mismatchPct: number | null; detail: string }> {
+  const out: Record<string, { activeCampaignBudgetUsd: number; opportunitySummaryUsd: number; mismatchPct: number | null; detail: string }> = {};
+  const groupById = new Map(groups.map((g) => [g.id, g]));
+  const oppSummary = new Map<string, number>();
+  const seenOpp = new Set<string>();
+  for (const g of groups) {
+    const key = g.campaignIds[0] || g.id;
+    if (seenOpp.has(key)) continue;
+    seenOpp.add(key);
+    oppSummary.set(g.group, (oppSummary.get(g.group) ?? 0) + g.dailyRewardsUsd);
+  }
+  const activeCampaign = new Map<string, number>();
+  const seenCampaign = new Set<string>();
+  for (const c of campaignRecords) {
+    const g = groupById.get(c.opportunityId);
+    if (!g) continue;
+    if (!campaignRecordActive(c, nowSec)) continue;
+    const key = c.onChainCampaignId || c.databaseId;
+    if (seenCampaign.has(key)) continue;
+    seenCampaign.add(key);
+    activeCampaign.set(g.group, (activeCampaign.get(g.group) ?? 0) + c.dailyRewardsUsd);
+  }
+  for (const g of groups) {
+    const campaign = activeCampaign.get(g.group) ?? 0;
+    const opportunity = oppSummary.get(g.group) ?? 0;
+    const denom = Math.max(campaign, opportunity);
+    const mismatchPct = denom > 0 ? (Math.abs(campaign - opportunity) / denom) * 100 : null;
+    const mismatch = mismatchPct !== null && mismatchPct > tolerancePct;
+    out[g.group] = {
+      activeCampaignBudgetUsd: campaign,
+      opportunitySummaryUsd: opportunity,
+      mismatchPct,
+      detail:
+        'group=' + g.group +
+        ' activeCampaigns=' + campaign.toFixed(2) +
+        ' opportunitySummary=' + opportunity.toFixed(2) +
+        ' mismatchPct=' + (mismatchPct === null ? 'n/a' : mismatchPct.toFixed(2)) +
+        (mismatch ? ' CAMPAIGN_BUDGET_MISMATCH' : ''),
+    };
   }
   return out;
 }

@@ -102,6 +102,8 @@ export type CampaignCoverage = {
   parsedCampaignCount: number;
   liveAquaCampaignCount: number;
   unknownCampaigns: string[];
+  opportunitiesWithoutCampaigns: string[];
+  campaignBudgetMismatch: string[];
   detail: string;
 };
 
@@ -143,17 +145,30 @@ export type CampaignInventory = {
 
 export type DenominatorMarket = {
   token: string;
+  officialSymbol: string;
   symbol: string;
   decimals: number;
   kind: 'ETH_LST' | 'STABLE' | 'OTHER';
-  source: 'CONFIGURED' | 'ONCHAIN_OBSERVED' | 'ONCHAIN_METADATA';
+  source: 'CONFIGURED';
+  validated: boolean;
+  validationDetail: string;
+  provenance: {
+    marketListSource: string;
+    marketListUrl: string;
+    marketListFetchedAt: string;
+    addressResolvedFrom: string;
+    addressResolvedAt: string;
+  };
 };
 
 export type DenominatorState = {
   group: PriceGroup;
   markets: DenominatorMarket[];
   complete: boolean;
+  officialMemberCount: number;
+  validatedMemberCount: number;
   unresolvedTokens: string[];
+  validationFailedTokens: string[];
   detail: string;
 };
 
@@ -164,7 +179,8 @@ export type PoolDepthStats = {
   feeTier: number;
   liquidity: bigint;
   observationCount: number;
-  recentVolumeUsd: number;
+  /** Rankable volume proxy in token0 units (NOT USD-priced). */
+  recentVolumeProxy: number;
   maxObservationAgeSec: number;
   sourceConfidence: 'HIGH' | 'MEDIUM' | 'LOW';
 };
@@ -174,12 +190,15 @@ export type PoolSelection = {
   selected: PoolDepthStats | null;
   candidates: PoolDepthStats[];
   rationale: string;
+  qualityPassed: boolean;
 };
 
 export type RewardUniverse = {
   opportunities: RewardOpportunity[];
   campaignGroups: CampaignGroup[];
   campaignInventory: CampaignInventory;
+  /** P0-3: group budgets derived from ACTIVE campaign records (not opportunity summaries). */
+  campaignBudgets: Record<string, { activeCampaignBudgetUsd: number; opportunitySummaryUsd: number; mismatchPct: number | null; detail: string }>;
   coverage: CampaignCoverage;
   fetchedAt: bigint;
   sourceHealthy: boolean;
@@ -192,6 +211,10 @@ export type PairMetrics = {
   tokenA: string; // 1INCH (lower-address token not assumed; tokenA = 1INCH)
   tokenB: string; // paired asset
   fillCount: number;
+  pricedFillCount: number;
+  unpricedFillCount: number;
+  /** Fraction of eligible fills whose 1INCH-leg USD valuation was available (0..1). */
+  pricingCoveragePct: number;
   grossFillUsd: number;
   dailyFillRateUsd: number;
   fillShareByStrategy: Map<string, { fillUsd: number; share: number; count: number }>;
@@ -203,6 +226,10 @@ export type GroupMetrics = {
   group: PriceGroup;
   grossGroupFillUsd: number;
   fillCount: number;
+  pricedFillCount: number;
+  unpricedFillCount: number;
+  /** USD-weighted group pricing coverage = sum(perMarketPricedUsd)/sum(perMarketEligibleUsd proxy). */
+  pricingCoveragePct: number;
   dailyFillRateUsd: number;
   fillShareByStrategy: Map<string, { fillUsd: number; share: number; count: number }>;
   strategyFees: Map<string, number | null>;
@@ -281,6 +308,34 @@ export type MarkoutSummary = {
   totalNotionalUsd: number;
 };
 
+/** Gap-aware resampled price-path statistics (P0-6). */
+export type RangePathStats = {
+  pairKey: string;
+  realObservationCount: number;
+  resampledBarCount: number;
+  expectedBarCount: number;
+  coveragePct: number;
+  largestGapSec: number;
+  segments: number;
+  reliable: boolean;
+  detail: string;
+};
+
+/** Inventory-capacity / turnover replay result (P0-7). */
+export type InventoryThroughput = {
+  pairKey: string;
+  startingInventoryTokenAUsd: number;
+  startingInventoryTokenBUsd: number;
+  grossRequestedFillUsd: number;
+  serviceableFillUsd: number;
+  unservedFillUsd: number;
+  directionalImbalanceUsd: number;
+  inventoryUtilizationPct: number;
+  requiredRebalanceCount: number;
+  realizedTurnoverPerCapital: number;
+  detail: string;
+};
+
 export type RangeSimulation = {
   halfWidthPct: number;
   windowSec: number;
@@ -311,6 +366,8 @@ export type Candidate = {
   pairFillCount: number;
   groupFillCount: number;
   expectedGrossFillUsdPerDay: number;
+  expectedServiceableFillUsdPerDay: number;
+  unservedFillUsdPerDay: number;
   expectedQualifyingFillUsdPerDay: number;
   rewardIncomeUsdPerDay: number;
   makerFeeIncomeUsdPerDay: number;
@@ -321,6 +378,10 @@ export type Candidate = {
   expectedNetUsdPerDay: number;
   stressNetUsdPerDay: number;
   turnoverPerDay: number;
+  inventoryUtilizationPct: number;
+  directionalImbalanceUsdPerDay: number;
+  inventoryRebalanceCountPerDay: number;
+  adverseRateBps: number;
   expectedTimeInRangePct: number;
   inventoryNotionalUsd: number;
   inventoryBufferUsd: number;
@@ -332,6 +393,7 @@ export type Candidate = {
   markoutReliable: boolean;
   gasKnown: boolean;
   markoutUnreliableReason: string | null;
+  rangePathUnreliableReason: string | null;
   totalAdverseUsdPerDay: number;
   favorableMarkoutUsdPerDay: number;
 };
@@ -433,6 +495,7 @@ export type PersistenceStatus = {
 export type Snapshot = {
   schemaVersion: number;
   modelVersion: number;
+  validationOnly: boolean;
   createdAt: bigint;
   chainId: string;
   configFingerprint: string;
@@ -450,6 +513,8 @@ export type Snapshot = {
   competition: CompetitionState[];
   markoutSummaries: Record<string, MarkoutSummary[]>;
   rangeSimulations: RangeSimulation[];
+  rangePathStats: Record<string, RangePathStats>;
+  campaignBudgets: Record<string, { activeCampaignBudgetUsd: number; opportunitySummaryUsd: number; mismatchPct: number | null; detail: string }>;
   candidates: Candidate[];
   decision: DecisionResult;
   persistence: PersistenceStatus;

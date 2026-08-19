@@ -44,10 +44,33 @@ export type AppConfig = {
   holdingHorizonDays: number;
   /** Max age (seconds) of pool observations used for markouts. */
   markoutMaxPoolAgeSec: number;
+  /** Max age (seconds) of pool observations used for HISTORICAL fill valuation
+   * (P0-2 denominator). Historical queries are age-aware by construction; this
+   * is intentionally coarser than markout/current-price freshness and is
+   * documented as the valuation grade. */
+  fillPricingMaxAgeSec: number;
   /** Fixed resampling interval (seconds) for realized-volatility computation. */
   volResampleIntervalSec: number;
   /** Max gap (seconds) in the resampled path before it is split. */
   volMaxGapSec: number;
+  /** Min real observations (density) for a pool to qualify. */
+  poolMinObservations: number;
+  /** Min liquidity magnitude for a pool to qualify. */
+  poolMinLiquidity: bigint;
+  /** Max observation age (seconds) for a pool to qualify. */
+  poolMaxAgeSec: number;
+  /** Min confidence for a selected pool (HIGH or MEDIUM). */
+  poolMinConfidence: 'HIGH' | 'MEDIUM';
+  /** Min priced-volume coverage for the group denominator (0..1). */
+  pricingCoverageMinPct: number;
+  /** Min resampled-path coverage for RANGE_PATH_RELIABLE (0..1). */
+  rangePathMinCoveragePct: number;
+  /** Min resampled bars for RANGE_PATH_RELIABLE. */
+  rangePathMinBars: number;
+  /** Campaign-vs-opportunity budget mismatch tolerance (0..1). */
+  budgetMismatchTolerancePct: number;
+  /** Initial capital split per token for the inventory throughput model. */
+  inventoryInitialTokenSplit: number;
   /** Minimum completed markout samples per pair for MARKOUT_RELIABLE. */
   minMarkoutSamplesPerPair: number;
   fallbackRebalanceMaxLossBps: number;
@@ -60,6 +83,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   chainId: 1n,
   rpcUrls: [
     'https://ethereum-rpc.publicnode.com',
+    'https://mainnet.gateway.tenderly.co',
     'https://eth.drpc.org',
   ],
   merklApiUrl: 'https://api.merkl.xyz',
@@ -91,8 +115,18 @@ export const DEFAULT_CONFIG: AppConfig = {
   inventoryBufferMultiple: 2.0,
   holdingHorizonDays: 7,
   markoutMaxPoolAgeSec: 300,
+  fillPricingMaxAgeSec: 86400,
   volResampleIntervalSec: 300,
   volMaxGapSec: 3600,
+  poolMinObservations: 20,
+  poolMinLiquidity: 10n ** 15n,
+  poolMaxAgeSec: 3600,
+  poolMinConfidence: 'MEDIUM',
+  pricingCoverageMinPct: 95,
+  rangePathMinCoveragePct: 50,
+  rangePathMinBars: 100,
+  budgetMismatchTolerancePct: 10,
+  inventoryInitialTokenSplit: 0.5,
   minMarkoutSamplesPerPair: 20,
   fallbackRebalanceMaxLossBps: 30,
   feedOverrides: {},

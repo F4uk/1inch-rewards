@@ -127,17 +127,49 @@ test('P0-5: allowance failure => DATA_UNKNOWN', () => {
 
 function depth(poolAddress: string, feeTier: number, liquidity: bigint, obs: number, volUsd: number, maxAge: number): PoolDepthStats {
   return {
-    poolAddress, token0: ONEINCH, token1: WETH, feeTier, liquidity, observationCount: obs, recentVolumeUsd: volUsd,
+    poolAddress, token0: ONEINCH, token1: WETH, feeTier, liquidity, observationCount: obs, recentVolumeProxy: volUsd,
     maxObservationAgeSec: maxAge, sourceConfidence: liquidity > 0n && obs >= 20 && maxAge <= 900 ? 'HIGH' : 'LOW',
   };
 }
 
 test('P0-8: thin pool loses to deep reference pool', () => {
-  const thin = depth('0x' + '11'.repeat(20), 10000, 1000n, 3, 100, 3600);
-  const deep = depth('0x' + '22'.repeat(20), 3000, 1000000000n, 500, 1000000, 60);
-  const selection = selectBestPool('k', [thin, deep]);
+  const thin = depth('0x' + '11'.repeat(20), 10000, 10n ** 12n, 3, 100, 3600);
+  const deep = depth('0x' + '22'.repeat(20), 3000, 10n ** 18n, 500, 1000000, 60);
+  const selection = selectBestPool('k', [thin, deep], {
+    minLiquidity: DEFAULT_CONFIG.poolMinLiquidity,
+    minObservations: DEFAULT_CONFIG.poolMinObservations,
+    maxAgeSec: DEFAULT_CONFIG.poolMaxAgeSec,
+    minConfidence: DEFAULT_CONFIG.poolMinConfidence,
+  });
   assert.equal(selection.selected!.poolAddress, deep.poolAddress);
   assert.equal(selection.selected!.sourceConfidence, 'HIGH');
+  assert.equal(selection.qualityPassed, true);
+});
+
+test('P0-5: thin pool fails hard quality rules even with many swaps vs a deep fresh pool', () => {
+  // Tiny liquidity but enormous observation count must NOT win on density.
+  const thinBusy = depth('0x' + '33'.repeat(20), 10000, 10n ** 12n, 5000, 900000, 60);
+  const deepFresh = depth('0x' + '44'.repeat(20), 3000, 10n ** 22n, 50, 100000, 60);
+  const selection = selectBestPool('k', [thinBusy, deepFresh], {
+    minLiquidity: DEFAULT_CONFIG.poolMinLiquidity,
+    minObservations: DEFAULT_CONFIG.poolMinObservations,
+    maxAgeSec: DEFAULT_CONFIG.poolMaxAgeSec,
+    minConfidence: DEFAULT_CONFIG.poolMinConfidence,
+  });
+  assert.equal(selection.selected!.poolAddress, deepFresh.poolAddress);
+});
+
+test('P0-5: no pool passes hard quality rules => FAIR_PRICE_UNRELIABLE', () => {
+  const stale = depth('0x' + '55'.repeat(20), 3000, 10n ** 22n, 500, 100000, 7200);
+  const selection = selectBestPool('k', [stale], {
+    minLiquidity: DEFAULT_CONFIG.poolMinLiquidity,
+    minObservations: DEFAULT_CONFIG.poolMinObservations,
+    maxAgeSec: DEFAULT_CONFIG.poolMaxAgeSec,
+    minConfidence: DEFAULT_CONFIG.poolMinConfidence,
+  });
+  assert.equal(selection.selected, null);
+  assert.equal(selection.qualityPassed, false);
+  assert.ok(selection.rationale.includes('FAIR_PRICE_UNRELIABLE'));
 });
 
 test('P0-9: stale current price blocks the pair (CURRENT_FAIR_PRICE_UNKNOWN)', () => {
@@ -169,6 +201,7 @@ test('P0-10: per-pair range simulations differ between volatile and flat pairs',
   assert.ok(volSim.exits >= flatSim.exits);
   const flatVol = realizedDailyVolPct(flatPath, 300, 3600);
   const volVol = realizedDailyVolPct(volPath, 300, 3600);
+  assert.ok(flatVol.volPct !== null && volVol.volPct !== null, 'dense paths must produce a volatility');
   assert.ok(volVol.volPct > flatVol.volPct, 'volatile pair must have higher realized vol');
 });
 
@@ -196,6 +229,7 @@ test('P0-12: time-normalized volatility is documented and gap-aware', () => {
     { timestamp: 1200n, price: 1.0 },
   ]);
   const v = realizedDailyVolPct(path, 300, 3600);
+  assert.ok(v.volPct !== null, 'dense path must produce volatility');
   assert.ok(v.volPct > 0);
   assert.ok(v.detail.includes('resampled interval=300s'));
 });

@@ -48,6 +48,8 @@ export function evaluatePersistence(cfg: AppConfig, latest: DecisionResult): Per
   const snapshots = listSnapshots(cfg);
   const details: string[] = [];
   const qualifying = snapshots.filter((s) => {
+    // P0-9: validation-only snapshots (validationOnly=true) can never qualify.
+    if (s.validationOnly === true) return false;
     if (s.modelVersion !== latest.modelVersion) return false;
     if (s.configFingerprint !== latest.configFingerprint) return false;
     if (s.decision.pair !== latest.pair) return false;
@@ -68,7 +70,7 @@ export function evaluatePersistence(cfg: AppConfig, latest: DecisionResult): Per
   if (qualifying.length >= 2) {
     spanHours = Number(qualifying[qualifying.length - 1]!.createdAt - qualifying[0]!.createdAt) / 3600;
   }
-  details.push('modelVersion=' + latest.modelVersion + ' qualifyingSnapshots=' + snapshotCount + ' span=' + spanHours.toFixed(1) + 'h (total snapshots=' + snapshots.length + ')');
+  details.push('modelVersion=' + latest.modelVersion + ' qualifyingSnapshots=' + snapshotCount + ' span=' + spanHours.toFixed(1) + 'h (total snapshots=' + snapshots.length + ', validationOnly excluded)');
   if (snapshotCount < cfg.minSnapshots) {
     details.push('FAIL: need >= ' + cfg.minSnapshots + ' qualifying snapshots (same modelVersion/configFingerprint/pair/regime, all gates passing)');
     return { snapshotCount, spanHours, gatePassed: false, details };

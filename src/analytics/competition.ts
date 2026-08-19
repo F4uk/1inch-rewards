@@ -95,7 +95,13 @@ export function activeStrategiesAt(strategies: Map<string, StrategyRecord>, cuto
   return out;
 }
 
-export type TokenUsdAtBlock = (token: string) => number | null;
+/** Pair-specific fair prices at the live cutoff from the depth-qualified
+ * FairPrice framework (P0-4). Chainlink is sanity/anchor only and must NOT
+ * drive in-range classification. */
+export type PairFairPrices = {
+  usdTokenA: number | null;
+  usdTokenB: number | null;
+};
 
 /**
  * Competition state for EXACTLY one pair at the live cutoff.
@@ -109,17 +115,17 @@ export async function computeCompetition(
   tokenA: string,
   tokenB: string,
   cutoffBlock: bigint,
-  tokenUsd: TokenUsdAtBlock,
+  fairPrices: PairFairPrices,
 ): Promise<CompetitionState> {
   const active = activeStrategiesAt(strategies, cutoffBlock, AQUA_ROUTER);
   const pair = active.filter((s) => hasPair(s, tokenA, tokenB));
-  const usdA = tokenUsd(tokenA);
-  const usdB = tokenUsd(tokenB);
+  const usdA = fairPrices.usdTokenA;
+  const usdB = fairPrices.usdTokenB;
   const fairPriceTokenBPerTokenA = usdA !== null && usdB !== null && usdA > 0 ? usdB / usdA : null;
 
   const activeStrategies = [];
   for (const s of pair) {
-    const inRange = strategyInRange(s, tokenA, tokenB, tokenUsd);
+    const inRange = strategyInRange(s, tokenA, tokenB, usdA, usdB);
     activeStrategies.push({
       strategyHash: s.strategyHash,
       maker: s.maker,
@@ -228,7 +234,7 @@ export async function computeCompetition(
         continue;
       }
       const raw = backingByStrategy.get(s.strategyHash + ':' + tok) ?? 0;
-      const price = tokenUsd(tok);
+      const price = tok.toLowerCase() === toLowerAddress(tokenA) ? usdA : usdB;
       if (price !== null) usd += rawUsd(raw, tok, price);
     }
     s.backingUsdUpperBound = usd;
@@ -246,7 +252,7 @@ export async function computeCompetition(
   const makerTokenBacking = new Map<string, number>();
   for (const [k, v] of makerTokenAccessible) {
     const [maker, tok] = k.split(':');
-    const price = tokenUsd(tok!);
+    const price = tok!.toLowerCase() === toLowerAddress(tokenA) ? usdA : usdB;
     makerTokenBacking.set(k, v.known && price !== null ? rawUsd(v.amount, tok!, price) : 0);
   }
   return {
@@ -290,11 +296,10 @@ function strategyInRange(
   s: StrategyRecord,
   tokenA: string,
   tokenB: string,
-  tokenUsd: TokenUsdAtBlock,
+  usdA: number | null,
+  usdB: number | null,
 ): boolean {
   if (s.decoded.sqrtPriceMin === null || s.decoded.sqrtPriceMax === null) return true;
-  const usdA = tokenUsd(tokenA);
-  const usdB = tokenUsd(tokenB);
   if (usdA === null || usdB === null || usdA <= 0 || usdB <= 0) return false;
   const fairSqrt = fairSqrtForTokens(usdA, usdB, tokenA, tokenB);
   return fairSqrt >= s.decoded.sqrtPriceMin && fairSqrt <= s.decoded.sqrtPriceMax;

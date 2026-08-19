@@ -3,24 +3,23 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import type { AppConfig } from './config.ts';
 import { CHAINLINK_FEEDS } from './constants.ts';
-import type { FillEvent, GasMeasurements, GroupMetrics, LifecycleEvent, PairMetrics, PoolSelection } from './types.ts';
-import { toLowerAddress } from './types.ts';
+import type { FillEvent, GasMeasurements, GroupMetrics, LifecycleEvent, PairMetrics, PoolSelection, RangePathStats, RewardUniverse } from './types.ts';
 import { makeClient, getFinalizedBlock, getBlockAtOrBeforeTimestamp, assertChainOk, assertContractsDeployed, deploymentBlocks, type RpcContext } from './sources/rpc.ts';
 import { fetchRewardUniverse } from './sources/merkl.ts';
-import { fetchPriceSeries, answersAtOrBefore, type PriceSeries } from './sources/chainlink.ts';
+import { fetchPriceSeries, type PriceSeries } from './sources/chainlink.ts';
 import { discoverPool, fetchPoolSeries, computePoolDepthStats, selectBestPool, FEE_TIERS, type PoolSeries } from './sources/uniswap.ts';
 import { indexLifecycleEvents } from './index/events.ts';
 import { indexFillEvents } from './index/fills.ts';
-import { loadCheckpoint, saveCheckpoint, loadJsonl, appendJsonl, dedupeByKey, eventKey, ensureDataDir, type Checkpoint } from './index/store.ts';
+import { loadCheckpoint, saveCheckpoint, loadJsonl, appendJsonl, dedupeByKey, eventKey, ensureDataDir, bigintReplacer, type Checkpoint } from './index/store.ts';
 import { computePairAndGroupMetrics, pairKey, tokenToFeedName, ONEINCH } from './analytics/group.ts';
 import { buildDenominatorScopes, denominatorCampaignGroups } from './analytics/denominator.ts';
 import { buildStrategies, computeCompetition, activeStrategiesAt } from './analytics/competition.ts';
-import { buildFairPriceProvider, computeMarkoutSamples, summarizeMarkouts, markoutReliability, WETH, USDC, USDT, DAI } from './analytics/markouts.ts';
+import { buildFairPriceProvider, computeMarkoutSamples, summarizeMarkouts, markoutReliability, conservativeAdverseRateUsdPerUsd, WETH } from './analytics/markouts.ts';
 import { simulateAllWidths, type PricePoint } from './analytics/rangeCross.ts';
 import { realizedDailyVolPct } from './util/vol.ts';
 import { decide, type CycleData } from './decision/decide.ts';
 import { rangeHalfWidthPct } from './util/price.ts';
-import { AQUA_ROUTER, REGISTRY_DEPLOY_BLOCK } from './constants.ts';
+import { AQUA_ROUTER, REGISTRY_DEPLOY_BLOCK, SEASON1_GROUPS } from './constants.ts';
 
 export type CycleResult = {
   liveCutoffBlock: bigint;
@@ -38,8 +37,12 @@ export type CycleResult = {
 
 const MAX_MARKOUT_HORIZON_SEC = 1800;
 
-export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string) => void } = {}): Promise<CycleResult> {
+export async function runShadowCycle(
+  cfg: AppConfig,
+  opts: { log?: (msg: string) => void; validationOnly?: boolean } = {},
+): Promise<CycleResult> {
   const log = opts.log ?? (() => undefined);
+  const validationOnly = opts.validationOnly === true;
   const start = Date.now();
   ensureDataDir(cfg);
   const ctx = makeClient(cfg);
@@ -54,7 +57,7 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
   const historicalCutoffBlock = await getBlockAtOrBeforeTimestamp(ctx, historicalCutoffTs, liveCutoffBlock);
   const histBlock = await ctx.client.getBlock({ blockNumber: historicalCutoffBlock });
   const historicalCutoffTimestamp = histBlock.timestamp;
-  log('cutoffs: live=' + liveCutoffBlock + ' hist=' + historicalCutoffBlock + ' (' + new Date(Number(historicalCutoffTimestamp) * 1000).toISOString() + ')');
+  log('cutoffs: live=' + liveCutoffBlock + ' hist=' + historicalCutoffBlock + ' (' + new Date(Number(historicalCutoffTimestamp) * 1000).toISOString() + ') validationOnly=' + validationOnly);
 
   const { registryDeploy } = deploymentBlocks();
   const lookbackSec = cfg.lookbackHours * 3600;
@@ -84,14 +87,16 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
   const strategies = buildStrategies(mergedLife);
   log('strategies=' + strategies.size + ' active=' + activeStrategiesAt(strategies, liveCutoffBlock, AQUA_ROUTER).length);
 
-  // Full reward-denominator scopes (candidate scope is separate and narrower)
-  const denominatorScopes = await buildDenominatorScopes(ctx, cfg, strategies, universe.campaignGroups);
+  // P0-1: full reward-denominator scopes from the OFFICIAL Season-1 market
+  // definition only (no on-chain membership inference).
+  const denominatorScopes = await buildDenominatorScopes(ctx, cfg);
   for (const [g, d] of Object.entries(denominatorScopes)) {
     log('denominator ' + g + ': ' + d.detail + ' markets=' + d.markets.map((m) => m.symbol).join(','));
   }
   const workingGroups = denominatorCampaignGroups(universe.campaignGroups, denominatorScopes);
 
-  // Chainlink anchors (USD anchors only)
+  // Chainlink anchors (USD anchors only - sanity/anchor, never membership or
+  // in-range classification).
   const seriesStartBlock = fillWindowStartBlock;
   const anchors: Record<string, PriceSeries> = {};
   const anchorNames = ['ETH/USD', 'USDC/USD', 'USDT/USD', 'DAI/USD', '1INCH/USD'];
@@ -102,29 +107,117 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
       log('anchor ' + fn + ' observations=' + anchors[fn]!.observations.length);
     });
   await Promise.all(anchorJobs);
-  const latestUsd = (token: string): number | null => {
-    const fn = tokenToFeedName(token);
-    const s = fn ? anchors[fn] : undefined;
-    if (!s || s.observations.length === 0) return null;
-    return Number(s.observations[s.observations.length - 1]!.answer) / 10 ** s.decimals;
-  };
-  const usdPriceAtTs = (token: string, ts: bigint): number | null => {
-    const fn = tokenToFeedName(token);
-    if (!fn || !anchors[fn]) return null;
-    const obs = answersAtOrBefore(anchors[fn]!, [ts])[0];
-    return obs ? Number(obs.answer) / 10 ** anchors[fn]!.decimals : null;
-  };
 
   const fillsInWindow = mergedFills.filter((f) => f.blockNumber >= fillWindowStartBlock && f.blockNumber <= historicalCutoffBlock);
-  const { pairMetrics, groupMetrics } = computePairAndGroupMetrics(fillsInWindow, {
-    usdPrice: usdPriceAtTs,
-    latestUsdPrice: latestUsd,
-  }, Number(historicalCutoffTimestamp - fillWindowStartTs), workingGroups);
+
+  // Pools: discover ALL fee tiers, measure depth, select only pools that pass
+  // hard quality rules (P0-5). A LOW-quality selected pool => FAIR_PRICE_UNRELIABLE.
+  // P0-5/P0-1: pool discovery is restricted to OFFICIAL Season-1 paired assets
+  // that actually traded in the fill window (plus 1INCH/WETH); unrelated
+  // observed pairs never drive reference prices and empty official markets do
+  // not need reference pools (their fills are valued via the 1INCH leg).
+  const neededPairs = new Map<string, { a: string; b: string }>();
+  neededPairs.set(pairKey(ONEINCH, WETH), { a: ONEINCH, b: WETH });
+  const observedPaired = new Set<string>();
+  for (const f of fillsInWindow) {
+    const a = f.tokenIn.toLowerCase();
+    const b = f.tokenOut.toLowerCase();
+    if (a === ONEINCH) observedPaired.add(b);
+    else if (b === ONEINCH) observedPaired.add(a);
+  }
+  for (const g of ['ETH_LST', 'STABLE'] as const) {
+    for (const m of SEASON1_GROUPS[g].officialMarkets) {
+      const paired = m.address.toString().toLowerCase();
+      if (paired === WETH || !observedPaired.has(paired)) continue;
+      neededPairs.set(pairKey(WETH, paired), { a: WETH, b: paired });
+    }
+  }
+  const poolCandidates = new Map<string, { poolAddress: string; token0: string; token1: string; feeTier: number }[]>();
+  for (const [key, p] of neededPairs) {
+    const found = [];
+    for (const fee of FEE_TIERS) {
+      const pool = await discoverPool(ctx, cfg, p.a, p.b, fee);
+      if (pool) {
+        found.push(pool);
+        log('pool-candidate ' + key.slice(0, 10) + ' fee=' + fee + ' ' + pool.poolAddress.slice(0, 10));
+      }
+    }
+    if (found.length > 0) poolCandidates.set(key, found);
+  }
+  const allSeries: Record<string, PoolSeries[]> = {};
+  // Serialize pool-series fetching (3 pairs at a time) to avoid public RPC
+  // rate limits while still completing in reasonable time.
+  await mapWithConcurrency([...poolCandidates.entries()], 3, async ([key, pools]) => {
+    const series = await Promise.all(pools.map((p) => fetchPoolSeries(ctx, cfg, p, seriesStartBlock, liveCutoffBlock, (f, t, n) => log('  pool ' + key.slice(0, 10) + ':' + p.feeTier + ' ' + f + '-' + t + ': ' + n))));
+    allSeries[key] = series;
+    for (const s of series) log('pool-series ' + key.slice(0, 10) + ':' + s.feeTier + ' swaps=' + s.observations.length);
+  });
+  const pools: Record<string, PoolSeries> = {};
+  const poolSelections: PoolSelection[] = [];
+  const statsByKey = new Map<string, Awaited<ReturnType<typeof computePoolDepthStats>>[]>();
+  for (const [key, seriesList] of Object.entries(allSeries)) {
+    const stats = [];
+    for (let i = 0; i < seriesList.length; i++) {
+      const meta = poolCandidates.get(key)![i]!;
+      const s = seriesList[i]!;
+      stats.push(await computePoolDepthStats(ctx, cfg, meta, s, nowSec, historicalCutoffTimestamp - BigInt(lookbackSec)));
+    }
+    statsByKey.set(key, stats);
+    const selection = selectBestPool(key, stats, {
+      minLiquidity: cfg.poolMinLiquidity,
+      minObservations: cfg.poolMinObservations,
+      maxAgeSec: cfg.poolMaxAgeSec,
+      minConfidence: cfg.poolMinConfidence,
+    });
+    poolSelections.push(selection);
+    if (selection.selected && selection.qualityPassed) {
+      const chosenSeries = seriesList.find((s) => s.poolAddress === selection.selected!.poolAddress);
+      if (chosenSeries) pools[key] = chosenSeries;
+    }
+    log('pool-select ' + key.slice(0, 10) + ': ' + selection.rationale);
+  }
+
+  // P0-2 valuation grade: for HISTORICAL fill valuation the reference pool must
+  // be depth- and density-qualified, but live freshness is NOT required (the
+  // query is historical and age-aware). The strict pools above (with max-age +
+  // confidence rules) remain the only source for current prices and markouts.
+  const valuationPools: Record<string, PoolSeries> = {};
+  for (const [key, statsList] of statsByKey) {
+    const seriesList = allSeries[key]!;
+    const ranked = statsList
+      .map((s, i) => ({ s, i, score: Math.log10(Number(s.liquidity) + 1) * 1000 + Math.min(s.observationCount, 5000) }))
+      .filter((e) => e.s.liquidity >= cfg.poolMinLiquidity && e.s.observationCount >= cfg.poolMinObservations)
+      .sort((a, b) => b.score - a.score);
+    if (ranked.length > 0) valuationPools[key] = seriesList[ranked[0]!.i]!;
+  }
+  const valuationPoolInfo = Object.fromEntries(
+    [...statsByKey.entries()].map(([key, statsList]) => {
+      const sel = valuationPools[key];
+      const st = statsList.find((s) => s.poolAddress === sel?.poolAddress) ?? null;
+      return [key, st ? { poolAddress: st.poolAddress, feeTier: st.feeTier, liquidity: st.liquidity.toString(), observationCount: st.observationCount, maxObservationAgeSec: st.maxObservationAgeSec, sourceConfidence: st.sourceConfidence } : null];
+    }),
+  );
+
+  const provider = buildFairPriceProvider(pools, anchors, nowSec);
+  const valuationProvider = buildFairPriceProvider(valuationPools, anchors, nowSec);
+  const oneInchUsdAt = (ts: bigint): number | null => {
+    const o = valuationProvider.usdPriceAt(ONEINCH, ts, cfg.fillPricingMaxAgeSec);
+    return o ? o.price : null;
+  };
+
+  // P0-2: group metrics valued consistently from the 1INCH leg with per-market
+  // pricing coverage; every official eligible market contributes fills.
+  const { pairMetrics, groupMetrics } = computePairAndGroupMetrics(
+    fillsInWindow,
+    { oneInchUsdAt },
+    Number(historicalCutoffTimestamp - fillWindowStartTs),
+    workingGroups,
+  );
   for (const pm of pairMetrics) {
-    log('pair ' + pm.pairKey + ' group=' + pm.group + ' fills=' + pm.fillCount + ' grossUsd=' + pm.grossFillUsd.toFixed(2) + ' dailyRate=' + pm.dailyFillRateUsd.toFixed(2));
+    log('pair ' + pm.pairKey + ' group=' + pm.group + ' fills=' + pm.fillCount + ' priced=' + pm.pricedFillCount + ' coverage=' + pm.pricingCoveragePct.toFixed(2) + '% grossUsd=' + pm.grossFillUsd.toFixed(2) + ' dailyRate=' + pm.dailyFillRateUsd.toFixed(2));
   }
   for (const g of groupMetrics) {
-    log('group ' + g.group + ' fills=' + g.fillCount + ' grossUsd=' + g.grossGroupFillUsd.toFixed(2) + ' dailyRate=' + g.dailyFillRateUsd.toFixed(2));
+    log('group ' + g.group + ' fills=' + g.fillCount + ' priced=' + g.pricedFillCount + ' coverage=' + g.pricingCoveragePct.toFixed(2) + '% grossUsd=' + g.grossGroupFillUsd.toFixed(2) + ' dailyRate=' + g.dailyFillRateUsd.toFixed(2));
   }
 
   // Join orderHash -> decoded strategy metadata for empirical fill share
@@ -143,50 +236,6 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
     }
   }
 
-  // Pools: discover ALL fee tiers, measure depth, select the most defensible
-  const neededPairs = new Map<string, { a: string; b: string }>();
-  for (const pm of pairMetrics) {
-    neededPairs.set(pairKey(ONEINCH, WETH), { a: ONEINCH, b: WETH });
-    if (pm.tokenB.toLowerCase() === WETH) continue;
-    neededPairs.set(pairKey(WETH, pm.tokenB), { a: WETH, b: pm.tokenB });
-  }
-  const poolCandidates = new Map<string, { poolAddress: string; token0: string; token1: string; feeTier: number }[]>();
-  for (const [key, p] of neededPairs) {
-    const found = [];
-    for (const fee of FEE_TIERS) {
-      const pool = await discoverPool(ctx, cfg, p.a, p.b, fee);
-      if (pool) {
-        found.push(pool);
-        log('pool-candidate ' + key.slice(0, 10) + ' fee=' + fee + ' ' + pool.poolAddress.slice(0, 10));
-      }
-    }
-    if (found.length > 0) poolCandidates.set(key, found);
-  }
-  const allSeries: Record<string, PoolSeries[]> = {};
-  await Promise.all([...poolCandidates.entries()].map(async ([key, pools]) => {
-    const series = await Promise.all(pools.map((p) => fetchPoolSeries(ctx, cfg, p, seriesStartBlock, liveCutoffBlock, (f, t, n) => log('  pool ' + key.slice(0, 10) + ':' + p.feeTier + ' ' + f + '-' + t + ': ' + n))));
-    allSeries[key] = series;
-    for (const s of series) log('pool-series ' + key.slice(0, 10) + ':' + s.feeTier + ' swaps=' + s.observations.length);
-  }));
-  const pools: Record<string, PoolSeries> = {};
-  const poolSelections: PoolSelection[] = [];
-  for (const [key, seriesList] of Object.entries(allSeries)) {
-    const stats = [];
-    for (let i = 0; i < seriesList.length; i++) {
-      const meta = poolCandidates.get(key)![i]!;
-      const s = seriesList[i]!;
-      stats.push(await computePoolDepthStats(ctx, cfg, meta, s, nowSec, historicalCutoffTimestamp - BigInt(lookbackSec)));
-    }
-    const selection = selectBestPool(key, stats);
-    poolSelections.push(selection);
-    if (selection.selected) {
-      const chosenSeries = seriesList.find((s) => s.poolAddress === selection.selected!.poolAddress);
-      if (chosenSeries) pools[key] = chosenSeries;
-    }
-    log('pool-select ' + key.slice(0, 10) + ': ' + selection.rationale);
-  }
-
-  const provider = buildFairPriceProvider(pools, anchors, nowSec);
   const markoutFills = mergedFills.filter((f) => f.timestamp + BigInt(maxHorizon) <= historicalCutoffTimestamp);
   const markoutSummaries: Record<string, ReturnType<typeof summarizeMarkouts>> = {};
   const markoutReliabilities: Record<string, ReturnType<typeof markoutReliability>> = {};
@@ -200,41 +249,81 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
     log('markouts ' + pm.pairKey + ': ' + markoutSummaries[pm.pairKey]!.map((s) => s.horizonSec + 's:' + s.sampleCount).join(' ') + ' adverseUsd=' + adv.toFixed(2) + ' favorableUsd=' + fav.toFixed(2) + ' reliable=' + markoutReliabilities[pm.pairKey]!.reliable);
   }
 
-  // Competition per pair (canonical keys, no cross-wiring)
+  // P0-4: competition + CURRENT_FAIR_PRICE gate share the exact same fresh
+  // depth-qualified fair prices at the live cutoff (Chainlink is anchor only).
   const competitions = new Map<string, Awaited<ReturnType<typeof computeCompetition>>>();
+  const currentUsdByPair: Record<string, { usdTokenA: number | null; usdTokenB: number | null }> = {};
+  const currentPriceOk: Record<string, boolean> = {};
+  const cur1 = provider.currentUsdPrice(ONEINCH, cfg.markoutMaxPoolAgeSec);
   for (const pm of pairMetrics) {
     if (competitions.has(pm.pairKey)) continue;
-    const comp = await computeCompetition(ctx, cfg, strategies, pm.tokenA, pm.tokenB, liveCutoffBlock, latestUsd);
+    const cur2 = provider.currentUsdPrice(pm.tokenB, cfg.markoutMaxPoolAgeSec);
+    currentUsdByPair[pm.pairKey] = { usdTokenA: cur1 ? cur1.price : null, usdTokenB: cur2 ? cur2.price : null };
+    currentPriceOk[pm.pairKey] = cur1 !== null && cur2 !== null;
+    const comp = await computeCompetition(ctx, cfg, strategies, pm.tokenA, pm.tokenB, liveCutoffBlock, {
+      usdTokenA: cur1 ? cur1.price : null,
+      usdTokenB: cur2 ? cur2.price : null,
+    });
     competitions.set(pm.pairKey, comp);
-    log('competition ' + pm.pairKey + ' active=' + comp.activeStrategies.length + ' inRange=' + comp.inRangeCount + ' backingUsd=' + comp.totalInRangeBackingUsd.toFixed(2) + ' unknownBacking=' + comp.dataUnknownCount);
+    log('competition ' + pm.pairKey + ' active=' + comp.activeStrategies.length + ' inRange=' + comp.inRangeCount + ' backingUsd=' + comp.totalInRangeBackingUsd.toFixed(2) + ' unknownBacking=' + comp.dataUnknownCount + ' currentPriceOk=' + currentPriceOk[pm.pairKey]);
   }
 
-  // Per-pair range sims + realized volatility (composed paths only)
+  // P0-6: per-pair range sims + realized volatility with gap-aware stats and a
+  // RANGE_PATH_RELIABLE gate. A missing/insufficient path must block TRADE.
   const rangeSimsByPair: Record<string, Map<number, { reshipsPerDay: number; timeInRangePct: number }>> = {};
-  const dailyVolPctByPair: Record<string, number> = {};
-  const currentPriceOk: Record<string, boolean> = {};
+  const rangePathStatsByPair: Record<string, RangePathStats> = {};
+  const rangePathReliableByPair: Record<string, { reliable: boolean; reason: string }> = {};
+  const dailyVolPctByPair: Record<string, number | null> = {};
+  const pairFills: Record<string, FillEvent[]> = {};
   for (const pm of pairMetrics) {
-    const cur1 = provider.currentUsdPrice(ONEINCH, cfg.markoutMaxPoolAgeSec);
-    const cur2 = provider.currentUsdPrice(pm.tokenB, cfg.markoutMaxPoolAgeSec);
-    currentPriceOk[pm.pairKey] = cur1 !== null && cur2 !== null;
+    pairFills[pm.pairKey] = fillsInWindow.filter((f) => pairKey(f.tokenIn, f.tokenOut) === pm.pairKey);
     const path = buildComposedPairPath(provider, pm.tokenA, pm.tokenB, pools, historicalCutoffTimestamp - BigInt(lookbackSec), historicalCutoffTimestamp, cfg.markoutMaxPoolAgeSec);
     if (path.length > 1) {
       rangeSimsByPair[pm.pairKey] = new Map(simulateAllWidths(path, cfg.candidateHalfWidthsPct, cfg.reshipCooldownSec).map((s) => [s.halfWidthPct, { reshipsPerDay: s.reshipsPerDay, timeInRangePct: s.timeInRangePct }]));
       const vol = realizedDailyVolPct(path, cfg.volResampleIntervalSec, cfg.volMaxGapSec);
-      dailyVolPctByPair[pm.pairKey] = vol.volPct;
-      log('pairpath ' + pm.pairKey + ' points=' + path.length + ' sims=' + [...rangeSimsByPair[pm.pairKey]!.entries()].map(([w, s]) => w + '%:' + s.reshipsPerDay.toFixed(2) + '/d').join(' ') + ' vol=' + vol.volPct.toFixed(2) + '% (' + vol.detail + ')');
+      const stats = { ...vol.stats, pairKey: pm.pairKey };
+      rangePathStatsByPair[pm.pairKey] = stats;
+      const reliable = vol.reliable && stats.coveragePct >= cfg.rangePathMinCoveragePct && stats.resampledBarCount >= cfg.rangePathMinBars;
+      rangePathReliableByPair[pm.pairKey] = {
+        reliable,
+        reason: reliable
+          ? 'RANGE_PATH_RELIABLE: ' + stats.detail
+          : 'RANGE_PATH_RELIABLE: ' + stats.detail + ' minCoverage=' + cfg.rangePathMinCoveragePct + '% minBars=' + cfg.rangePathMinBars,
+      };
+      dailyVolPctByPair[pm.pairKey] = reliable ? vol.volPct : null;
+      log('pairpath ' + pm.pairKey + ' points=' + path.length + ' ' + stats.detail + ' reliable=' + reliable + ' vol=' + (vol.volPct === null ? 'n/a' : vol.volPct.toFixed(2) + '%'));
     } else {
+      rangePathStatsByPair[pm.pairKey] = {
+        pairKey: pm.pairKey,
+        realObservationCount: path.length,
+        resampledBarCount: 0,
+        expectedBarCount: 0,
+        coveragePct: 0,
+        largestGapSec: 0,
+        segments: 0,
+        reliable: false,
+        detail: 'no composed pair path (missing/insufficient price data)',
+      };
+      rangePathReliableByPair[pm.pairKey] = { reliable: false, reason: 'RANGE_PATH_RELIABLE: no composed pair path (missing/insufficient price data)' };
+      dailyVolPctByPair[pm.pairKey] = null;
       log('pairpath ' + pm.pairKey + ' NO_PATH currentPriceOk=' + currentPriceOk[pm.pairKey]);
     }
   }
 
   // Gas measurements (part A) - pair-independent
+  const latestUsd = (token: string): number | null => {
+    const fn = tokenToFeedName(token);
+    const s = fn ? anchors[fn] : undefined;
+    if (!s || s.observations.length === 0) return null;
+    return Number(s.observations[s.observations.length - 1]!.answer) / 10 ** s.decimals;
+  };
   const gasMeasurements = await buildGasMeasurements(ctx, cfg, mergedLife, latestUsd(WETH), nowSec, log);
 
   const cd: CycleData = {
     chainOk: true,
     contractsOk: true,
     indexHealthy: mergedLife.length > 0,
+    validationOnly,
     nowSec,
     liveCutoffBlock,
     liveCutoffTimestamp: latest.timestamp,
@@ -250,8 +339,13 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
     markoutSummaries,
     markoutReliabilities,
     rangeSimsByPair,
-    dailyVolPctByPair,
+    rangePathStatsByPair,
+    rangePathReliableByPair,
     currentPriceOk,
+    currentUsdByPair,
+    pairFills,
+    oneInchUsdAt,
+    dailyVolPctByPair,
     capitalUsd: cfg.canaryCapUsd,
     lookbackHours: cfg.lookbackHours,
     sourceTimestamps: {
@@ -265,10 +359,17 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
   };
   const result = decide(cfg, cd);
   log('decision=' + result.decision.decision + ' pair=' + (result.decision.pair ?? 'none') + ' net=' + result.decision.expectedNetUsdPerDay.toFixed(4) + ' stress=' + result.decision.stressNetUsdPerDay.toFixed(4));
-  const auditPath = writeAuditArtifact(result, {
-    headSha: process.env.GITHUB_SHA ?? '',
-    liveCutoffBlock,
-    historicalCutoffBlock,
+  const auditPath = writeAuditArtifact({
+    result,
+    cd,
+    universe,
+    poolSelections,
+    valuationPoolInfo,
+    currentUsdByPair,
+    rangePathStatsByPair,
+    dailyVolPctByPair,
+    gasMeasurements,
+    validationOnly,
   });
   return {
     liveCutoffBlock,
@@ -382,48 +483,253 @@ async function receiptGasPercentiles(ctx: RpcContext, cfg: AppConfig, txHashes: 
   return p75;
 }
 
-function writeAuditArtifact(
-  result: ReturnType<typeof decide>,
-  meta: { headSha: string; liveCutoffBlock: bigint; historicalCutoffBlock: bigint },
-): string {
+async function mapWithConcurrency<T, R>(items: T[], concurrency: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = [];
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const i = cursor++;
+      out[i] = await fn(items[i]!);
+    }
+  }
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, () => worker());
+  await Promise.all(workers);
+  return out;
+}
+
+type AuditInput = {
+  result: ReturnType<typeof decide>;
+  cd: CycleData;
+  universe: RewardUniverse;
+  poolSelections: PoolSelection[];
+  valuationPoolInfo: Record<string, unknown>;
+  currentUsdByPair: Record<string, { usdTokenA: number | null; usdTokenB: number | null }>;
+  rangePathStatsByPair: Record<string, RangePathStats>;
+  dailyVolPctByPair: Record<string, number | null>;
+  gasMeasurements: GasMeasurements;
+  validationOnly: boolean;
+};
+
+/**
+ * P1: comprehensive audit artifact. validatedCodeSha is the SHA of the code
+ * being validated (git HEAD at generation time); artifactGeneratedAt is when
+ * the artifact was written - the artifact may be committed later, so it never
+ * claims the artifact HEAD equals the validated code commit.
+ */
+function writeAuditArtifact(input: AuditInput): string {
+  const { result, cd, universe, poolSelections, valuationPoolInfo, currentUsdByPair, rangePathStatsByPair, dailyVolPctByPair, gasMeasurements, validationOnly } = input;
   const dir = join(process.cwd(), 'audit');
   mkdirSync(dir, { recursive: true });
-  let headSha = meta.headSha;
-  if (!headSha) {
+  let validatedCodeSha = process.env.GITHUB_SHA ?? '';
+  let validatedWorkingTreeDirty = false;
+  let validatedChangedFiles: string[] = [];
+  if (!validatedCodeSha) {
     try {
       const r = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', timeout: 5000 });
-      if (r.status === 0 && r.stdout) headSha = r.stdout.trim();
+      if (r.status === 0 && r.stdout) validatedCodeSha = r.stdout.trim();
+      const s = spawnSync('git', ['status', '--porcelain'], { encoding: 'utf8', timeout: 5000 });
+      if (s.status === 0 && s.stdout) {
+        validatedWorkingTreeDirty = true;
+        validatedChangedFiles = s.stdout.split('\n').map((l) => l.trim()).filter(Boolean);
+      }
     } catch {
-      headSha = '';
+      validatedCodeSha = '';
     }
   }
   const d = result.decision;
   const audit = {
-    headSha,
+    validatedCodeSha,
+    validatedWorkingTreeDirty,
+    validatedChangedFiles,
+    artifactGeneratedAt: new Date().toISOString(),
     modelVersion: d.modelVersion,
-    timestamp: new Date(Number(d.generatedAt) * 1000).toISOString(),
-    liveCutoffBlock: meta.liveCutoffBlock.toString(),
-    historicalCutoffBlock: meta.historicalCutoffBlock.toString(),
-    decision: d.decision,
-    pair: d.pair,
-    capitalUsd: d.capitalUsd,
-    confidence: d.confidence,
-    expectedNetUsdPerDay: d.expectedNetUsdPerDay,
-    stressNetUsdPerDay: d.stressNetUsdPerDay,
-    failedGates: d.failedGates,
-    passedGates: d.passedGates,
-    reasons: d.reasons,
-    candidateCount: result.candidates.length,
+    validationOnly,
+    configFingerprint: d.configFingerprint,
+    cutoffs: {
+      liveCutoffBlock: cd.liveCutoffBlock.toString(),
+      liveCutoffTimestamp: cd.liveCutoffTimestamp.toString(),
+      historicalCutoffBlock: cd.historicalCutoffBlock.toString(),
+      historicalCutoffTimestamp: cd.historicalCutoffTimestamp.toString(),
+    },
+    sourceTimestamps: cd.sourceTimestamps,
+    denominatorMarkets: Object.fromEntries(
+      Object.entries(cd.denominatorScopes).map(([g, s]) => [
+        g,
+        {
+          complete: s.complete,
+          detail: s.detail,
+          officialMemberCount: s.officialMemberCount,
+          validatedMemberCount: s.validatedMemberCount,
+          validationFailedTokens: s.validationFailedTokens,
+          markets: s.markets.map((m) => ({
+            symbol: m.officialSymbol,
+            token: m.token,
+            decimals: m.decimals,
+            kind: m.kind,
+            validated: m.validated,
+            validationDetail: m.validationDetail,
+            provenance: m.provenance,
+          })),
+        },
+      ]),
+    ),
+    perMarketDenominatorMetrics: cd.pairMetrics.map((pm) => ({
+      pairKey: pm.pairKey,
+      group: pm.group,
+      tokenB: pm.tokenB,
+      fillCount: pm.fillCount,
+      pricedFillCount: pm.pricedFillCount,
+      unpricedFillCount: pm.unpricedFillCount,
+      pricingCoveragePct: pm.pricingCoveragePct,
+      volumeUsd: pm.grossFillUsd,
+      dailyFillRateUsd: pm.dailyFillRateUsd,
+    })),
+    groupDenominatorTotals: cd.groupMetrics.map((g) => ({
+      group: g.group,
+      fillCount: g.fillCount,
+      pricedFillCount: g.pricedFillCount,
+      unpricedFillCount: g.unpricedFillCount,
+      pricingCoveragePct: g.pricingCoveragePct,
+      grossVolumeUsd: g.grossGroupFillUsd,
+      dailyFillRateUsd: g.dailyFillRateUsd,
+    })),
+    opportunityInventory: universe.campaignInventory.opportunities,
+    campaignInventory: universe.campaignInventory.campaigns,
+    activeCampaignBudgetCalculation: universe.campaignBudgets,
+    selectedFairPricePools: poolSelections.map((s) => ({
+      pairKey: s.pairKey,
+      qualityPassed: s.qualityPassed,
+      selected: s.selected
+        ? {
+            poolAddress: s.selected.poolAddress,
+            feeTier: s.selected.feeTier,
+            liquidity: s.selected.liquidity.toString(),
+            observationCount: s.selected.observationCount,
+            recentVolumeProxy: s.selected.recentVolumeProxy,
+            maxObservationAgeSec: s.selected.maxObservationAgeSec,
+            sourceConfidence: s.selected.sourceConfidence,
+          }
+        : null,
+      rationale: s.rationale,
+    })),
+    valuationFairPricePools: valuationPoolInfo,
+    pairCurrentPrices: currentUsdByPair,
+    competition: [...cd.competitions.values()].map((c) => ({
+      pairKey: c.pairKey,
+      atBlock: c.atBlock.toString(),
+      fairPriceTokenBPerTokenA: c.fairPriceTokenBPerTokenA,
+      inRangeCount: c.inRangeCount,
+      totalInRangeBackingUsd: c.totalInRangeBackingUsd,
+      feePercentiles: c.feePercentiles,
+      widthPercentiles: c.widthPercentiles,
+      dataUnknownCount: c.dataUnknownCount,
+      dataKnownCount: c.dataKnownCount,
+      activeStrategies: c.activeStrategies.map((s) => ({
+        strategyHash: s.strategyHash,
+        maker: s.maker,
+        feeBps: s.feeBps,
+        inRange: s.inRange,
+        backingUsdUpperBound: s.backingUsdUpperBound,
+        backingDataKnown: s.backingDataKnown,
+      })),
+    })),
+    markoutsPerHorizon: Object.fromEntries(
+      Object.entries(cd.markoutSummaries).map(([k, v]) => [
+        k,
+        v.map((s) => ({
+          horizonSec: s.horizonSec,
+          sampleCount: s.sampleCount,
+          weightedMeanBps: s.weightedMeanBps,
+          medianBps: s.medianBps,
+          p75Bps: s.p75Bps,
+          conservativeBps: s.conservativeBps,
+          totalAdverseUsd: s.totalAdverseUsd,
+          totalFavorableUsd: s.totalFavorableUsd,
+          totalNotionalUsd: s.totalNotionalUsd,
+        })),
+      ]),
+    ),
+    adverseRateSelected: Object.fromEntries(
+      Object.entries(cd.markoutSummaries).map(([k, v]) => [k, conservativeAdverseRateUsdPerUsd(v) * 1e4]),
+    ),
+    rangePathCoverage: rangePathStatsByPair,
+    rangeSimulations: Object.fromEntries(
+      Object.entries(cd.rangeSimsByPair).map(([k, v]) => [k, [...v.entries()].map(([w, s]) => ({ halfWidthPct: w, reshipsPerDay: s.reshipsPerDay, timeInRangePct: s.timeInRangePct }))]),
+    ),
+    volatilityPct: dailyVolPctByPair,
+    gasMeasurements: {
+      gasPriceUsdPerUnit: gasMeasurements.gasPriceUsdPerUnit,
+      gasUnits: gasMeasurements.gasUnits,
+      gasUnitsSource: gasMeasurements.gasUnitsSource,
+      measured: gasMeasurements.measured,
+    },
+    candidates: result.candidates.map((c) => ({
+      pairKey: c.pairKey,
+      halfWidthPct: c.halfWidthPct,
+      feeBps: c.feeBps,
+      fillShare: c.fillShare,
+      fillShareSource: c.fillShareSource,
+      comparableStrategyCount: c.comparableStrategyCount,
+      expectedGrossFillUsdPerDay: c.expectedGrossFillUsdPerDay,
+      expectedServiceableFillUsdPerDay: c.expectedServiceableFillUsdPerDay,
+      unservedFillUsdPerDay: c.unservedFillUsdPerDay,
+      expectedQualifyingFillUsdPerDay: c.expectedQualifyingFillUsdPerDay,
+      rewardFormula: {
+        pairDailyGrossFillUsd: c.pairDailyGrossFillUsd,
+        wholeGroupDailyGrossFillUsd: c.wholeGroupDailyGrossFillUsd,
+        pairShareOfGroup: c.pairShareOfGroup,
+        conservativeGroupRewardShare: c.conservativeGroupRewardShare,
+        groupBudgetUsd: c.groupBudgetUsd,
+        qualificationHaircut: c.qualificationHaircut,
+      },
+      pnl: {
+        rewardIncomeUsdPerDay: c.rewardIncomeUsdPerDay,
+        makerFeeIncomeUsdPerDay: c.makerFeeIncomeUsdPerDay,
+        adverseSelectionUsdPerDay: c.adverseSelectionUsdPerDay,
+        adverseRateBps: c.adverseRateBps,
+        favorableMarkoutUsdPerDay: c.favorableMarkoutUsdPerDay,
+        rebalanceCostUsdPerDay: c.rebalanceCostUsdPerDay,
+        gasUsdPerDay: c.gasUsdPerDay,
+        expectedNetUsdPerDay: c.expectedNetUsdPerDay,
+        stressNetUsdPerDay: c.stressNetUsdPerDay,
+      },
+      inventoryThroughput: {
+        serviceableFillUsdPerDay: c.expectedServiceableFillUsdPerDay,
+        unservedFillUsdPerDay: c.unservedFillUsdPerDay,
+        utilizationPct: c.inventoryUtilizationPct,
+        directionalImbalanceUsdPerDay: c.directionalImbalanceUsdPerDay,
+        rebalanceCountPerDay: c.inventoryRebalanceCountPerDay,
+        turnoverPerCapital: c.turnoverPerDay,
+      },
+      gasKnown: c.gasKnown,
+      confidence: c.confidence,
+      markoutReliable: c.markoutReliable,
+      rangePathUnreliableReason: c.rangePathUnreliableReason,
+    })),
+    gates: {
+      failed: d.failedGates,
+      passed: d.passedGates,
+    },
+    finalDecision: {
+      decision: d.decision,
+      pair: d.pair,
+      capitalUsd: d.capitalUsd,
+      expectedNetUsdPerDay: d.expectedNetUsdPerDay,
+      stressNetUsdPerDay: d.stressNetUsdPerDay,
+      confidence: d.confidence,
+      reasons: d.reasons,
+    },
   };
   const jsonPath = join(dir, 'latest-shadow.json');
-  writeFileSync(jsonPath, JSON.stringify(audit, null, 2), 'utf8');
+  writeFileSync(jsonPath, JSON.stringify(audit, bigintReplacer, 2), 'utf8');
   const mdLines: string[] = [];
   mdLines.push('# Aqua Reward Farmer - Latest Shadow Audit (model v' + d.modelVersion + ')');
   mdLines.push('');
-  mdLines.push('- headSha: ' + meta.headSha);
-  mdLines.push('- timestamp: ' + audit.timestamp);
-  mdLines.push('- liveCutoffBlock: ' + meta.liveCutoffBlock.toString());
-  mdLines.push('- historicalCutoffBlock: ' + meta.historicalCutoffBlock.toString());
+  mdLines.push('- validatedCodeSha: ' + validatedCodeSha);
+  mdLines.push('- artifactGeneratedAt: ' + audit.artifactGeneratedAt);
+  mdLines.push('- validationOnly: ' + validationOnly);
+  mdLines.push('- liveCutoffBlock: ' + cd.liveCutoffBlock.toString());
+  mdLines.push('- historicalCutoffBlock: ' + cd.historicalCutoffBlock.toString());
   mdLines.push('- decision: **' + d.decision + '**');
   mdLines.push('- pair: ' + (d.pair ?? 'none'));
   mdLines.push('- expectedNetUsdPerDay: ' + d.expectedNetUsdPerDay.toFixed(4));
@@ -436,7 +742,7 @@ function writeAuditArtifact(
   mdLines.push('## Reasons');
   for (const r of d.reasons) mdLines.push('- ' + r);
   mdLines.push('');
-  mdLines.push('_Read-only shadow audit; no transaction was signed or broadcast._');
+  mdLines.push('_Read-only shadow audit; no transaction was signed or broadcast. The artifact may be committed in a later audit-only commit; validatedCodeSha identifies the code commit that was validated._');
   writeFileSync(join(dir, 'latest-shadow.md'), mdLines.join('\n'), 'utf8');
   return jsonPath;
 }

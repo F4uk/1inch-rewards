@@ -43,17 +43,23 @@ export function evaluateGates(ctx: GateContext): { passed: GateResult[]; failed:
     'markouts=' + usableMarkoutCount(ctx.markoutSummaries) + ' min=' + ctx.cfg.minCompletedMarkoutCount);
   push('gross-denominator', (ctx.pair?.grossFillUsd ?? 0) > 0 && (ctx.group?.grossGroupFillUsd ?? 0) > 0,
     'pairGrossUsd=' + (ctx.pair?.grossFillUsd ?? 0).toFixed(2) + ' groupGrossUsd=' + (ctx.group?.grossGroupFillUsd ?? 0).toFixed(2));
+  push('denominator-pricing-coverage', (ctx.group?.pricingCoveragePct ?? 0) >= ctx.cfg.pricingCoverageMinPct,
+    'groupPricingCoverage=' + (ctx.group?.pricingCoveragePct ?? 0).toFixed(2) + '% min=' + ctx.cfg.pricingCoverageMinPct + '% (unpriced fills must be visible, never silently continue)');
   push('competition-available', ctx.competition !== null, ctx.competition ? 'active=' + ctx.competition.activeStrategies.length : 'no competition state');
   push('qualification-conservative', ctx.cfg.qualificationHaircut <= 1 && ctx.cfg.qualificationHaircut > 0,
     'haircut=' + ctx.cfg.qualificationHaircut + ' QUALIFICATION_UNVERIFIED');
   push('campaign-coverage-complete', ctx.universe !== null && ctx.universe.coverage.complete,
     ctx.universe ? ctx.universe.coverage.detail : 'no universe');
+  push('campaign-budget-consistent', ctx.universe !== null && ctx.universe.coverage.campaignBudgetMismatch.length === 0,
+    ctx.universe && ctx.universe.coverage.campaignBudgetMismatch.length > 0 ? 'CAMPAIGN_BUDGET_MISMATCH: ' + ctx.universe.coverage.campaignBudgetMismatch.join('; ') : 'active-campaign budget matches opportunity summary within tolerance');
   push('denominator-coverage-complete', ctx.denominator !== null && ctx.denominator.complete,
     ctx.denominator ? ctx.denominator.detail : 'no denominator state');
   push('current-fair-price-available', ctx.currentPriceOk, 'freshDepthQualifiedCurrentPrice=' + ctx.currentPriceOk);
   push('pair-reward-eligible', ctx.candidate.rewardEligible, 'eligible=' + ctx.candidate.rewardEligible);
   push('markout-reliable', ctx.candidate.markoutReliable,
     ctx.candidate.markoutUnreliableReason ?? 'reliable maxAge=' + ctx.markoutReliability.minObservationAgeSec + 's');
+  push('range-path-reliable', ctx.candidate.rangePathUnreliableReason === null,
+    ctx.candidate.rangePathUnreliableReason ?? 'resampled path coverage/sample requirements satisfied');
   push('gas-known', ctx.candidate.gasKnown && ctx.gasKnown, 'gasKnown=' + ctx.candidate.gasKnown);
   push('confidence', confidenceAtLeast(ctx.candidate.confidence, 'MEDIUM'), 'confidence=' + ctx.candidate.confidence);
   push('base-net-positive', ctx.candidate.expectedNetUsdPerDay > 0,

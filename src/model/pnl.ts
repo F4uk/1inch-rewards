@@ -1,6 +1,7 @@
 import type { AppConfig } from '../config.ts';
 import type { Candidate, CandidateGasOutput, CompetitionState, GroupMetrics, MarkoutReliability, MarkoutSummary, PairMetrics } from '../types.ts';
 import { clamp } from '../util/units.ts';
+import { conservativeAdverseRateUsdPerUsd } from '../analytics/markouts.ts';
 
 export type PnlInputs = {
   cfg: AppConfig;
@@ -20,6 +21,19 @@ export type PnlInputs = {
   capitalUsd: number;
   dailyVolPct: number;
   rewardEligible: boolean;
+  /** P0-7 inventory-throughput result (serviceable fill bounds reward + fees). */
+  inventory: {
+    serviceableFillUsdPerDay: number;
+    unservedFillUsdPerDay: number;
+    rebalanceCountPerDay: number;
+    utilizationPct: number;
+    imbalanceUsdPerDay: number;
+    detail: string;
+  };
+  /** P0-8 conservative adverse rate (USD adverse per USD notional), per-horizon max. */
+  adverseRate: number;
+  /** RANGE_PATH_RELIABLE reason (null = reliable). */
+  rangePathUnreliableReason: string | null;
 };
 
 /**
@@ -34,27 +48,32 @@ export type PnlInputs = {
  * backing competition already enters through the fill-share model.
  */
 export function computeCandidatePnl(input: PnlInputs): Candidate {
-  const { cfg, pairMetrics, group, competition, budgetUsdPerDay, markoutSummaries, markoutReliability, gasModel, rangeSim, fillShare, capitalUsd, dailyVolPct, rewardEligible } = input;
+  const { cfg, pairMetrics, group, competition, budgetUsdPerDay, markoutSummaries, markoutReliability, gasModel, rangeSim, fillShare, capitalUsd, dailyVolPct, rewardEligible, inventory, adverseRate, rangePathUnreliableReason } = input;
   const pairDailyGrossFillUsd = pairMetrics.dailyFillRateUsd;
   const wholeGroupDailyGrossFillUsd = group.dailyFillRateUsd;
   const pairShareOfGroup = wholeGroupDailyGrossFillUsd > 0 ? pairDailyGrossFillUsd / wholeGroupDailyGrossFillUsd : 0;
-  const expectedGrossFillUsdPerDay = pairDailyGrossFillUsd * fillShare;
+  const requestedGrossFillUsdPerDay = pairDailyGrossFillUsd * fillShare;
+  // P0-7: reward + maker fees are bounded by serviceable inventory throughput.
+  const expectedServiceableFillUsdPerDay = Math.min(requestedGrossFillUsdPerDay, inventory.serviceableFillUsdPerDay);
+  const unservedFillUsdPerDay = Math.max(0, requestedGrossFillUsdPerDay - expectedServiceableFillUsdPerDay) + inventory.unservedFillUsdPerDay;
+  const expectedGrossFillUsdPerDay = expectedServiceableFillUsdPerDay;
   const expectedQualifyingFillUsdPerDay = expectedGrossFillUsdPerDay * cfg.qualificationHaircut;
   const conservativeGroupRewardShare = wholeGroupDailyGrossFillUsd > 0
     ? expectedQualifyingFillUsdPerDay / wholeGroupDailyGrossFillUsd
     : 0;
   const rewardIncomeUsdPerDay = rewardEligible ? budgetUsdPerDay * conservativeGroupRewardShare : 0;
   const makerFeeIncomeUsdPerDay = expectedGrossFillUsdPerDay * (input.feeBps / 1e4);
-  const totalAdverse = markoutSummaries.reduce((a, s) => a + s.totalAdverseUsd, 0);
   const totalFavorable = markoutSummaries.reduce((a, s) => a + s.totalFavorableUsd, 0);
   const totalNotional = markoutSummaries.reduce((a, s) => a + s.totalNotionalUsd, 0);
-  const adversePerUsd = totalNotional > 0 ? totalAdverse / totalNotional : 0;
+  const adversePerUsd = adverseRate;
   const favorablePerUsd = totalNotional > 0 ? totalFavorable / totalNotional : 0;
   // Hard invariant: adverse selection cost is never negative.
   const adverseSelectionUsdPerDay = Math.max(0, expectedGrossFillUsdPerDay * adversePerUsd);
+  // Favorable markout is diagnostic only (P0-8): it never offsets adverse cost.
   const favorableMarkoutUsdPerDay = expectedGrossFillUsdPerDay * favorablePerUsd;
   const reshipsPerDay = rangeSim.reshipsPerDay;
-  const rebalanceCostUsdPerDay = reshipsPerDay * capitalUsd * (cfg.fallbackRebalanceMaxLossBps / 1e4);
+  const priceLossBps = cfg.fallbackRebalanceMaxLossBps / 1e4;
+  const rebalanceCostUsdPerDay = (reshipsPerDay + inventory.rebalanceCountPerDay) * capitalUsd * priceLossBps;
   const gasUsdPerDay = gasModel.gasUsdPerDay;
   const expectedNetUsdPerDay = rewardIncomeUsdPerDay + makerFeeIncomeUsdPerDay - adverseSelectionUsdPerDay - rebalanceCostUsdPerDay - gasUsdPerDay;
   const inventoryNotionalUsd = capitalUsd;
@@ -66,7 +85,7 @@ export function computeCandidatePnl(input: PnlInputs): Candidate {
     rebalanceCostUsdPerDay,
     gasUsdPerDay,
   });
-  const turnoverPerDay = capitalUsd > 0 ? expectedGrossFillUsdPerDay / capitalUsd : 0;
+  const turnoverPerDay = capitalUsd > 0 ? expectedServiceableFillUsdPerDay / capitalUsd : 0;
   return {
     pairKey: pairMetrics.pairKey,
     group: pairMetrics.group,
@@ -89,6 +108,8 @@ export function computeCandidatePnl(input: PnlInputs): Candidate {
     pairFillCount: pairMetrics.fillCount,
     groupFillCount: group.fillCount,
     expectedGrossFillUsdPerDay,
+    expectedServiceableFillUsdPerDay,
+    unservedFillUsdPerDay,
     expectedQualifyingFillUsdPerDay,
     rewardIncomeUsdPerDay,
     makerFeeIncomeUsdPerDay,
@@ -99,6 +120,10 @@ export function computeCandidatePnl(input: PnlInputs): Candidate {
     expectedNetUsdPerDay,
     stressNetUsdPerDay: stress.net,
     turnoverPerDay,
+    inventoryUtilizationPct: inventory.utilizationPct,
+    directionalImbalanceUsdPerDay: inventory.imbalanceUsdPerDay,
+    inventoryRebalanceCountPerDay: inventory.rebalanceCountPerDay,
+    adverseRateBps: adversePerUsd * 1e4,
     expectedTimeInRangePct: rangeSim.timeInRangePct,
     inventoryNotionalUsd,
     inventoryBufferUsd,
@@ -110,6 +135,7 @@ export function computeCandidatePnl(input: PnlInputs): Candidate {
     markoutReliable: markoutReliability.reliable,
     gasKnown: gasModel.gasKnown,
     markoutUnreliableReason: markoutReliability.reliable ? null : markoutReliability.reason,
+    rangePathUnreliableReason,
     totalAdverseUsdPerDay: adverseSelectionUsdPerDay,
     favorableMarkoutUsdPerDay,
   };

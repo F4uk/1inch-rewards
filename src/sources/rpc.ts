@@ -231,7 +231,10 @@ export async function withRetry<T>(fn: () => Promise<T>, retries: number): Promi
     } catch (e) {
       lastErr = e;
       if (i < retries) {
-        await new Promise((res) => setTimeout(res, 500 * 2 ** i));
+        const msg = String(e).toLowerCase();
+        const rateLimited = msg.includes('rate limit') || msg.includes('rate_limit') || msg.includes('429') || msg.includes('too many requests');
+        // Rate-limit responses need a substantially longer backoff to recover.
+        await new Promise((res) => setTimeout(res, (rateLimited ? 10000 : 500) * 2 ** i));
       }
     }
   }

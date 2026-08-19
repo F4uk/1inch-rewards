@@ -52,8 +52,11 @@ export function decodePoolSwap(raw: {
     words.push(BigInt('0x' + (hex.slice(i * 64, (i + 1) * 64) || '0')));
   }
   const sqrtPriceX96 = words[2]!;
-  const amount0 = words[0]!;
-  const amount1 = words[1]!;
+  // Uniswap V3 Swap emits amount0/amount1 as SIGNED int256: positive means the
+  // pool received that token, negative means the pool sent it. Reading them as
+  // uint256 would turn negative legs into astronomically large positive values.
+  const amount0 = toSignedInt256(words[0]!);
+  const amount1 = toSignedInt256(words[1]!);
   const price = sqrtX96ToPrice(sqrtPriceX96, decimals0, decimals1);
   if (price <= 0 || !Number.isFinite(price)) return null;
   return {
@@ -66,6 +69,14 @@ export function decodePoolSwap(raw: {
     amount0,
     amount1,
   };
+}
+
+/** Two's-complement decode of a 256-bit word as signed int256. */
+export function toSignedInt256(word: bigint): bigint {
+  const TWO_255 = 1n << 255n;
+  const TWO_256 = 1n << 256n;
+  if (word < 0n || word >= TWO_256) throw new Error('invalid uint256 word');
+  return word >= TWO_255 ? word - TWO_256 : word;
 }
 
 /**
@@ -94,10 +105,11 @@ export async function computePoolDepthStats(
     liquidity = 0n;
   }
   const inWindow = series.observations.filter((o) => o.timestamp >= windowStartTs);
-  const recentVolumeUsd = inWindow.reduce((a, o) => {
+  // Rankable volume proxy in token0 units; NOT a USD-priced volume (a token's
+  // USD price is not required for pool selection, only relative depth).
+  const recentVolumeProxy = inWindow.reduce((a, o) => {
     const d0 = decimalsOfToken(pool.token0);
     const d1 = decimalsOfToken(pool.token1);
-    // Volume proxy expressed in token0 units (rankable, not USD-priced).
     const t0 = Math.abs(Number(o.amount0)) / 10 ** d0;
     const t1 = Math.abs(Number(o.amount1)) / 10 ** d1;
     const t1InT0 = o.priceToken1PerToken0 > 0 ? t1 / o.priceToken1PerToken0 : 0;
@@ -105,7 +117,7 @@ export async function computePoolDepthStats(
   }, 0);
   const last = inWindow.length > 0 ? inWindow[inWindow.length - 1] : null;
   const maxObservationAgeSec = last ? Number(nowSec - last.timestamp) : Number.MAX_SAFE_INTEGER;
-  const sourceConfidence = liquidity > 0n && inWindow.length >= 20 && maxObservationAgeSec <= 900 ? 'HIGH' : liquidity > 0n && inWindow.length >= 5 && maxObservationAgeSec <= 3600 ? 'MEDIUM' : 'LOW';
+  const sourceConfidence = liquidity >= cfg.poolMinLiquidity && inWindow.length >= cfg.poolMinObservations && maxObservationAgeSec <= cfg.poolMaxAgeSec ? 'HIGH' : liquidity > 0n && inWindow.length >= Math.max(5, Math.floor(cfg.poolMinObservations / 2)) && maxObservationAgeSec <= cfg.poolMaxAgeSec * 2 ? 'MEDIUM' : 'LOW';
   return {
     poolAddress: pool.poolAddress,
     token0: pool.token0,
@@ -113,7 +125,7 @@ export async function computePoolDepthStats(
     feeTier: pool.feeTier,
     liquidity,
     observationCount: inWindow.length,
-    recentVolumeUsd,
+    recentVolumeProxy,
     maxObservationAgeSec,
     sourceConfidence,
   };
@@ -121,21 +133,51 @@ export async function computePoolDepthStats(
 
 /**
  * Select the most defensible reference source among candidate pools.
- * Preference order: depth (liquidity > 0), observation density, volume,
- * freshness; tie-break by lower fee tier. Pools with zero liquidity or too few
- * observations cannot win over a deep pool.
+ * Hard quality rules (P0-5) are enforced FIRST:
+ *   - minimum liquidity magnitude (cfg.poolMinLiquidity)
+ *   - minimum observation density (cfg.poolMinObservations)
+ *   - maximum observation age (cfg.poolMaxAgeSec)
+ *   - minimum source confidence (cfg.poolMinConfidence)
+ * Then depth magnitude (log10 liquidity) DOMINATES the score: a thin pool with
+ * many swaps can never beat a dramatically deeper fresh pool solely because of
+ * observation count. If no candidate passes the hard rules, the pair has NO
+ * qualified reference pool and FAIR_PRICE_UNRELIABLE must block trading.
  */
-export function selectBestPool(pairKey: string, candidates: PoolDepthStats[]): PoolSelection {
+export function selectBestPool(
+  pairKey: string,
+  candidates: PoolDepthStats[],
+  quality: { minLiquidity: bigint; minObservations: number; maxAgeSec: number; minConfidence: 'HIGH' | 'MEDIUM' },
+): PoolSelection {
   if (candidates.length === 0) {
-    return { pairKey, selected: null, candidates: [], rationale: 'no pool candidates' };
+    return { pairKey, selected: null, candidates: [], rationale: 'FAIR_PRICE_UNRELIABLE: no pool candidates', qualityPassed: false };
+  }
+  const confRank = { LOW: 0, MEDIUM: 1, HIGH: 2 } as const;
+  const minConfRank = confRank[quality.minConfidence];
+  const qualified = candidates.filter((c) =>
+    c.liquidity >= quality.minLiquidity &&
+    c.observationCount >= quality.minObservations &&
+    c.maxObservationAgeSec <= quality.maxAgeSec &&
+    confRank[c.sourceConfidence] >= minConfRank,
+  );
+  if (qualified.length === 0) {
+    const worst = candidates.map((c) => 'fee=' + c.feeTier + ' liq=' + c.liquidity.toString() + ' obs=' + c.observationCount + ' maxAge=' + c.maxObservationAgeSec + ' conf=' + c.sourceConfidence).join(' ');
+    return {
+      pairKey,
+      selected: null,
+      candidates,
+      rationale: 'FAIR_PRICE_UNRELIABLE: no pool passes hard quality rules (minLiq=' + quality.minLiquidity.toString() + ' minObs=' + quality.minObservations + ' maxAge=' + quality.maxAgeSec + 's minConf=' + quality.minConfidence + ') [' + worst + ']',
+      qualityPassed: false,
+    };
   }
   const scored = candidates.map((c) => {
     let score = 0;
-    if (c.liquidity > 0n) score += 1000;
-    score += Math.min(c.observationCount, 2000);
-    score += Math.min(Math.log10(c.recentVolumeUsd + 1) * 100, 500);
+    // Depth magnitude dominates: log10(liquidity)*1000 so a 1e18 pool beats a
+    // 1e12 pool by ~6000 points regardless of observation density.
+    score += Math.log10(Number(c.liquidity) + 1) * 1000;
+    score += Math.min(c.observationCount, 500) * 0.2;
+    score += Math.min(Math.log10(c.recentVolumeProxy + 1) * 20, 100);
     if (c.maxObservationAgeSec <= 900) score += 200;
-    else if (c.maxObservationAgeSec <= 3600) score += 50;
+    else if (c.maxObservationAgeSec <= quality.maxAgeSec) score += 50;
     score += (10000 - c.feeTier) / 1000;
     return { c, score };
   });
@@ -143,10 +185,10 @@ export function selectBestPool(pairKey: string, candidates: PoolDepthStats[]): P
   const selected = scored[0]!.c;
   const rationale = 'chosen=' + selected.poolAddress.slice(0, 10) + ' fee=' + selected.feeTier +
     ' liq=' + selected.liquidity.toString() + ' obs=' + selected.observationCount +
-    ' volUsd=' + selected.recentVolumeUsd.toFixed(0) + ' maxAge=' + selected.maxObservationAgeSec +
+    ' volProxy=' + selected.recentVolumeProxy.toFixed(0) + ' maxAge=' + selected.maxObservationAgeSec +
     ' conf=' + selected.sourceConfidence +
     ' scores=' + scored.map((s) => s.c.feeTier + ':' + s.score.toFixed(0)).join(' ');
-  return { pairKey, selected, candidates, rationale };
+  return { pairKey, selected, candidates, rationale, qualityPassed: true };
 }
 
 export function decimalsOfToken(token: string): number {

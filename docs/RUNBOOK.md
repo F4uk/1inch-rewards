@@ -37,6 +37,16 @@ hard gates + persistence gate, and atomically writes:
 First run indexes the full Aqua lifecycle history and may take a while.
 Subsequent runs are incremental.
 
+### Validation-only shadow cycle (no persistence)
+
+    npm run shadow-cycle -- --validation-only
+
+Runs the complete live analytics and writes the audit artifacts
+(audit/latest-shadow.json + .md) but never creates a persistence-qualifying
+snapshot: any snapshot written carries validationOnly=true and
+evaluatePersistence excludes it. No real v4 persistence begins until external
+architecture ACCEPT.
+
 ### Decision status
 
     npm run decision/status
@@ -73,4 +83,9 @@ the shadow cycle running (e.g., every 4-8 hours) to collect snapshots.
 - Markout unreliable or gas unknown => TRADE forbidden.
 - Unknown pair eligibility => reward = 0 and candidate cannot TRADE.
 - Denominator coverage incomplete => TRADE forbidden.
+- Group pricing coverage < 95% (unpriced fills visible) => TRADE forbidden.
+- CAMPAIGN_BUDGET_MISMATCH (active-campaign budget vs opportunity summary
+  beyond tolerance) => TRADE forbidden.
+- RANGE_PATH_RELIABLE failed (coverage/bars below minimum or no path) =>
+  TRADE forbidden (missing paths never default to 0 reships / 100% in-range).
 - Current fresh fair price missing => TRADE forbidden.

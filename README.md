@@ -29,6 +29,7 @@ public read-only RPCs are used by default.
 
     npm run doctor          # read-only environment check (exit non-zero on hard blockers)
     npm run shadow-cycle    # one-command TRADE / DO_NOT_TRADE decision + snapshot
+    npm run shadow-cycle -- --validation-only  # full analytics + audit artifact, NO qualifying snapshot
     npm run decision/status # latest persisted decision + persistence status
     npm run canary-preview  # unsigned <= USD 50 preview (only when decision is TRADE)
     npm run typecheck
@@ -42,6 +43,14 @@ public read-only RPCs are used by default.
   >= 3 snapshots spanning >= 16h before TRADE is possible)
 - data/canary-preview.json (unsigned transactions, gas estimates, warnings)
 - data/index/*.jsonl + checkpoint.json (resumable, idempotent event index)
+- audit/latest-shadow.json + .md (comprehensive audit artifact:
+  validatedCodeSha, cutoffs, official denominator markets + provenance,
+  per-market volume/pricing coverage, campaign inventory + active budget,
+  selected pools, competition, markouts, range path stats, gas, candidates)
+
+Season-1 eligibility uses the OFFICIAL 1inch market definition only (ETH/LST:
+20 markets; Stable: 25 markets; each paired with 1INCH). Observed on-chain
+pairs never create campaign membership. modelVersion is 4.
 
 ## Constraints (see AGENTS.md)
 

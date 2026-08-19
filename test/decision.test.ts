@@ -32,6 +32,9 @@ function pairMetrics(): PairMetrics {
     tokenA: ONEINCH,
     tokenB: USDC,
     fillCount: 30,
+    pricedFillCount: 30,
+    unpricedFillCount: 0,
+    pricingCoveragePct: 100,
     grossFillUsd: 1000,
     dailyFillRateUsd: 500,
     fillShareByStrategy: shares,
@@ -47,6 +50,9 @@ function groupMetrics(): GroupMetrics {
     group: 'STABLE',
     grossGroupFillUsd: 1000,
     fillCount: 30,
+    pricedFillCount: 30,
+    unpricedFillCount: 0,
+    pricingCoveragePct: 100,
     dailyFillRateUsd: 500,
     fillShareByStrategy: shares,
     strategyFees: new Map(),
@@ -118,8 +124,8 @@ function cycleData(over: Partial<CycleData> & { adverseBps?: number; capitalUsd?
     universe: uni,
     campaignInventory: uni ? uni.campaignInventory : { opportunities: [], campaigns: [], aquaCampaignCount: 0, aquaOpportunityCount: 0 },
     denominatorScopes: {
-      ETH_LST: { group: 'ETH_LST', markets: [], complete: true, unresolvedTokens: [], detail: 'test' },
-      STABLE: { group: 'STABLE', markets: [], complete: true, unresolvedTokens: [], detail: 'test' },
+      ETH_LST: { group: 'ETH_LST', markets: [], complete: true, officialMemberCount: 0, validatedMemberCount: 0, unresolvedTokens: [], validationFailedTokens: [], detail: 'test' },
+      STABLE: { group: 'STABLE', markets: [], complete: true, officialMemberCount: 0, validatedMemberCount: 0, unresolvedTokens: [], validationFailedTokens: [], detail: 'test' },
     },
     poolSelections: [],
     pairMetrics: [pm],
@@ -128,14 +134,38 @@ function cycleData(over: Partial<CycleData> & { adverseBps?: number; capitalUsd?
     markoutSummaries: markouts,
     markoutReliabilities: reliability,
     rangeSimsByPair: { [KEY]: rangeSims },
+    rangePathStatsByPair: { [KEY]: { pairKey: KEY, realObservationCount: 200, resampledBarCount: 200, expectedBarCount: 200, coveragePct: 100, largestGapSec: 300, segments: 1, reliable: true, detail: 'test' } },
+    rangePathReliableByPair: { [KEY]: { reliable: true, reason: 'test' } },
     dailyVolPctByPair: { [KEY]: 2 },
     currentPriceOk: { [KEY]: true },
+    currentUsdByPair: { [KEY]: { usdTokenA: 12, usdTokenB: 1 } },
+    pairFills: {
+      [KEY]: Array.from({ length: 30 }, (_, i) => {
+        const tokenIn = i % 2 === 0 ? USDC : ONEINCH;
+        const tokenOut = i % 2 === 0 ? ONEINCH : USDC;
+        return {
+          orderHash: '0x' + (10 + i).toString(16).padStart(2, '0').repeat(32),
+          maker: '0x1111111111111111111111111111111111111111',
+          taker: '0x2222222222222222222222222222222222222222',
+          tokenIn,
+          tokenOut,
+          amountIn: tokenIn === ONEINCH ? 10n ** 18n : 1_000_000n,
+          amountOut: tokenOut === ONEINCH ? 10n ** 18n : 1_000_000n,
+          blockNumber: BigInt(100 + i),
+          txHash: '0x' + (10 + i).toString(16).padStart(2, '0').repeat(32),
+          logIndex: i,
+          timestamp: BigInt(1000 + i * 3600),
+        };
+      }),
+    },
+    oneInchUsdAt: () => 12,
     capitalUsd: over.capitalUsd ?? 50,
     lookbackHours: 72,
     sourceTimestamps: { live: '1000000', merkl: '1000000', feeds: '1000000' },
     rewardsFresh: over.universeHealthy !== false,
     feedsFresh: true,
     gasMeasurements,
+    validationOnly: false,
   };
   const { adverseBps: _a, capitalUsd: _c, universeHealthy: _u, grossUsd: _g, markoutReliable: _m, gasKnown: _k, coverageComplete: _cc, ...rest } = over;
   return { ...base, ...rest };

@@ -110,15 +110,19 @@ test('pair metrics: only eligible 1INCH fills count; USDC/USDT excluded from den
     fill({ orderHash: '0x' + 'cc'.repeat(32), tokenIn: USDC, tokenOut: USDT, amountIn: 5_000_000n, timestamp: 300n }),
     fill({ orderHash: '0x' + 'dd'.repeat(32), tokenIn: WETH, tokenOut: USDC, amountIn: 1n, timestamp: 400n }),
   ];
-  const pricing = { usdPrice: () => 1.0, latestUsdPrice: () => 1.0 };
+  const pricing = { oneInchUsdAt: () => 1.0 };
   const { pairMetrics, groupMetrics } = computePairAndGroupMetrics(fills, pricing, 86400, CAMPAIGNS);
   assert.equal(pairMetrics.length, 1);
   assert.equal(pairMetrics[0]!.pairKey, pairKey(ONEINCH, USDC));
   assert.equal(pairMetrics[0]!.fillCount, 2);
-  assert.equal(pairMetrics[0]!.grossFillUsd, 3);
+  // P0-2: fills are valued from the 1INCH leg (10 1INCH * $1 each = $10/fill).
+  assert.equal(pairMetrics[0]!.pricedFillCount, 2);
+  assert.equal(pairMetrics[0]!.unpricedFillCount, 0);
+  assert.equal(pairMetrics[0]!.pricingCoveragePct, 100);
+  assert.equal(pairMetrics[0]!.grossFillUsd, 20);
   const stable = groupMetrics.find((g) => g.group === 'STABLE')!;
   assert.equal(stable.fillCount, 2);
-  assert.equal(stable.grossGroupFillUsd, 3);
+  assert.equal(stable.grossGroupFillUsd, 20);
 });
 
 // ---------- P0-4 / P1 canonical orientation ----------
@@ -352,7 +356,7 @@ test('competition: rawBalances uses official ABI args (maker, app, strategyHash,
     balanceOf: async () => 100n,
     allowance: async () => 80n,
   });
-  const comp = await computeCompetition(ctx, cfg, strategies, USDC, WETH, 1000n, (t) => (t === WETH ? 1912 : t === USDC ? 1 : null));
+  const comp = await computeCompetition(ctx, cfg, strategies, USDC, WETH, 1000n, { usdTokenA: 1, usdTokenB: 1912 });
   const arg = capturedArgs as unknown[];
   assert.equal(arg[0], '0x1111111111111111111111111111111111111111'); // maker
   assert.equal(String(arg[1]).toLowerCase(), '0x111111338c5091e8440b67b168bae16a668ac0de'); // app (router)
@@ -380,7 +384,7 @@ test('competition: failed rawBalances read is DATA_UNKNOWN, not a silent zero', 
     balanceOf: async () => 100n,
     allowance: async () => 80n,
   });
-  const comp = await computeCompetition(ctx, cfg, strategies, USDC, WETH, 1000n, (t) => (t === WETH ? 1912 : t === USDC ? 1 : null));
+  const comp = await computeCompetition(ctx, cfg, strategies, USDC, WETH, 1000n, { usdTokenA: 1, usdTokenB: 1912 });
   assert.equal(comp.dataUnknownCount, 2);
   assert.equal(comp.activeStrategies.every((s) => !s.backingDataKnown), true);
 });
@@ -411,7 +415,7 @@ test('competition: accessible backing never double-counted across a maker strate
     balanceOf: async () => 100n,
     allowance: async () => 80n,
   });
-  const comp = await computeCompetition(ctx, cfg, strategies, USDC, WETH, 1000n, (t) => (t === WETH ? 1912 : t === USDC ? 1 : null));
+  const comp = await computeCompetition(ctx, cfg, strategies, USDC, WETH, 1000n, { usdTokenA: 1, usdTokenB: 1912 });
   const totalBacking = comp.activeStrategies.reduce((a, s) => a + s.backingUsdUpperBound, 0);
   assert.ok(totalBacking > 0);
   // USDC side capped by min(balance=100, allowance=80) = 80; never 160
@@ -451,7 +455,11 @@ export function makeUniverseFixture(): RewardUniverse {
       aquaCampaignCount: 1,
       aquaOpportunityCount: 2,
     },
-    coverage: { complete: true, parsedCampaignCount: 2, liveAquaCampaignCount: 2, unknownCampaigns: [], detail: 'COVERAGE_COMPLETE' },
+    campaignBudgets: {
+      STABLE: { activeCampaignBudgetUsd: 1630, opportunitySummaryUsd: 1630, mismatchPct: null, detail: 'matched' },
+      ETH_LST: { activeCampaignBudgetUsd: 1902, opportunitySummaryUsd: 1902, mismatchPct: null, detail: 'matched' },
+    },
+    coverage: { complete: true, parsedCampaignCount: 2, liveAquaCampaignCount: 2, unknownCampaigns: [], opportunitiesWithoutCampaigns: [], campaignBudgetMismatch: [], detail: 'COVERAGE_COMPLETE' },
     fetchedAt: 1000n,
     sourceHealthy: true,
     error: null,

@@ -550,3 +550,90 @@ was implemented.
 **SHADOW_MODEL_READY** - modelVersion 3 passes all deterministic validation
 and the live read-only cycle; the honest live decision is DO_NOT_TRADE; the
 16h persistence window must NOT start until architecture review accepts v3.
+
+---
+
+# V1.3 FINAL ECONOMIC INTEGRITY REPAIR (branch feature/shadow-v1-final-model-repair)
+
+## BASELINE (v1.3)
+
+- Base: 21cbd6e50e15e8d32f6544af8c9461029c584818 (feature/shadow-v1-economic-repair).
+- Branch: feature/shadow-v1-final-model-repair. No main modification, no merge.
+- The V1.2 $179/day rejected estimate is INVALID for economic expectation
+  until this repair is complete; no persistence window was started (model
+  version was bumped to 4, so v1-v3 snapshots never qualify).
+
+## ROOT CAUSES ADDRESSED
+
+1. Denominator membership was inferred from observed Aqua strategies
+   (P0-1) - an unclassifiable observed 1INCH pair made groups incomplete.
+2. Fill USD required a USD oracle per paired asset and pooled gross volume
+   inconsistently (P0-2).
+3. Reward budget used Opportunity summaries instead of ACTIVE Campaign
+   records, and coverage counted HTTP success instead of Campaign records
+   (P0-3).
+4. Competition in-range classification used stale Chainlink latestUsd (P0-4).
+5. Uniswap Swap amounts were decoded as unsigned (P0-5); volume proxy was
+   mislabeled USD; thin pools could win on observation count.
+6. Volatility carried observations across arbitrarily long gaps (P0-6);
+   missing paths defaulted to 0 reships / 100% in-range / 0 vol.
+7. No inventory-capacity bound: a $50 canary could "earn" from arbitrary
+   volume without deliverable inventory (P0-7).
+8. Adverse selection pooled 1m/5m/30m horizons into a diluting average
+   (P0-8).
+9. There was no validation-only mode; shadow runs could write qualifying
+   snapshots before external ACCEPT (P0-9).
+10. The audit artifact was minimal and claimed a HEAD sha (P1);
+    doctor.err was tracked.
+
+## CHANGED FILES
+
+- src/constants.ts - official Season-1 registry (20 ETH/LST + 25 Stable
+  markets) with per-market provenance; expanded TOKENS; rETH address fixed to
+  the on-chain validated address (0xae78736Cd615f374D3085123A210448E74Fc6393).
+- src/config.ts - poolMinLiquidity/poolMinObservations/poolMaxAgeSec/
+  poolMinConfidence, pricingCoverageMinPct, rangePathMinCoveragePct/
+  rangePathMinBars, budgetMismatchTolerancePct, inventoryInitialTokenSplit,
+  fillPricingMaxAgeSec.
+- src/types.ts - DenominatorMarket provenance, PoolDepthStats
+  recentVolumeProxy, PairMetrics/GroupMetrics pricing coverage,
+  RangePathStats, InventoryThroughput, Snapshot validationOnly/rangePathStats/
+  campaignBudgets, Candidate inventory + adverse-rate fields.
+- src/analytics/denominator.ts - official-only scopes with on-chain
+  validation, no membership inference.
+- src/analytics/group.ts - 1INCH-leg valuation, per-market coverage, group
+  invariant.
+- src/sources/uniswap.ts - signed int256 decode, hard pool quality rules,
+  depth-dominated selection, volume proxy rename.
+- src/sources/merkl.ts - per-opportunity Campaign requirement,
+  active-campaign budget, CAMPAIGN_BUDGET_MISMATCH detection.
+- src/analytics/competition.ts - provider-driven fair prices for in-range/
+  backing/stats.
+- src/analytics/markouts.ts - per-horizon conservative adverse rate.
+- src/util/vol.ts - gap-aware resampling with real-observation tracking and
+  persisted path stats.
+- src/model/inventory.ts (NEW) - inventory capacity/turnover replay.
+- src/model/pnl.ts - serviceable-fill bound + per-horizon adverse rate +
+  inventory rebalance cost.
+- src/decision/decide.ts - modelVersion=4, campaign budgets, range-path
+  reliability, inventory wiring, validationOnly snapshots.
+- src/decision/gates.ts - denominator-pricing-coverage,
+  campaign-budget-consistent, range-path-reliable gates.
+- src/decision/persistence.ts - validationOnly snapshots excluded.
+- src/cycle.ts - reordered pool->provider->metrics, valuation-grade pools,
+  comprehensive audit artifact (validatedCodeSha/artifactGeneratedAt).
+- src/cli/shadowCycle.ts - --validation-only.
+- test/v13.test.ts (NEW) + updated analytics/decision/model/v12 tests -
+  175 tests total.
+- .gitignore + git rm doctor.err; docs updated; CI workflow kept.
+
+## VALIDATION (see final report section)
+
+- npm ci, npm run typecheck, npm test (175/175), npm run build, npm run doctor
+  (13/13), npm run shadow-cycle -- --validation-only, npm run decision/status.
+
+## SAFETY
+
+- No signer/broadcast; NO_BROADCAST green; canary unsigned with bounded
+  approvals; capital cap fails closed; validation-only mode prevents any
+  qualifying persistence before external ACCEPT.
