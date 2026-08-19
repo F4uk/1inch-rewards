@@ -1,0 +1,19 @@
+You are taking over the Aqua Reward Farmer repository for a one-shot autonomous overnight implementation and audit.
+
+First, inspect the repository root and all existing docs/tests. If the repository does not already contain the supplied `AGENTS.md` and `CODEX_MASTER_TASK.md`, create them from the handoff package before modifying production code. Then treat both files as binding requirements.
+
+Execute the entire `CODEX_MASTER_TASK.md` end-to-end in this run. Do not stop for routine clarification questions. Make conservative assumptions, document them, and continue. Preserve useful existing V0.7 work; refactor instead of blindly rewriting.
+
+The goal is a complete Ethereum-only Aqua V1 shadow decision closed loop plus an UNSIGNED <=$50 canary preview. The task explicitly excludes any private-key handling, signing, transaction broadcast, custom SwapVM router/opcode, arbitrage, multi-chain live execution, wash/self-trading, auto-claim, and dashboard work.
+
+Important priority order:
+1. correctness and fail-closed safety;
+2. coherent dual-cutoff data integrity (live finalized state vs completed historical markout state);
+3. evidence-grounded fill/reward/adverse-selection model;
+4. stress-tested `TRADE` / `DO_NOT_TRADE` decision;
+5. deterministic tests and reproducible docs;
+6. only then convenience/cleanup.
+
+Run install/typecheck/tests/build, fix all code-owned failures, and run read-only live smoke/shadow checks if network/RPC is available. Never claim a check passed if it did not run. Do not merge to main. Commit the finished work if Git is writable and leave the worktree clean.
+
+Do not implement a live broadcaster even if the model returns TRADE. Finish with the exact final report format required by `CODEX_MASTER_TASK.md` and stop.

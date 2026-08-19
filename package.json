@@ -1,0 +1,28 @@
+{
+  "name": "aqua-reward-farmer",
+  "version": "0.8.0",
+  "private": true,
+  "description": "Safety-first, evidence-driven shadow controller for 1inch Aqua incentive market making (Ethereum, V1, read-only).",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "node --test \"test/*.test.ts\"",
+    "doctor": "node --env-file-if-exists=.env src/cli/doctor.ts",
+    "shadow-cycle": "node --env-file-if-exists=.env src/cli/shadowCycle.ts",
+    "canary-preview": "node --env-file-if-exists=.env src/cli/canaryPreview.ts",
+    "decision/status": "node --env-file-if-exists=.env src/cli/status.ts"
+  },
+  "dependencies": {
+    "@1inch/aqua-sdk": "0.3.1",
+    "@1inch/swap-vm-sdk": "0.4.1",
+    "viem": "^2.55.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "~5.9.3"
+  }
+}

@@ -1,0 +1,261 @@
+import type { PriceGroup } from './constants.ts';
+
+export type LifecycleEventKind = 'Shipped' | 'Docked' | 'Pulled' | 'Pushed';
+
+export type LifecycleEvent = {
+  kind: LifecycleEventKind;
+  maker: string;
+  app: string;
+  strategyHash: string;
+  token?: string;
+  amount?: bigint;
+  strategy?: string;
+  blockNumber: bigint;
+  blockHash?: string;
+  txHash: string;
+  logIndex: number;
+  timestamp: bigint;
+};
+
+export type FillEvent = {
+  orderHash: string;
+  maker: string;
+  taker: string;
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: bigint;
+  amountOut: bigint;
+  blockNumber: bigint;
+  blockHash?: string;
+  txHash: string;
+  logIndex: number;
+  timestamp: bigint;
+};
+
+export type DecodedInstruction = {
+  opcode: string;
+  args: Record<string, unknown>;
+};
+
+export type DecodedStrategy = {
+  strategyHash: string;
+  rawBytes: string;
+  maker: string;
+  traits: string;
+  instructions: DecodedInstruction[];
+  feeBpsIn: number | null;
+  sqrtPriceMin: bigint | null;
+  sqrtPriceMax: bigint | null;
+  salt: bigint | null;
+  decayPeriodSec: bigint | null;
+  supported: boolean;
+  unsupportedInstructions: string[];
+  decodeError: string | null;
+};
+
+export type StrategyRecord = {
+  strategyHash: string;
+  rawBytes: string;
+  maker: string;
+  app: string;
+  decoded: DecodedStrategy;
+  tokens: string[];
+  lastShipBlock: bigint;
+  lastShipTx: string;
+  lastDockBlock: bigint | null;
+  firstSeenBlock: bigint;
+};
+
+export type RewardOpportunity = {
+  id: string;
+  name: string;
+  group: PriceGroup;
+  rewardToken: string;
+  rewardTokenSymbol: string;
+  dailyRewardsUsd: number;
+  dailyRewardsRaw: bigint;
+  startTimestamp: bigint;
+  endTimestamp: bigint;
+  sourceTimestamp: bigint;
+  distributionType: string;
+  campaignId: string;
+  status: string;
+};
+
+export type RewardUniverse = {
+  opportunities: RewardOpportunity[];
+  fetchedAt: bigint;
+  sourceHealthy: boolean;
+  error: string | null;
+};
+
+export type GroupMetrics = {
+  group: PriceGroup;
+  grossGroupFillUsd: number;
+  fillCount: number;
+  dailyFillRateUsd: number;
+  fillShareByStrategy: Map<string, { fillUsd: number; share: number; count: number }>;
+  strategyFees: Map<string, number | null>;
+  strategyWidths: Map<string, number | null>;
+};
+
+export type CompetitionState = {
+  pairKey: string;
+  tokenA: string;
+  tokenB: string;
+  atBlock: bigint;
+  fairPriceTokenBPerTokenA: number | null;
+  activeStrategies: {
+    strategyHash: string;
+    maker: string;
+    feeBps: number | null;
+    sqrtPriceMin: bigint | null;
+    sqrtPriceMax: bigint | null;
+    inRange: boolean;
+    backingUsdUpperBound: number;
+  }[];
+  inRangeCount: number;
+  feePercentiles: { p25: number | null; p50: number | null; p75: number | null };
+  widthPercentiles: { p25: number | null; p50: number | null; p75: number | null };
+  totalInRangeBackingUsd: number;
+  makerTokenBacking: Map<string, number>;
+};
+
+export type MarkoutSample = {
+  fillBlock: bigint;
+  fillTimestamp: bigint;
+  notionalUsd: number;
+  markoutBps: number;
+  horizonSec: number;
+  complete: boolean;
+};
+
+export type MarkoutSummary = {
+  horizonSec: number;
+  sampleCount: number;
+  weightedMeanBps: number;
+  medianBps: number;
+  p75Bps: number;
+  conservativeBps: number;
+};
+
+export type RangeSimulation = {
+  halfWidthPct: number;
+  windowSec: number;
+  exits: number;
+  reshipsPerDay: number;
+  timeInRangePct: number;
+};
+
+export type Candidate = {
+  pairKey: string;
+  group: PriceGroup;
+  tokenA: string;
+  tokenB: string;
+  halfWidthPct: number;
+  feeBps: number;
+  empiricalFillShare: number | null;
+  structuralShare: number | null;
+  fillShare: number;
+  fillShareSource: string;
+  comparableStrategyCount: number;
+  grossGroupFillUsdPerDay: number;
+  expectedGrossFillUsdPerDay: number;
+  expectedQualifyingFillUsdPerDay: number;
+  rewardIncomeUsdPerDay: number;
+  makerFeeIncomeUsdPerDay: number;
+  adverseSelectionUsdPerDay: number;
+  expectedReshipsPerDay: number;
+  rebalanceCostUsdPerDay: number;
+  gasUsdPerDay: number;
+  expectedNetUsdPerDay: number;
+  stressNetUsdPerDay: number;
+  turnoverPerDay: number;
+  expectedTimeInRangePct: number;
+  inventoryNotionalUsd: number;
+  inventoryBufferUsd: number;
+  confidence: 'LOW' | 'MEDIUM' | 'HIGH';
+  sensitivity: Record<string, number>;
+  qualificationHaircut: number;
+  qualificationSource: string;
+};
+
+export type GateResult = {
+  name: string;
+  pass: boolean;
+  detail: string;
+};
+
+export type DecisionResult = {
+  decision: 'TRADE' | 'DO_NOT_TRADE';
+  pair: string | null;
+  capitalUsd: number;
+  rangeHalfWidthPct: number | null;
+  feeBps: number | null;
+  expectedGrossFillUsdPerDay: number;
+  expectedQualifyingFillUsdPerDay: number;
+  rewardIncomeUsdPerDay: number;
+  makerFeeIncomeUsdPerDay: number;
+  adverseSelectionUsdPerDay: number;
+  rebalanceCostUsdPerDay: number;
+  gasUsdPerDay: number;
+  expectedNetUsdPerDay: number;
+  stressNetUsdPerDay: number;
+  confidence: 'LOW' | 'MEDIUM' | 'HIGH';
+  liveCutoffBlock: string;
+  historicalCutoffBlock: string;
+  reasons: string[];
+  failedGates: GateResult[];
+  passedGates: GateResult[];
+  bestCandidate: Candidate | null;
+  generatedAt: bigint;
+};
+
+export type PersistenceStatus = {
+  snapshotCount: number;
+  spanHours: number;
+  gatePassed: boolean;
+  details: string[];
+};
+
+export type Snapshot = {
+  schemaVersion: number;
+  createdAt: bigint;
+  chainId: string;
+  configFingerprint: string;
+  liveCutoffBlock: string;
+  liveCutoffTimestamp: string;
+  historicalCutoffBlock: string;
+  historicalCutoffTimestamp: string;
+  sourceTimestamps: Record<string, string>;
+  rewardUniverse: RewardUniverse | null;
+  groupMetrics: GroupMetrics[];
+  competition: CompetitionState[];
+  markoutSummaries: Record<string, MarkoutSummary[]>;
+  rangeSimulations: RangeSimulation[];
+  candidates: Candidate[];
+  decision: DecisionResult;
+  persistence: PersistenceStatus;
+};
+
+export function isAddress(v: unknown): v is string {
+  return typeof v === 'string' && /^0x[a-fA-F0-9]{40}$/.test(v);
+}
+
+export function toLowerAddress(v: unknown): string {
+  if (!isAddress(v)) throw new Error('invalid address: ' + String(v));
+  return v.toLowerCase();
+}
+
+export function toHexString(v: unknown): string {
+  if (typeof v !== 'string' || !/^0x[a-fA-F0-9]+$/.test(v)) throw new Error('invalid hex: ' + String(v));
+  return v.toLowerCase();
+}
+
+export function bigintToStr(v: bigint): string {
+  return v.toString();
+}
+
+export function strToBigint(v: string): bigint {
+  return BigInt(v);
+}
