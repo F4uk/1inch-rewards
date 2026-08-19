@@ -637,3 +637,62 @@ and the live read-only cycle; the honest live decision is DO_NOT_TRADE; the
 - No signer/broadcast; NO_BROADCAST green; canary unsigned with bounded
   approvals; capital cap fails closed; validation-only mode prevents any
   qualifying persistence before external ACCEPT.
+
+## LIVE READ-ONLY RESULT (v1.3, 2026-08-19 ~10:39 UTC)
+
+- Decision: **DO_NOT_TRADE** (modelVersion 4, validation-only).
+- liveCutoffBlock 25788314 / historicalCutoffBlock 25787866.
+- Denominators: ETH/LST 20/20 and Stable 25/25 official markets resolved,
+  on-chain validated, DENOMINATOR_COVERAGE_COMPLETE; the rETH address bug
+  (wrong checksum/address) was caught by the on-chain validation and fixed.
+- Group metrics (72h window ending at historical cutoff, 1INCH-leg valuation):
+  ETH_LST 15,169 fills / $10.90M gross / 99.04% priced coverage;
+  STABLE 23,173 fills / $22.64M gross / 98.58% priced coverage.
+- Campaign budgets (active campaign records) exactly matched opportunity
+  summaries (mismatchPct 0.00 for every group) - no CAMPAIGN_BUDGET_MISMATCH.
+- Failed gates (honest, conservative): current-fair-price-available (the
+  1INCH/WETH reference pool's last observation was older than the 300s markout
+  freshness), range-path-reliable (1INCH/USDC composed path coverage 42.3%,
+  sparse 1INCH leg; 1INCH/WETH only 3 real observations), confidence,
+  base-net-positive, stress-net-nonnegative.
+- Best rejected candidate: 1INCH/WETH, expected net -$0.1057/day,
+  stress -$0.2113/day, confidence LOW.
+- The V1.2 $179/day rejected estimate remains INVALID for economic
+  expectation; no v4 persistence window was started (validation-only mode).
+
+## VALIDATION (v1.3, all executed)
+
+- npm ci - OK (21 packages, lockfile unchanged).
+- npm run typecheck - PASS (0 errors).
+- npm test - PASS 175/175 (including the full v13 regression suite:
+  official registry completeness + provenance, no membership inference,
+  validation-failure incompleteness, 1INCH-leg valuation both directions,
+  pricing coverage visibility, denominator invariant, active-campaign budget +
+  mismatch fail-closed, signed int256 Uniswap decode, pool quality hard rules,
+  gap-aware resampling stats, inventory throughput/rebalance, per-horizon
+  adverse rate, validation-only snapshot exclusion, audit artifact schema).
+- npm run build - PASS.
+- npm run doctor - PASS 13/13.
+- npm run shadow-cycle -- --validation-only - PASS (completed live, see above;
+  no persistence-qualifying snapshot written).
+- npm run decision/status - PASS (DO_NOT_TRADE, qualifyingSnapshots=0).
+- GitHub Actions CI (pushed branch, run #2, head 8021a64): **PASS** - Install,
+  Typecheck, Test, Build all success. Local results were never equated with CI.
+
+## CHANGED FILES (v1.3)
+
+- Commits: cd9ba91 (code, docs, tests) + 8021a64 (audit artifact).
+- src/constants.ts, config.ts, types.ts, cycle.ts, cli/shadowCycle.ts;
+  analytics/denominator.ts, group.ts, competition.ts, markouts.ts,
+  rangeCross.ts (unchanged), util/vol.ts; sources/uniswap.ts, merkl.ts,
+  rpc.ts; model/inventory.ts (new), pnl.ts, gas.ts (unchanged);
+  decision/decide.ts, gates.ts, persistence.ts; test/v13.test.ts (new) and
+  updated tests; docs; .gitignore (+ doctor.err removal); CI workflow kept.
+
+## FINAL VERDICT (v1.3)
+
+**SHADOW_MODEL_READY** - modelVersion 4 passes the full deterministic
+validation ladder (175/175 tests, typecheck, build, doctor 13/13) and a live
+read-only validation-only cycle; the honest live decision is DO_NOT_TRADE;
+no v4 persistence begins until external architecture ACCEPT; no transaction
+was signed or broadcast.
