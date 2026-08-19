@@ -1,6 +1,6 @@
 # Aqua Reward Farmer - Latest Shadow Audit (model v3)
 
-- headSha: 20072a35dc09d6276f95372095a7cb33f8ed4c09
+- headSha: 696c3f1b8f7a0fb53fe5f2bd439cbd897b711fb3
 - timestamp: 2026-08-19T06:14:47.000Z
 - liveCutoffBlock: 25787294
 - historicalCutoffBlock: 25786844
