@@ -69,3 +69,6 @@ the shadow cycle running (e.g., every 4-8 hours) to collect snapshots.
 - Qualification resolver unknown => 0.60 haircut + QUALIFICATION_UNVERIFIED.
 - Stress net < 0 => DO_NOT_TRADE even if base net > 0.
 - Non-TRADE decision => canary-preview refuses to run.
+- Campaign coverage incomplete => TRADE forbidden.
+- Markout unreliable or gas unknown => TRADE forbidden.
+- Unknown pair eligibility => reward = 0 and candidate cannot TRADE.

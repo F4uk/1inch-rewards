@@ -82,11 +82,49 @@ export type RewardOpportunity = {
   status: string;
 };
 
+export type CampaignGroup = {
+  id: string;
+  name: string;
+  group: PriceGroup;
+  rewardToken: string;
+  rewardTokenSymbol: string;
+  pairedAssets: string[];
+  eligibilitySource: string;
+  active: boolean;
+  startTimestamp: bigint;
+  endTimestamp: bigint;
+  dailyRewardsUsd: number;
+  campaignIds: string[];
+};
+
+export type CampaignCoverage = {
+  complete: boolean;
+  parsedCampaignCount: number;
+  liveAquaCampaignCount: number;
+  unknownCampaigns: string[];
+  detail: string;
+};
+
 export type RewardUniverse = {
   opportunities: RewardOpportunity[];
+  campaignGroups: CampaignGroup[];
+  coverage: CampaignCoverage;
   fetchedAt: bigint;
   sourceHealthy: boolean;
   error: string | null;
+};
+
+export type PairMetrics = {
+  pairKey: string;
+  group: PriceGroup;
+  tokenA: string; // 1INCH (lower-address token not assumed; tokenA = 1INCH)
+  tokenB: string; // paired asset
+  fillCount: number;
+  grossFillUsd: number;
+  dailyFillRateUsd: number;
+  fillShareByStrategy: Map<string, { fillUsd: number; share: number; count: number }>;
+  strategyFees: Map<string, number>;
+  strategyWidths: Map<string, number>;
 };
 
 export type GroupMetrics = {
@@ -113,12 +151,31 @@ export type CompetitionState = {
     sqrtPriceMax: bigint | null;
     inRange: boolean;
     backingUsdUpperBound: number;
+    backingDataKnown: boolean;
   }[];
   inRangeCount: number;
   feePercentiles: { p25: number | null; p50: number | null; p75: number | null };
   widthPercentiles: { p25: number | null; p50: number | null; p75: number | null };
   totalInRangeBackingUsd: number;
   makerTokenBacking: Map<string, number>;
+  dataUnknownCount: number;
+  dataKnownCount: number;
+};
+
+export type FairPriceObservation = {
+  source: string;
+  timestamp: bigint;
+  blockNumber: bigint;
+  price: number;
+  ageSec: number;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+};
+
+export type FairPriceProvider = {
+  /** USD price of a token at/before ts; observation must be fresh enough for its role. */
+  usdPriceAt: (token: string, ts: bigint, maxAgeSec: number) => FairPriceObservation | null;
+  /** Fresh relative price (quote per base) from an on-chain pool; null when unavailable. */
+  poolPriceAt: (baseToken: string, quoteToken: string, ts: bigint, maxAgeSec: number) => FairPriceObservation | null;
 };
 
 export type MarkoutSample = {
@@ -128,6 +185,12 @@ export type MarkoutSample = {
   markoutBps: number;
   horizonSec: number;
   complete: boolean;
+};
+
+export type MarkoutReliability = {
+  reliable: boolean;
+  reason: string;
+  minObservationAgeSec: number;
 };
 
 export type MarkoutSummary = {
@@ -160,6 +223,8 @@ export type Candidate = {
   fillShareSource: string;
   comparableStrategyCount: number;
   grossGroupFillUsdPerDay: number;
+  pairFillCount: number;
+  groupFillCount: number;
   expectedGrossFillUsdPerDay: number;
   expectedQualifyingFillUsdPerDay: number;
   rewardIncomeUsdPerDay: number;
@@ -178,6 +243,10 @@ export type Candidate = {
   sensitivity: Record<string, number>;
   qualificationHaircut: number;
   qualificationSource: string;
+  rewardEligible: boolean;
+  markoutReliable: boolean;
+  gasKnown: boolean;
+  markoutUnreliableReason: string | null;
 };
 
 export type GateResult = {
@@ -187,6 +256,8 @@ export type GateResult = {
 };
 
 export type DecisionResult = {
+  modelVersion: number;
+  configFingerprint: string;
   decision: 'TRADE' | 'DO_NOT_TRADE';
   pair: string | null;
   capitalUsd: number;
@@ -211,6 +282,29 @@ export type DecisionResult = {
   generatedAt: bigint;
 };
 
+export type GasModelInput = {
+  gasPriceUsdPerUnit: number | null;
+  gasUnits: {
+    approve: number;
+    ship: number;
+    dock: number;
+    reship: number;
+    inventoryRebalance: number;
+    emergencyReserve: number;
+  };
+  gasUnitsSource: string;
+  holdingHorizonDays: number;
+  reshipsPerDay: number;
+};
+
+export type GasModelOutput = {
+  gasUsdPerDay: number;
+  entryExitAmortizedUsdPerDay: number;
+  reshipGasUsdPerDay: number;
+  gasKnown: boolean;
+  detail: string;
+};
+
 export type PersistenceStatus = {
   snapshotCount: number;
   spanHours: number;
@@ -220,6 +314,7 @@ export type PersistenceStatus = {
 
 export type Snapshot = {
   schemaVersion: number;
+  modelVersion: number;
   createdAt: bigint;
   chainId: string;
   configFingerprint: string;
@@ -229,6 +324,7 @@ export type Snapshot = {
   historicalCutoffTimestamp: string;
   sourceTimestamps: Record<string, string>;
   rewardUniverse: RewardUniverse | null;
+  pairMetrics: PairMetrics[];
   groupMetrics: GroupMetrics[];
   competition: CompetitionState[];
   markoutSummaries: Record<string, MarkoutSummary[]>;

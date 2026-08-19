@@ -1,10 +1,11 @@
 import { AquaProtocolContract } from '../../vendor/aqua-sdk.ts';
 import { Address, HexString, AquaXYCAmmStrategy, Order, MakerTraits, SwapVMContract, TakerTraits } from '../../vendor/swapvm-sdk.ts';
 import type { AppConfig } from '../config.ts';
+import { encodeFunctionData } from 'viem';
 import { AQUA_REGISTRY, AQUA_ROUTER, TOKEN_BY_ADDRESS, CHAINLINK_FEEDS } from '../constants.ts';
 import type { DecisionResult } from '../types.ts';
 import { toLowerAddress } from '../types.ts';
-import { priceToSqrtPrice } from '../util/units.ts';
+import { centeredSqrtRangeFromUsd } from '../util/price.ts';
 import { latestDecisionPath } from '../decision/persistence.ts';
 import { atomicWriteJson } from '../index/store.ts';
 import { bigintReviver } from '../index/store.ts';
@@ -14,6 +15,10 @@ import { withRetry, type RpcContext } from '../sources/rpc.ts';
 
 export const ERC20_ABI = [
   { type: 'function', name: 'allowance', stateMutability: 'view', inputs: [{ type: 'address' }, { type: 'address' }], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'approve', stateMutability: 'nonpayable', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [{ type: 'bool' }] },
+] as const;
+
+export const APPROVE_ABI = [
   { type: 'function', name: 'approve', stateMutability: 'nonpayable', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [{ type: 'bool' }] },
 ] as const;
 
@@ -76,7 +81,7 @@ export async function buildCanaryPreview(
   if (decision.decision !== 'TRADE') throw new Error('latest decision is not TRADE; canary preview refused');
   const capital = Math.min(decision.capitalUsd, cfg.canaryCapUsd);
   if (decision.capitalUsd > cfg.canaryCapUsd) {
-    warnings.push('requested capital ' + decision.capitalUsd + ' exceeded cap; clamped to ' + cfg.canaryCapUsd);
+    throw new Error('requested capital ' + decision.capitalUsd + ' exceeds the hard cap of ' + cfg.canaryCapUsd + '; canary preview fails closed');
   }
   const halfWidth = decision.rangeHalfWidthPct;
   const feeBps = decision.feeBps;
@@ -98,16 +103,8 @@ export async function buildCanaryPreview(
   const amountB = BigInt(Math.floor((usdB / prices.tokenB) * 10 ** metaB.decimals));
   if (amountA <= 0n || amountB <= 0n) throw new Error('zero amounts computed for canary');
 
-  // centered range in the strategy's token0/token1 orientation
-  const { token0, token1 } = addressSorted(tokenA, tokenB);
-  const rawA = BigInt(Math.floor(prices.tokenB / prices.tokenA * 1e18));
-  const rawB = BigInt(Math.floor(prices.tokenA / prices.tokenB * 1e18));
-  const priceOfToken1PerToken0 = token0 === tokenA ? rawA : rawB;
-  const w = BigInt(Math.round(halfWidth * 1e16));
-  const lo = (priceOfToken1PerToken0 * (10n ** 18n - w)) / 10n ** 18n;
-  const hi = (priceOfToken1PerToken0 * (10n ** 18n + w)) / 10n ** 18n;
-  const sqrtMin = priceToSqrtPrice(lo);
-  const sqrtMax = priceToSqrtPrice(hi);
+  // centered range via the canonical orientation utility (tokenGt per tokenLt)
+  const { sqrtMin, sqrtMax } = centeredSqrtRangeFromUsd(prices.tokenA, prices.tokenB, halfWidth);
 
   const strategy = AquaXYCAmmStrategy.newConcentrate({ sqrtPriceMin: sqrtMin, sqrtPriceMax: sqrtMax }).withFeeTokenIn(feeBps).build();
   const order = Order.new({ maker: new Address(maker), program: strategy, traits: MakerTraits.default() });
@@ -229,14 +226,12 @@ export async function buildCanaryPreview(
   return preview;
 }
 
-function encodeApprove(token: string, spender: string, amount: bigint): string {
-  const fn = '0x095ea7b3';
-  const padded = (v: string, n: number) => v.padStart(n, '0');
-  return '0x' + fn + padded(token.slice(2), 64) + padded(amount.toString(16), 64);
-}
-
-function addressSorted(a: string, b: string): { token0: string; token1: string } {
-  return a.toLowerCase() <= b.toLowerCase() ? { token0: a, token1: b } : { token0: b, token1: a };
+export function encodeApprove(token: string, spender: string, amount: bigint): string {
+  return encodeFunctionData({
+    abi: APPROVE_ABI,
+    functionName: 'approve',
+    args: [spender as never, amount],
+  });
 }
 
 export function writeCanaryPreview(cfg: AppConfig, preview: CanaryPreview): string {

@@ -1,8 +1,8 @@
-import type { CompetitionState, GroupMetrics } from '../types.ts';
+import type { CompetitionState, PairMetrics } from '../types.ts';
 import { clamp, percentile } from '../util/units.ts';
 
 export type FillShareInput = {
-  groupMetrics: GroupMetrics;
+  pairMetrics: PairMetrics;
   competition: CompetitionState | null;
   candidateFeeBps: number;
   candidateHalfWidthPct: number;
@@ -21,18 +21,22 @@ export type FillShareResult = {
 };
 
 /**
- * Empirical component: observed fill shares of comparable strategies (fee & width buckets).
- * Conservative estimate = p25 of comparable shares.
+ * Empirical component: observed fill shares of comparable strategies on the
+ * EXACT pair. Comparability requires BOTH a decoded fee and a decoded range
+ * width (null fee/width is NEVER automatically comparable), within tolerance
+ * buckets, and all fills end at/before the historical cutoff (the pair metrics
+ * are built from the historical window only).
  */
 export function empiricalFillShare(input: FillShareInput): { share: number | null; count: number } {
-  const { groupMetrics, candidateFeeBps, candidateHalfWidthPct, comparableFeeTolerance, comparableWidthTolerance } = input;
+  const { pairMetrics, candidateFeeBps, candidateHalfWidthPct, comparableFeeTolerance, comparableWidthTolerance } = input;
   const shares: number[] = [];
   let count = 0;
-  for (const [hash, entry] of groupMetrics.fillShareByStrategy) {
-    const fee = groupMetrics.strategyFees.get(hash) ?? null;
-    const width = groupMetrics.strategyWidths.get(hash) ?? null;
-    if (fee !== null && Math.abs(fee - candidateFeeBps) > comparableFeeTolerance) continue;
-    if (width !== null && Math.abs(width - candidateHalfWidthPct) > comparableWidthTolerance) continue;
+  for (const [hash, entry] of pairMetrics.fillShareByStrategy) {
+    const fee = pairMetrics.strategyFees.get(hash);
+    const width = pairMetrics.strategyWidths.get(hash);
+    if (fee === undefined || width === undefined) continue; // null metadata is not comparable
+    if (Math.abs(fee - candidateFeeBps) > comparableFeeTolerance) continue;
+    if (Math.abs(width - candidateHalfWidthPct) > comparableWidthTolerance) continue;
     shares.push(entry.share);
     count += 1;
   }
@@ -41,10 +45,7 @@ export function empiricalFillShare(input: FillShareInput): { share: number | nul
   return { share: clamp(percentile(shares, 0.25), 0, 1), count };
 }
 
-/**
- * Structural component: fee competitiveness and accessible-backing share vs current
- * in-range competitors. Conservative = min of the two sub-estimates.
- */
+/** Structural component: fee competitiveness + accessible-backing share vs in-range competitors. */
 export function structuralFillShare(input: FillShareInput): number | null {
   const { competition, candidateFeeBps, candidateBackingUsd } = input;
   if (!competition || competition.activeStrategies.length === 0) return null;
@@ -62,10 +63,7 @@ export function structuralFillShare(input: FillShareInput): number | null {
   return feeShare < backingShare ? feeShare : backingShare;
 }
 
-/**
- * Conservative blend: min(empirical, structural) when both exist; the available one
- * otherwise. Always capped at 1 and floored at 0.
- */
+/** Conservative blend: min(empirical, structural) when both exist; the available one otherwise. */
 export function blendFillShare(input: FillShareInput): FillShareResult {
   const emp = empiricalFillShare(input);
   const structural = structuralFillShare(input);

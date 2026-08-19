@@ -1,0 +1,24 @@
+Integrity repair: exact Season-1 incentive markets, pool-based markouts, lifecycle gas, versioned persistence
+
+- Exact reward eligibility: 1INCH paired with verified campaign assets only;
+  USDC/USDT and WETH/USDC are no longer reward candidates (regression tests)
+- Merkl full pagination + campaign inventory + CAMPAIGN_COVERAGE_INCOMPLETE gate
+- Per-pair metrics/competition/markouts; canonical unordered pair keys;
+  mostCompetitive cross-wiring removed
+- One canonical price orientation utility (tokenGt per tokenLt) with golden
+  SDK-encoding tests; used by competition, ranges, canary and range sims
+- Official rawBalances(maker, app, strategyHash, token) ABI with DATA_UNKNOWN
+  handling instead of silent zeros
+- FairPriceProvider markouts from Uniswap V3 swap series with freshness gate,
+  token-specific decimals, both-direction sign tests, MARKOUT_UNRELIABLE gate
+- Lifecycle gas measured from receipts (p75) + current gas price, amortized
+  over 7d; GAS_UNKNOWN forbids TRADE
+- Empirical fill share requires exact pair + fee/width metadata; pairFillCount
+  separated from groupFillCount
+- Canary approve via viem (spender = Aqua registry), >50 USD fails closed
+- modelVersion=2 persistence: same model/config/pair/regime, qualifying
+  snapshots only, old V1 snapshots excluded
+- decodeStrategyBytes supported=false when program decode yields no instructions
+- 89 tests green; live read-only cycle: coverage complete (10/10 campaigns),
+  markouts reliable, gas measured, USDC/USDT candidate removed,
+  decision DO_NOT_TRADE

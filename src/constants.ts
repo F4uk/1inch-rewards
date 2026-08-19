@@ -56,7 +56,7 @@ export const TOKEN_BY_ADDRESS: Map<string, TokenMeta> = new Map(
   Object.values(TOKENS).map((t) => [t.address.toLowerCase(), t]),
 );
 
-export type PriceGroup = 'ETH_LST' | 'STABLE' | 'OTHER';
+export type PriceGroup = 'ETH_LST' | 'STABLE' | 'BTC_WRAPPER' | 'DEFI_MAJOR' | 'RWA' | 'OTHER';
 
 export type ChainlinkFeed = {
   name: string;
@@ -77,3 +77,54 @@ export const CHAINLINK_FEEDS: Record<string, ChainlinkFeed> = {
 };
 
 export const ZERO_ADDRESS: `0x${string}` = '0x0000000000000000000000000000000000000000';
+
+/**
+ * Official Aqua Season-1 incentive program (Ethereum): reward-eligible markets
+ * are 1INCH paired with an eligible paired asset per campaign group.
+ * This list is the configured authoritative definition of the program (per the
+ * integrity-repair spec); Merkl API is used to verify campaign existence,
+ * active dates and daily budgets, and coverage completeness.
+ * Unknown pairs are NOT reward-eligible.
+ */
+export const SEASON1_GROUPS: Record<PriceGroup, { name: string; pairedAssets: `0x${string}`[]; eligibilitySource: string }> = {
+  ETH_LST: {
+    name: 'ETH & LST markets',
+    pairedAssets: [
+      getAddress('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'), // WETH
+      getAddress('0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0'), // wstETH
+      getAddress('0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee'), // weETH
+      getAddress('0xae78736Cd615f374D3085123E210F6eBc5F9F4A0'), // rETH
+      getAddress('0xA35b1B31Ce002FBF2058D22F30f95D405200A15b'), // ETHx
+      getAddress('0xB72B4C5d1D166D4e98A1B7B295F9e9A02C0570e1'), // sfETH
+    ],
+    eligibilitySource: 'CONFIGURED_OFFICIAL_SEASON1',
+  },
+  STABLE: {
+    name: 'stablecoin markets',
+    pairedAssets: [
+      getAddress('0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'), // USDC
+      getAddress('0xdAC17F958D2ee523a2206206994597C13D831ec7'), // USDT
+    ],
+    eligibilitySource: 'CONFIGURED_OFFICIAL_SEASON1',
+  },
+  OTHER: {
+    name: 'other',
+    pairedAssets: [],
+    eligibilitySource: 'NONE',
+  },
+  BTC_WRAPPER: {
+    name: 'BTC wrapper markets',
+    pairedAssets: [],
+    eligibilitySource: 'UNVERIFIED_EXCLUDED',
+  },
+  DEFI_MAJOR: {
+    name: 'DeFi major markets',
+    pairedAssets: [],
+    eligibilitySource: 'UNVERIFIED_EXCLUDED',
+  },
+  RWA: {
+    name: 'RWA markets',
+    pairedAssets: [],
+    eligibilitySource: 'UNVERIFIED_EXCLUDED',
+  },
+};

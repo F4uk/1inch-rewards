@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { decodeFunctionData, getAddress } from 'viem';
 import { DEFAULT_CONFIG, type AppConfig } from '../src/config.ts';
-import { buildCanaryPreview } from '../src/preview/canary.ts';
+import { buildCanaryPreview, APPROVE_ABI } from '../src/preview/canary.ts';
+import { AQUA_REGISTRY } from '../src/constants.ts';
 import type { DecisionResult } from '../src/types.ts';
 import type { RpcContext } from '../src/sources/rpc.ts';
 
@@ -11,6 +13,8 @@ const MAKER = '0x1111111111111111111111111111111111111111';
 
 function decision(over: Partial<DecisionResult> = {}): DecisionResult {
   return {
+    modelVersion: 2,
+    configFingerprint: 'x',
     decision: 'TRADE',
     pair: USDC + '/' + WETH,
     capitalUsd: 50,
@@ -52,14 +56,16 @@ function cfgWithMaker(dataDir: string): AppConfig {
   return { ...DEFAULT_CONFIG, dataDir, makerAddress: MAKER };
 }
 
-test('preview: bounded approvals only (never max-uint)', async () => {
-  const cfg = cfgWithMaker('data-test-preview-1');
-  const preview = await buildCanaryPreview(fakeCtx(0n), cfg, decision(), { tokenA: 1, tokenB: 1912 }, true);
+test('preview: approve calldata encodes AQUA_REGISTRY as spender with exact bounded amount', async () => {
+  const cfg = cfgWithMaker('data-test-preview-a');
+  const preview = await buildCanaryPreview(fakeCtx(0n), cfg, decision(), { tokenA: 1, tokenB: 1912 }, false);
   const approves = preview.transactions.filter((t) => t.kind === 'approve');
   assert.equal(approves.length, 2);
   for (const tx of approves) {
-    const amountWord = '0x' + tx.data.slice(2 + 64 + 64, 2 + 64 + 64 + 64);
-    const amount = BigInt(amountWord);
+    const decoded = decodeFunctionData({ abi: APPROVE_ABI, data: tx.data as never });
+    assert.equal(decoded.functionName, 'approve');
+    const [spender, amount] = decoded.args as [string, bigint];
+    assert.equal(getAddress(spender), getAddress(AQUA_REGISTRY));
     assert.ok(amount < 2n ** 255n, 'approval must be bounded, not max-uint');
     assert.equal(tx.boundedApproval, true);
   }
@@ -69,21 +75,21 @@ test('preview: bounded approvals only (never max-uint)', async () => {
 });
 
 test('preview: no approve when allowance sufficient', async () => {
-  const cfg = cfgWithMaker('data-test-preview-2');
+  const cfg = cfgWithMaker('data-test-preview-b');
   const preview = await buildCanaryPreview(fakeCtx(10n ** 30n), cfg, decision(), { tokenA: 1, tokenB: 1912 }, false);
   assert.equal(preview.transactions.filter((t) => t.kind === 'approve').length, 0);
 });
 
-test('preview: capital above 50 USD is clamped with warning', async () => {
-  const cfg = cfgWithMaker('data-test-preview-3');
-  const preview = await buildCanaryPreview(fakeCtx(0n), cfg, decision({ capitalUsd: 100 }), { tokenA: 1, tokenB: 1912 }, false);
-  assert.equal(preview.capitalUsd, 50);
-  assert.ok(preview.warnings.some((w) => w.includes('clamped')));
-  assert.equal(preview.capUsd, 50);
+test('preview: capital above 50 USD fails closed (no silent clamp)', async () => {
+  const cfg = cfgWithMaker('data-test-preview-c');
+  await assert.rejects(
+    buildCanaryPreview(fakeCtx(0n), cfg, decision({ capitalUsd: 100 }), { tokenA: 1, tokenB: 1912 }, false),
+    /exceeds the hard cap/,
+  );
 });
 
 test('preview: non-TRADE decision is refused', async () => {
-  const cfg = cfgWithMaker('data-test-preview-4');
+  const cfg = cfgWithMaker('data-test-preview-d');
   await assert.rejects(
     buildCanaryPreview(fakeCtx(0n), cfg, decision({ decision: 'DO_NOT_TRADE' }), { tokenA: 1, tokenB: 1912 }, false),
     /not TRADE/,
@@ -91,7 +97,7 @@ test('preview: non-TRADE decision is refused', async () => {
 });
 
 test('preview: missing MAKER_ADDRESS is refused', async () => {
-  const cfg = { ...DEFAULT_CONFIG, dataDir: 'data-test-preview-5', makerAddress: null };
+  const cfg = { ...DEFAULT_CONFIG, dataDir: 'data-test-preview-e', makerAddress: null };
   await assert.rejects(
     buildCanaryPreview(fakeCtx(0n), cfg, decision(), { tokenA: 1, tokenB: 1912 }, false),
     /MAKER_ADDRESS/,

@@ -6,7 +6,9 @@ import type {
   DecisionResult,
   GateResult,
   GroupMetrics,
+  MarkoutReliability,
   MarkoutSummary,
+  PairMetrics,
   RewardUniverse,
   Snapshot,
 } from '../types.ts';
@@ -16,6 +18,8 @@ import { assessConfidence } from '../model/confidence.ts';
 import { campaignHoursRemaining, evaluateGates } from './gates.ts';
 import { evaluatePersistence, latestDecisionMdPath, latestDecisionPath, writeSnapshot } from './persistence.ts';
 import { atomicWriteJson } from '../index/store.ts';
+
+export const MODEL_VERSION = 2;
 
 export type CycleData = {
   chainOk: boolean;
@@ -27,9 +31,11 @@ export type CycleData = {
   historicalCutoffBlock: bigint;
   historicalCutoffTimestamp: bigint;
   universe: RewardUniverse | null;
+  pairMetrics: PairMetrics[];
   groupMetrics: GroupMetrics[];
   competitions: Map<string, CompetitionState>;
   markoutSummaries: Record<string, MarkoutSummary[]>;
+  markoutReliabilities: Record<string, MarkoutReliability>;
   rangeSims: Map<number, { reshipsPerDay: number; timeInRangePct: number }>;
   dailyVolPct: number;
   capitalUsd: number;
@@ -37,6 +43,11 @@ export type CycleData = {
   sourceTimestamps: Record<string, string>;
   rewardsFresh: boolean;
   feedsFresh: boolean;
+  gasModel: {
+    gasKnown: boolean;
+    output: ReturnType<typeof computeGasModelForCycle>;
+    detail: string;
+  } | null;
 };
 
 export type DecideResult = {
@@ -46,25 +57,36 @@ export type DecideResult = {
   persistence: ReturnType<typeof evaluatePersistence>;
 };
 
-function mostCompetitive(cd: CycleData, group: GroupMetrics): CompetitionState | null {
-  let best: CompetitionState | null = null;
-  for (const c of cd.competitions.values()) {
-    if (!best || c.inRangeCount > best.inRangeCount) best = c;
-  }
-  return best;
+import { computeGasModel } from '../model/gas.ts';
+import type { GasModelInput } from '../types.ts';
+
+function computeGasModelForCycle(input: GasModelInput) {
+  return computeGasModel(input);
 }
 
 export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
   const candidates: Candidate[] = [];
-  for (const group of cd.groupMetrics) {
-    const competition = mostCompetitive(cd, group);
-    if (!competition) continue;
-    const budget = budgetForGroup(cd.universe, group.group);
-    const markouts = cd.markoutSummaries[group.group] ?? [];
+  const byPair = new Map<string, { pair: PairMetrics; group: GroupMetrics; competition: CompetitionState | null; markouts: MarkoutSummary[]; reliability: MarkoutReliability }>();
+  for (const pm of cd.pairMetrics) {
+    const group = cd.groupMetrics.find((g) => g.group === pm.group) ?? null;
+    if (!group) continue;
+    const competition = cd.competitions.get(pm.pairKey) ?? null;
+    const markouts = cd.markoutSummaries[pm.pairKey] ?? [];
+    const reliability = cd.markoutReliabilities[pm.pairKey] ?? { reliable: false, reason: 'MARKOUT_UNRELIABLE: no data', minObservationAgeSec: cfg.markoutMaxPoolAgeSec };
+    byPair.set(pm.pairKey, { pair: pm, group, competition, markouts, reliability });
+  }
+
+  const budgetByGroup = new Map<string, number>();
+  for (const g of ['ETH_LST', 'STABLE'] as const) {
+    budgetByGroup.set(g, budgetForGroup(cd.universe, g));
+  }
+
+  for (const [pairKey, ctx] of byPair) {
+    const { pair, group, competition, markouts, reliability } = ctx;
     for (const halfWidthPct of cfg.candidateHalfWidthsPct) {
       for (const feeBps of cfg.candidateFeesBps) {
         const fsi: FillShareInput = {
-          groupMetrics: group,
+          pairMetrics: pair,
           competition,
           candidateFeeBps: feeBps,
           candidateHalfWidthPct: halfWidthPct,
@@ -75,12 +97,17 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
         };
         const fs = blendFillShare(fsi);
         const rangeSim = cd.rangeSims.get(halfWidthPct) ?? { reshipsPerDay: 0, timeInRangePct: 100 };
+        const gasModelOut = cd.gasModel ? cd.gasModel.output : { gasUsdPerDay: 0, entryExitAmortizedUsdPerDay: 0, reshipGasUsdPerDay: 0, gasKnown: false, detail: 'GAS_UNKNOWN' };
+        const rewardEligible = true; // pairMetrics are only built for eligible pairs
         const candidate = computeCandidatePnl({
           cfg,
+          pairMetrics: pair,
           group,
           competition,
-          budgetUsdPerDay: budget,
+          budgetUsdPerDay: budgetByGroup.get(pair.group) ?? 0,
           markoutSummaries: markouts,
+          markoutReliability: reliability,
+          gasModel: gasModelOut,
           rangeSim,
           fillShare: fs.blended,
           fillShareSource: fs.source,
@@ -89,12 +116,13 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
           feeBps,
           capitalUsd: cd.capitalUsd,
           dailyVolPct: cd.dailyVolPct,
+          rewardEligible,
         });
         candidate.empiricalFillShare = fs.empirical;
         candidate.structuralShare = fs.structural;
         candidate.confidence = assessConfidence({
           cfg,
-          group,
+          pairMetrics: pair,
           competition,
           markoutSummaries: markouts,
           fillShareInput: fsi,
@@ -109,7 +137,13 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
   }
 
   const tradable = candidates
-    .filter((c) => c.stressNetUsdPerDay >= 0 && c.expectedNetUsdPerDay > 0 && c.confidence !== 'LOW')
+    .filter((c) =>
+      c.stressNetUsdPerDay >= 0 &&
+      c.expectedNetUsdPerDay > 0 &&
+      c.confidence !== 'LOW' &&
+      c.rewardEligible &&
+      c.markoutReliable &&
+      c.gasKnown)
     .sort((a, b) => b.expectedNetUsdPerDay - a.expectedNetUsdPerDay);
   const best = tradable[0] ?? null;
   const rejected = [...candidates].sort((a, b) => b.expectedNetUsdPerDay - a.expectedNetUsdPerDay)[0] ?? null;
@@ -124,9 +158,12 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
         universe: cd.universe,
         nowSec: cd.nowSec,
         lookbackHours: cd.lookbackHours,
-        group: cd.groupMetrics.find((g) => g.group === gateCandidate.group) ?? cd.groupMetrics[0]!,
-        competition: cd.competitions.get(gateCandidate.pairKey) ?? null,
-        markoutSummaries: cd.markoutSummaries[gateCandidate.group] ?? [],
+        pair: byPair.get(gateCandidate.pairKey)?.pair ?? null,
+        group: byPair.get(gateCandidate.pairKey)?.group ?? null,
+        competition: byPair.get(gateCandidate.pairKey)?.competition ?? null,
+        markoutSummaries: byPair.get(gateCandidate.pairKey)?.markouts ?? [],
+        markoutReliability: byPair.get(gateCandidate.pairKey)?.reliability ?? { reliable: false, reason: 'no data', minObservationAgeSec: 0 },
+        gasKnown: cd.gasModel?.gasKnown ?? false,
         candidate: gateCandidate,
         campaignHoursRemaining: hoursRemaining,
         capitalUsd: cd.capitalUsd,
@@ -134,6 +171,8 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
     : null;
 
   const decision: DecisionResult = {
+    modelVersion: MODEL_VERSION,
+    configFingerprint: configFingerprint(cfg),
     decision: best && gates && gates.failed.length === 0 ? 'TRADE' : 'DO_NOT_TRADE',
     pair: best?.pairKey ?? null,
     capitalUsd: cd.capitalUsd,
@@ -159,7 +198,8 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
   };
 
   const snapshot: Snapshot = {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    modelVersion: MODEL_VERSION,
     createdAt: cd.nowSec,
     chainId: '1',
     configFingerprint: configFingerprint(cfg),
@@ -169,6 +209,7 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
     historicalCutoffTimestamp: cd.historicalCutoffTimestamp.toString(),
     sourceTimestamps: cd.sourceTimestamps,
     rewardUniverse: cd.universe,
+    pairMetrics: cd.pairMetrics,
     groupMetrics: cd.groupMetrics,
     competition: [...cd.competitions.values()],
     markoutSummaries: cd.markoutSummaries,
@@ -208,15 +249,18 @@ function buildReasons(
 ): string[] {
   const reasons: string[] = [];
   if (cd.universe === null || !cd.universe.sourceHealthy) reasons.push('MERKL_UNREACHABLE');
+  if (cd.universe && !cd.universe.coverage.complete) reasons.push('CAMPAIGN_COVERAGE_INCOMPLETE: ' + cd.universe.coverage.detail);
   if (!cd.rewardsFresh) reasons.push('REWARDS_NOT_FRESH');
   if (!cd.feedsFresh) reasons.push('FEEDS_NOT_FRESH');
   if (best) {
     reasons.push('best candidate: pair=' + best.pairKey + ' width=' + best.halfWidthPct + '% fee=' + best.feeBps + 'bps fillShare=' + best.fillShare.toFixed(4) + ' (' + best.fillShareSource + ')');
     reasons.push('net=' + best.expectedNetUsdPerDay.toFixed(4) + ' stressNet=' + best.stressNetUsdPerDay.toFixed(4) + ' confidence=' + best.confidence);
+    if (!best.markoutReliable) reasons.push(best.markoutUnreliableReason ?? 'MARKOUT_UNRELIABLE');
+    if (!best.gasKnown) reasons.push('GAS_UNKNOWN');
   } else if (rejected) {
-    reasons.push('no candidate passes gates; best rejected: net=' + rejected.expectedNetUsdPerDay.toFixed(4) + ' stress=' + rejected.stressNetUsdPerDay.toFixed(4) + ' conf=' + rejected.confidence);
+    reasons.push('no candidate passes gates; best rejected: pair=' + rejected.pairKey + ' net=' + rejected.expectedNetUsdPerDay.toFixed(4) + ' stress=' + rejected.stressNetUsdPerDay.toFixed(4) + ' conf=' + rejected.confidence + ' eligible=' + rejected.rewardEligible + ' markoutReliable=' + rejected.markoutReliable + ' gasKnown=' + rejected.gasKnown);
   } else {
-    reasons.push('no candidates produced (no eligible group data)');
+    reasons.push('no candidates produced (no eligible pair data)');
   }
   for (const g of failed) reasons.push('GATE_FAIL: ' + g.name + ' - ' + g.detail);
   reasons.push('QUALIFICATION_UNVERIFIED: haircut=' + cfg.qualificationHaircut);
@@ -239,7 +283,7 @@ export function budgetForGroup(universe: RewardUniverse | null, group: string): 
 
 export function renderDecisionMd(d: DecisionResult): string {
   const lines: string[] = [];
-  lines.push('# Aqua Reward Farmer - Latest Decision');
+  lines.push('# Aqua Reward Farmer - Latest Decision (model v' + d.modelVersion + ')');
   lines.push('');
   lines.push('- decision: **' + d.decision + '**');
   lines.push('- pair: ' + (d.pair ?? 'none'));

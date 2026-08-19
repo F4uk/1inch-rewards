@@ -38,8 +38,12 @@ export type AppConfig = {
   minSnapshotSpanHours: number;
   stressFactors: StressFactors;
   inventoryBufferMultiple: number;
-  fallbackShipGasUsd: number;
-  fallbackDockGasUsd: number;
+  /** Conservative holding horizon for amortizing unavoidable entry/exit gas. */
+  holdingHorizonDays: number;
+  /** Max age (seconds) of pool observations used for markouts. */
+  markoutMaxPoolAgeSec: number;
+  /** Minimum completed markout samples per pair for MARKOUT_RELIABLE. */
+  minMarkoutSamplesPerPair: number;
   fallbackRebalanceMaxLossBps: number;
   feedOverrides: Partial<Record<keyof typeof CHAINLINK_FEEDS, string>>;
   logChunkBlocks: number;
@@ -74,8 +78,9 @@ export const DEFAULT_CONFIG: AppConfig = {
   minSnapshotSpanHours: 16,
   stressFactors: STRESS_FACTORS,
   inventoryBufferMultiple: 2.0,
-  fallbackShipGasUsd: 8,
-  fallbackDockGasUsd: 4,
+  holdingHorizonDays: 7,
+  markoutMaxPoolAgeSec: 300,
+  minMarkoutSamplesPerPair: 20,
   fallbackRebalanceMaxLossBps: 30,
   feedOverrides: {},
   logChunkBlocks: 600,

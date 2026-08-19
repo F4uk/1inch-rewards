@@ -14,3 +14,5 @@ export const Address = sdk.Address;
 export const HexString = sdk.HexString;
 export const NetworkEnum = sdk.NetworkEnum;
 export const AquaProtocolContract = sdk.AquaProtocolContract;
+export const ABI = sdk.ABI;
+export const AQUA_ABI = sdk.ABI.AQUA_ABI;

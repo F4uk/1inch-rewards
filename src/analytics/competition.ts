@@ -1,9 +1,11 @@
+import { AQUA_ABI } from '../../vendor/aqua-sdk.ts';
 import type { AppConfig } from '../config.ts';
 import { AQUA_REGISTRY, AQUA_ROUTER, TOKEN_BY_ADDRESS, type TokenMeta } from '../constants.ts';
 import type { CompetitionState, LifecycleEvent, StrategyRecord } from '../types.ts';
 import { toLowerAddress } from '../types.ts';
 import { decodeStrategyBytes } from '../decode/order.ts';
-import { priceToSqrtPrice, percentile, sortTokens } from '../util/units.ts';
+import { percentile, sortTokens } from '../util/units.ts';
+import { fairSqrtForTokens } from '../util/price.ts';
 import { withRetry, type RpcContext } from '../sources/rpc.ts';
 
 const ERC20_ABI = [
@@ -11,16 +13,12 @@ const ERC20_ABI = [
   { type: 'function', name: 'allowance', stateMutability: 'view', inputs: [{ type: 'address' }, { type: 'address' }], outputs: [{ type: 'uint256' }] },
 ] as const;
 
-const REGISTRY_ABI = [
-  { type: 'function', name: 'rawBalances', stateMutability: 'view', inputs: [{ type: 'bytes32' }, { type: 'address' }], outputs: [{ type: 'uint256' }] },
-] as const;
+// Official registry ABI from @1inch/aqua-sdk (rawBalances(maker, app, strategyHash, token)).
+const RAW_BALANCES = AQUA_ABI.find((x) => x.type === 'function' && x.name === 'rawBalances')!;
+const SAFE_BALANCES = AQUA_ABI.find((x) => x.type === 'function' && x.name === 'safeBalances')!;
 
 const MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11';
 
-/**
- * Build strategy records from lifecycle events (idempotent; sorted by block/logIndex).
- * Active = latest ship after latest dock.
- */
 export function buildStrategies(events: LifecycleEvent[]): Map<string, StrategyRecord> {
   const byHash = new Map<string, StrategyRecord>();
   for (const ev of events) {
@@ -100,9 +98,9 @@ export function activeStrategiesAt(strategies: Map<string, StrategyRecord>, cuto
 export type TokenUsdAtBlock = (token: string) => number | null;
 
 /**
- * Compute competition state for a pair at the live cutoff.
- * Accessible backing is capped by min(wallet balance, Aqua allowance) per maker/token
- * and never summed across a maker's strategies (upper bound, distributed by advertised share).
+ * Competition state for EXACTLY one pair at the live cutoff.
+ * Advertised balances use the official rawBalances(maker, app, strategyHash, token).
+ * A failed read is DATA_UNKNOWN (never a silent zero) and lowers confidence.
  */
 export async function computeCompetition(
   ctx: RpcContext,
@@ -115,13 +113,9 @@ export async function computeCompetition(
 ): Promise<CompetitionState> {
   const active = activeStrategiesAt(strategies, cutoffBlock, AQUA_ROUTER);
   const pair = active.filter((s) => hasPair(s, tokenA, tokenB));
-  const fairPrice = (() => {
-    const usdA = tokenUsd(tokenA);
-    const usdB = tokenUsd(tokenB);
-    if (usdA === null || usdB === null || usdA <= 0) return null;
-    return usdB / usdA;
-  })();
-  const fairPriceTokenBPerTokenA = fairPrice;
+  const usdA = tokenUsd(tokenA);
+  const usdB = tokenUsd(tokenB);
+  const fairPriceTokenBPerTokenA = usdA !== null && usdB !== null && usdA > 0 ? usdB / usdA : null;
 
   const activeStrategies = [];
   for (const s of pair) {
@@ -134,86 +128,88 @@ export async function computeCompetition(
       sqrtPriceMax: s.decoded.sqrtPriceMax,
       inRange,
       backingUsdUpperBound: 0,
+      backingDataKnown: false,
     });
   }
 
-  // advertised balances via registry rawBalances at cutoff (batched via multicall3)
-  const advertised = new Map<string, bigint>();
+  // Advertised virtual balances via official rawBalances(maker, app, strategyHash, token)
   const balanceCalls = [];
   for (const s of activeStrategies) {
     for (const tok of [tokenA, tokenB]) {
       balanceCalls.push({
         address: AQUA_REGISTRY as never,
-        abi: REGISTRY_ABI as never,
+        abi: [RAW_BALANCES] as never,
         functionName: 'rawBalances',
-        args: [s.strategyHash as never, tok as never],
+        args: [s.maker as never, AQUA_ROUTER as never, s.strategyHash as never, tok as never],
       });
     }
   }
-  const balanceResults = balanceCalls.length > 0
-    ? await multicallChunked(ctx, cfg, balanceCalls, cutoffBlock)
-    : [];
+  const balanceResults = balanceCalls.length > 0 ? await multicallChunked(ctx, cfg, balanceCalls, cutoffBlock) : [];
+  const advertised = new Map<string, { balance: bigint; known: boolean }>();
   let bi = 0;
+  let dataUnknownCount = 0;
+  let dataKnownCount = 0;
   for (const s of activeStrategies) {
     for (const tok of [tokenA, tokenB]) {
       const r = balanceResults[bi];
-      advertised.set(s.strategyHash + ':' + tok, r && r.status === 'success' ? (r.result as bigint) : 0n);
       bi++;
+      if (r && r.status === 'success') {
+        const tuple = r.result as unknown[];
+        const balance = Array.isArray(tuple) ? (tuple[0] as bigint) : 0n;
+        advertised.set(s.strategyHash + ':' + tok, { balance, known: true });
+        dataKnownCount++;
+      } else {
+        advertised.set(s.strategyHash + ':' + tok, { balance: 0n, known: false });
+        dataUnknownCount++;
+      }
     }
   }
 
-  // accessible backing per (maker, token): min(balanceOf, allowance)
-  const makerTokenAccessible = new Map<string, bigint>();
+  // Accessible backing per (maker, token): min(balanceOf, allowance); never summed
+  const makerTokenAccessible = new Map<string, { amount: bigint; known: boolean }>();
   const makerSet = new Set(activeStrategies.map((s) => s.maker));
   const accessCalls = [];
   for (const maker of makerSet) {
     for (const tok of [tokenA, tokenB]) {
-      accessCalls.push({
-        address: tok as never,
-        abi: ERC20_ABI as never,
-        functionName: 'balanceOf',
-        args: [maker as never],
-      });
-      accessCalls.push({
-        address: tok as never,
-        abi: ERC20_ABI as never,
-        functionName: 'allowance',
-        args: [maker as never, AQUA_REGISTRY as never],
-      });
+      accessCalls.push({ address: tok as never, abi: ERC20_ABI as never, functionName: 'balanceOf', args: [maker as never] });
+      accessCalls.push({ address: tok as never, abi: ERC20_ABI as never, functionName: 'allowance', args: [maker as never, AQUA_REGISTRY as never] });
     }
   }
-  const accessResults = accessCalls.length > 0
-    ? await multicallChunked(ctx, cfg, accessCalls, cutoffBlock)
-    : [];
+  const accessResults = accessCalls.length > 0 ? await multicallChunked(ctx, cfg, accessCalls, cutoffBlock) : [];
   let ai = 0;
   for (const maker of makerSet) {
     for (const tok of [tokenA, tokenB]) {
-      const balance = accessResults[ai] && accessResults[ai]!.status === 'success' ? (accessResults[ai]!.result as bigint) : 0n;
-      const allowance = accessResults[ai + 1] && accessResults[ai + 1]!.status === 'success' ? (accessResults[ai + 1]!.result as bigint) : 0n;
-      makerTokenAccessible.set(maker + ':' + tok, balance < allowance ? balance : allowance);
+      const rb = accessResults[ai];
+      const ra = accessResults[ai + 1];
       ai += 2;
+      if (rb && rb.status === 'success' && ra && ra.status === 'success') {
+        const balance = rb.result as bigint;
+        const allowance = ra.result as bigint;
+        makerTokenAccessible.set(maker + ':' + tok, { amount: balance < allowance ? balance : allowance, known: true });
+      } else {
+        makerTokenAccessible.set(maker + ':' + tok, { amount: 0n, known: false });
+      }
     }
   }
 
-  // distribute per-maker accessible across their in-range strategies proportionally to advertised
   const backingByStrategy = new Map<string, number>();
   for (const maker of makerSet) {
     for (const tok of [tokenA, tokenB]) {
-      const accessible = makerTokenAccessible.get(maker + ':' + tok) ?? 0n;
-      if (accessible <= 0n) continue;
+      const acc = makerTokenAccessible.get(maker + ':' + tok);
+      if (!acc || !acc.known || acc.amount <= 0n) continue;
       const candidates = activeStrategies.filter((s) => s.maker === maker);
-      const advertisedSum = candidates.reduce((acc, s) => acc + (advertised.get(s.strategyHash + ':' + tok) ?? 0n), 0n);
-      if (advertisedSum <= 0n) {
-        // no advertised data: split evenly across in-range strategies only
+      const advSum = candidates.reduce((acc2, s) => acc2 + (advertised.get(s.strategyHash + ':' + tok)?.known ? advertised.get(s.strategyHash + ':' + tok)!.balance : 0n), 0n);
+      if (advSum <= 0n) {
         const inRangeOnes = candidates.filter((s) => s.inRange);
-        const share = Number(accessible) / (inRangeOnes.length || 1);
+        const share = Number(acc.amount) / (inRangeOnes.length || 1);
         for (const s of inRangeOnes) {
           backingByStrategy.set(s.strategyHash + ':' + tok, (backingByStrategy.get(s.strategyHash + ':' + tok) ?? 0) + share);
         }
       } else {
         for (const s of candidates) {
-          const adv = advertised.get(s.strategyHash + ':' + tok) ?? 0n;
-          const share = (Number(accessible) * Number(adv)) / Number(advertisedSum);
+          const adv = advertised.get(s.strategyHash + ':' + tok);
+          if (!adv || !adv.known) continue;
+          const share = (Number(acc.amount) * Number(adv.balance)) / Number(advSum);
           backingByStrategy.set(s.strategyHash + ':' + tok, (backingByStrategy.get(s.strategyHash + ':' + tok) ?? 0) + share);
         }
       }
@@ -223,13 +219,20 @@ export async function computeCompetition(
   let totalInRangeBackingUsd = 0;
   for (const s of activeStrategies) {
     let usd = 0;
+    let known = true;
     for (const tok of [tokenA, tokenB]) {
+      const adv = advertised.get(s.strategyHash + ':' + tok);
+      if (!adv || !adv.known) {
+        known = false;
+        continue;
+      }
       const raw = backingByStrategy.get(s.strategyHash + ':' + tok) ?? 0;
       const price = tokenUsd(tok);
       if (price !== null) usd += rawUsd(raw, tok, price);
     }
     s.backingUsdUpperBound = usd;
-    if (s.inRange) totalInRangeBackingUsd += usd;
+    s.backingDataKnown = known;
+    if (s.inRange && known) totalInRangeBackingUsd += usd;
   }
 
   const fees = activeStrategies.map((s) => s.feeBps).filter((f): f is number => f !== null).sort((a, b) => a - b);
@@ -243,7 +246,7 @@ export async function computeCompetition(
   for (const [k, v] of makerTokenAccessible) {
     const [maker, tok] = k.split(':');
     const price = tokenUsd(tok!);
-    makerTokenBacking.set(k, price !== null ? rawUsd(v, tok!, price) : 0);
+    makerTokenBacking.set(k, v.known && price !== null ? rawUsd(v.amount, tok!, price) : 0);
   }
   return {
     pairKey: toLowerAddress(tokenA) + '/' + toLowerAddress(tokenB),
@@ -257,7 +260,49 @@ export async function computeCompetition(
     widthPercentiles: widthP,
     totalInRangeBackingUsd,
     makerTokenBacking,
+    dataUnknownCount,
+    dataKnownCount,
   };
+}
+
+function hasPair(s: StrategyRecord, tokenA: string, tokenB: string): boolean {
+  return s.tokens.includes(toLowerAddress(tokenA)) && s.tokens.includes(toLowerAddress(tokenB));
+}
+
+function rawUsd(raw: bigint | number, token: string, usdPrice: number): number {
+  const meta = TOKEN_BY_ADDRESS.get(toLowerAddress(token)) as TokenMeta | undefined;
+  const decimals = meta?.decimals ?? 18;
+  return (Number(raw) / 10 ** decimals) * usdPrice;
+}
+
+function halfWidthPct(sqrtMin: bigint, sqrtMax: bigint): number {
+  if (sqrtMin <= 0n || sqrtMax <= sqrtMin) return 0;
+  const lo = (sqrtMin * sqrtMin) / 10n ** 18n;
+  const hi = (sqrtMax * sqrtMax) / 10n ** 18n;
+  const mid = (lo + hi) / 2n;
+  if (mid <= 0n) return 0;
+  return (Number(hi - lo) / Number(mid)) * 50;
+}
+
+/** In-range via the canonical orientation utility (tokenGt per tokenLt). */
+function strategyInRange(
+  s: StrategyRecord,
+  tokenA: string,
+  tokenB: string,
+  tokenUsd: TokenUsdAtBlock,
+): boolean {
+  if (s.decoded.sqrtPriceMin === null || s.decoded.sqrtPriceMax === null) return true;
+  const usdA = tokenUsd(tokenA);
+  const usdB = tokenUsd(tokenB);
+  if (usdA === null || usdB === null || usdA <= 0 || usdB <= 0) return false;
+  const fairSqrt = fairSqrtForTokens(usdA, usdB, tokenA, tokenB);
+  return fairSqrt >= s.decoded.sqrtPriceMin && fairSqrt <= s.decoded.sqrtPriceMax;
+}
+
+export function sortPair(tokens: string[]): { tokenA: string; tokenB: string } {
+  if (tokens.length < 2) return { tokenA: tokens[0] ?? '0x', tokenB: tokens[0] ?? '0x' };
+  const { token0, token1 } = sortTokens(tokens[0]!, tokens[1]!);
+  return { tokenA: token0, tokenB: token1 };
 }
 
 async function multicallChunked(
@@ -285,7 +330,6 @@ async function multicallChunked(
       }, cfg.maxRetries);
       out.push(...res);
     } catch {
-      // fall back to sequential reads for the chunk
       for (const c of chunk) {
         try {
           const result = await ctx.client.readContract({
@@ -305,47 +349,4 @@ async function multicallChunked(
   return out;
 }
 
-/**
- * In-range check in the strategy's own token0/token1 (address-sorted) orientation.
- */
-function strategyInRange(
-  s: StrategyRecord,
-  tokenA: string,
-  tokenB: string,
-  tokenUsd: TokenUsdAtBlock,
-): boolean {
-  // Bare XYC strategies (no concentrate bounds) are full-range: always in range.
-  if (s.decoded.sqrtPriceMin === null || s.decoded.sqrtPriceMax === null) return true;
-  const { token0, token1 } = sortTokens(tokenA, tokenB);
-  const usd0 = tokenUsd(token0);
-  const usd1 = tokenUsd(token1);
-  if (usd0 === null || usd1 === null || usd0 <= 0) return false;
-  const rawPriceToken1PerToken0 = (usd1 / usd0) * 1e18;
-  const fairSqrt = priceToSqrtPrice(BigInt(Math.floor(rawPriceToken1PerToken0)));
-  return fairSqrt >= s.decoded.sqrtPriceMin && fairSqrt <= s.decoded.sqrtPriceMax;
-}
-
-function hasPair(s: StrategyRecord, tokenA: string, tokenB: string): boolean {
-  return s.tokens.includes(toLowerAddress(tokenA)) && s.tokens.includes(toLowerAddress(tokenB));
-}
-
-function rawUsd(raw: bigint | number, token: string, usdPrice: number): number {
-  const meta = TOKEN_BY_ADDRESS.get(toLowerAddress(token)) as TokenMeta | undefined;
-  const decimals = meta?.decimals ?? 18;
-  return (Number(raw) / 10 ** decimals) * usdPrice;
-}
-
-function halfWidthPct(sqrtMin: bigint, sqrtMax: bigint): number {
-  if (sqrtMin <= 0n || sqrtMax <= sqrtMin) return 0;
-  const lo = (sqrtMin * sqrtMin) / 10n ** 18n;
-  const hi = (sqrtMax * sqrtMax) / 10n ** 18n;
-  const mid = (lo + hi) / 2n;
-  if (mid <= 0n) return 0;
-  return (Number(hi - lo) / Number(mid)) * 50;
-}
-
-export function sortPair(tokens: string[]): { tokenA: string; tokenB: string } {
-  if (tokens.length < 2) return { tokenA: tokens[0] ?? '0x', tokenB: tokens[0] ?? '0x' };
-  const { token0, token1 } = sortTokens(tokens[0]!, tokens[1]!);
-  return { tokenA: token0, tokenB: token1 };
-}
+export { SAFE_BALANCES, RAW_BALANCES };

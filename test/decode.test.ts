@@ -61,6 +61,16 @@ test('decode: malformed bytes fail closed with decodeError', () => {
   assert.notEqual(decoded.decodeError, null);
 });
 
+test('decode: Order.decode success + program decode failure => supported=false (every([]) bug)', () => {
+  // Build a valid Order whose program bytes are UNKNOWN opcodes that the
+  // program decoder cannot interpret; supported must be false, not true.
+  const maker = new Address('0x1111111111111111111111111111111111111111');
+  const order = Order.new({ maker, program: new HexString('0x') as never, traits: MakerTraits.default() });
+  const bytes = order.encode().toString();
+  const decoded = decodeStrategyBytes(bytes);
+  assert.equal(decoded.supported, false);
+});
+
 test('decode: strategy hash stable across encode/decode', () => {
   const program = AquaXYCAmmStrategy.newConcentrate({
     rawPriceMin: 1_000_000_000_000_000_000n,

@@ -176,3 +176,181 @@ the persistence gate can complete. If the candidate regime remains
 USDC/USDT ~3%/50bps with positive base and non-negative stress, a separate
 reviewed 50U broadcaster task can be considered. The broadcaster is NOT
 implemented here by design.
+
+---
+
+# V1.1 INTEGRITY REPAIR (branch feature/shadow-v1-integrity-repair)
+
+## BASELINE (repair)
+
+- Base: 685565d0ef5fbade6cc879636759dc8e014a131f (feature/shadow-v1).
+- Branch: feature/shadow-v1-integrity-repair. No main modification, no merge.
+
+## ROOT CAUSES
+
+1. Reward market classification was generic (any stable/ETH pair), so
+   USDC/USDT and WETH/USDC were treated as reward candidates although
+   Season-1 only rewards 1INCH paired with eligible assets.
+2. Merkl fetch was single-request; live Aqua campaigns beyond the three
+   initially observed were unknown and silently absent.
+3. Competition was chosen globally (mostCompetitive) and could attach another
+   pair's metrics/budget to a candidate.
+4. Price orientation was hand-rolled in several places with inconsistent
+   conventions.
+5. rawBalances used a hand-written 2-arg ABI; real ABI is
+   (maker, app, strategyHash, token) -> (uint248 balance, uint8 tokensCount).
+6. Markouts used Chainlink-only, hardcoded 18 decimals, and only tokenIn.
+7. Lifecycle gas disappeared when reshipsPerDay=0.
+8. Empirical fill-share treated null fee/width as comparable and ignored
+   exact-pair bucketing.
+9. Canary approve calldata encoded the TOKEN as spender (hand-encoded bug);
+   >$50 clamped silently; range orientation inconsistent.
+10. Persistence counted old-version snapshots without model/config/pair
+    gating.
+11. decodeStrategyBytes marked a strategy supported when the program decoded
+    to zero instructions (every([]) === true).
+
+## FILES CHANGED
+
+- src/constants.ts (Season-1 groups + verified asset lists), src/types.ts
+  (CampaignGroup, PairMetrics, FairPriceProvider, GasModel, modelVersion),
+  src/config.ts (holdingHorizon, markout freshness, gas).
+- src/util/price.ts (NEW canonical orientation utility).
+- src/sources/merkl.ts (pagination + campaign inventory + coverage audit),
+  src/sources/uniswap.ts (NEW V3 pool discovery + swap series).
+- src/analytics/group.ts (exact eligibility + PairMetrics + group denominator),
+  competition.ts (official rawBalances ABI, DATA_UNKNOWN, orientation),
+  markouts.ts (FairPriceProvider, pool markouts, decimals-aware, reliability).
+- src/model/gas.ts (NEW lifecycle gas), pnl.ts, fillShare.ts (strict
+  comparables), confidence.ts.
+- src/decision/gates.ts (coverage/eligibility/markout/gas gates), decide.ts
+  (per-pair, modelVersion=2), persistence.ts (versioned qualifying snapshots).
+- src/preview/canary.ts (viem approve with spender=AQUA_REGISTRY, shared
+  orientation, fail-closed cap), src/decode/order.ts (supported fix),
+  src/cycle.ts (pair-level pipeline, pool series, gas measurement).
+- test/*.test.ts: 89 tests (added eligibility regression matrix, orientation
+  golden tests with official SDK encoding, rawBalances ABI args, markout
+  freshness/decimals, gas arithmetic, persistence versioning, approve calldata
+  decode, decode supported-fix).
+
+## INCENTIVE ELIGIBILITY RESULT
+
+- 1INCH/USDC, 1INCH/USDT => STABLE eligible (regression PASS).
+- 1INCH/WETH => ETH_LST eligible (regression PASS).
+- USDC/USDT, WETH/USDC => NOT eligible (regression PASS; excluded from pair
+  metrics and group denominator).
+- Unknown eligibility => reward = 0 and candidate cannot TRADE.
+
+## MERKL COVERAGE RESULT
+
+- Complete pagination implemented (items=100/page); coverage audit detects
+  unknown/unparsed live Aqua campaigns.
+- Live Season-1 inventory (10 campaigns, 5 groups): ETH & LST (USDC/1INCH
+  rewards), stablecoin (USDC/1INCH), BTC wrapper (USDC/1INCH), DeFi major
+  (USDC/1INCH), RWA (USDC/1INCH).
+- Live run: liveAqua=10 parsed=10 unknown=0 => COVERAGE_COMPLETE.
+- BTC wrapper / DeFi major / RWA have UNVERIFIED asset lists and are excluded
+  from canary eligibility (budget not used); CAMPAIGN_COVERAGE_INCOMPLETE
+  still forbids TRADE whenever any campaign cannot be parsed.
+
+## PAIR/COMPETITION RESULT
+
+- mostCompetitive removed; candidates use only their exact PairMetrics,
+  CompetitionState, group denominator and markouts. Canonical unordered pair
+  keys everywhere.
+- Live: 1INCH/USDC 233 active / 10 in-range / $28.9k backing;
+  1INCH/WETH 284 active / 157 in-range / $3.92M backing;
+  1INCH/USDT 219 active / 5 in-range / $4.5k backing; unknownBacking=0.
+
+## PRICE ORIENTATION RESULT
+
+- One tested utility (util/price.ts): P = tokenGt per tokenLt =
+  USD(tokenLt)/USD(tokenGt). Golden tests with official SDK range encoding;
+  a centered USDC/WETH position around $2000 is detected in range.
+
+## RAW BALANCE RESULT
+
+- Official ABI rawBalances(maker, app, strategyHash, token) ->
+  (balance, tokensCount) used via the official SDK ABI; tests assert exact
+  args and tuple handling; failed reads are DATA_UNKNOWN (never silent zero)
+  and lower confidence when >50% unknown.
+
+## MARKOUT RESULT
+
+- FairPriceProvider: Uniswap V3 swap series (discovered pools) with Chainlink
+  USD anchors; freshness gate (max age 300s) prevents stale prices masquerading
+  as fresh 1-minute quotes; token-specific decimals; maker-perspective sign
+  convention tested in both directions; fee and markout never double-counted.
+- Live: 1INCH/USDC 60s:1825/300s:995/1800s:843; 1INCH/WETH
+  60s:2469/300s:1334/1800s:1113; 1INCH/USDT 60s:3923/300s:3322/1800s:3264;
+  all reliable=true. MARKOUT_UNRELIABLE forbids TRADE.
+
+## GAS RESULT
+
+- Measured receipts: ship p75=158,895 gas, dock p75=70,343 gas (40 receipts
+  each), approve 46.5k; price ~2.03e-6 USD/unit; 7-day horizon amortization;
+  entry/exit $0.12/day at zero reships. GAS_UNKNOWN forbids TRADE.
+
+## FILL SHARE RESULT
+
+- strategyFee/width joined from decoded strategies by orderHash; comparables
+  require exact pair + fee bucket + width bucket + both metadata present.
+- Live (1INCH/USDT): 1,083 unique strategies joined with metadata; fee=5bps
+  width=3% bucket has 1,067 comparables (p25 share ~5.6e-5); fee=50bps has
+  ZERO comparables => LOW confidence => no TRADE at 50bps.
+
+## CANARY PREVIEW RESULT
+
+- approve(spender=AQUA_REGISTRY, amount) encoded with viem encodeFunctionData;
+  tests decode the calldata and assert spender == AQUA_REGISTRY and exact
+  bounded amount. Capital > USD 50 now fails closed (no silent clamp). Range
+  built with the canonical orientation utility. Still unsigned only.
+
+## PERSISTENCE RESET
+
+- modelVersion=2 introduced; qualifying snapshots require same modelVersion,
+  same configFingerprint, same exact pair, compatible fee/range regime, all
+  gates passing, >=3 qualifying snapshots spanning >=16h. Old V1 snapshots
+  never count (live: 13 total snapshots, 0 qualifying).
+
+## VALIDATION (repair)
+
+- npm ci - OK; npm run typecheck - PASS; npm test - PASS 89/89; npm run build
+  - PASS; npm run decision/status - PASS; npm run canary-preview - refuses
+  (exit 1, DO_NOT_TRADE). Live shadow-cycle runs completed end-to-end
+  (pools, markouts, gas measurement, coverage, pair metrics).
+
+## LIVE READ-ONLY RESULT (repair, 2026-08-19 ~04:57 UTC)
+
+- Decision: **DO_NOT_TRADE** (no candidate passes; persistence gate also
+  requires 16h+ of qualifying snapshots).
+- liveCutoff 25786910 / historicalCutoff 25786463; coverage complete (10/10);
+  pair volumes 1INCH/USDC $1.91M/day, 1INCH/WETH $2.58M/day,
+  1INCH/USDT $2.83M/day; markouts reliable; gas measured; USDC/USDT candidate
+  removed.
+- Best rejected candidate: 1INCH/USDT fee=50bps (net $328/day structural-only,
+  confidence LOW - zero comparable empirical strategies at 50bps).
+- Reason summary: empirical fill shares in the populated fee/width buckets are
+  ~0.002% (hundreds of comparable strategies), which cannot cover lifecycle
+  gas; higher-fee candidates lack comparable evidence. Honest DO_NOT_TRADE.
+
+## SAFETY CONFIRMATION (repair)
+
+- No private key/signer/broadcast; NO_BROADCAST test still green; canary
+  remains unsigned with bounded approvals; no max-uint; cap enforced by
+  failing closed; no transaction signed or broadcast.
+
+## KNOWN GAPS (repair)
+
+- BTC wrapper / DeFi major / RWA asset lists unverified (excluded from canary
+  scope); resolver qualification still unverified (0.60 haircut).
+- 1INCH/USD 1m/5m markouts use the 1INCH/WETH pool as the fresh leg with
+  Chainlink ETH/USD anchor (freshness enforced on the pool leg).
+- Market-neutrality of pool prices (fees/impact) not modeled in markouts.
+
+## FINAL VERDICT
+
+**SHADOW_MODEL_READY** - the repaired profitability model passes all
+deterministic validation and a full live read-only cycle; the honest live
+decision is DO_NOT_TRADE (economic + persistence reasons), and no broadcaster
+was implemented.

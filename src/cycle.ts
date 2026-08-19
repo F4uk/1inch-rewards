@@ -1,34 +1,39 @@
 import type { AppConfig } from './config.ts';
-import { AQUA_ROUTER, CHAINLINK_FEEDS, type PriceGroup } from './constants.ts';
-import type { FillEvent, GroupMetrics, LifecycleEvent } from './types.ts';
+import { CHAINLINK_FEEDS } from './constants.ts';
+import type { FillEvent, GroupMetrics, LifecycleEvent, PairMetrics } from './types.ts';
 import { toLowerAddress } from './types.ts';
-import { makeClient, getFinalizedBlock, getBlockAtOrBeforeTimestamp, assertChainOk, assertContractsDeployed, deploymentBlocks, type RpcContext } from './sources/rpc.ts';
+import { makeClient, getFinalizedBlock, getBlockAtOrBeforeTimestamp, assertChainOk, assertContractsDeployed, deploymentBlocks, getLogsChunked, type RpcContext } from './sources/rpc.ts';
 import { fetchRewardUniverse } from './sources/merkl.ts';
-import type { RewardUniverse } from './types.ts';
 import { fetchPriceSeries, answersAtOrBefore, type PriceSeries } from './sources/chainlink.ts';
+import { discoverPool, fetchPoolSeries, poolPriceBaseQuote, type PoolSeries } from './sources/uniswap.ts';
 import { indexLifecycleEvents } from './index/events.ts';
 import { indexFillEvents } from './index/fills.ts';
 import { loadCheckpoint, saveCheckpoint, loadJsonl, appendJsonl, dedupeByKey, eventKey, ensureDataDir, type Checkpoint } from './index/store.ts';
-import { computeGroupMetrics, classifyPair, pairKey, tokenToFeedName, eligibleGroups } from './analytics/group.ts';
+import { computePairAndGroupMetrics, pairKey, tokenToFeedName, ONEINCH } from './analytics/group.ts';
 import { buildStrategies, computeCompetition, activeStrategiesAt } from './analytics/competition.ts';
-import { computeMarkoutSamples, summarizeMarkouts } from './analytics/markouts.ts';
+import { buildFairPriceProvider, computeMarkoutSamples, summarizeMarkouts, markoutReliability, WETH, USDC, USDT, DAI } from './analytics/markouts.ts';
 import { simulateAllWidths, samplePath, type PricePoint } from './analytics/rangeCross.ts';
 import { decide, type CycleData } from './decision/decide.ts';
+import { rangeHalfWidthPct } from './util/price.ts';
+import { computeGasModel } from './model/gas.ts';
+import type { GasModelInput } from './types.ts';
+import { AQUA_REGISTRY, AQUA_ROUTER, REGISTRY_DEPLOY_BLOCK } from './constants.ts';
 
 export type CycleResult = {
   liveCutoffBlock: bigint;
   liveCutoffTimestamp: bigint;
   historicalCutoffBlock: bigint;
   historicalCutoffTimestamp: bigint;
-  universe: RewardUniverse | null;
   lifecycleEvents: number;
   fillEvents: number;
+  pairMetrics: PairMetrics[];
   groupMetrics: GroupMetrics[];
   decision: ReturnType<typeof decide>['decision'];
   durationSec: number;
 };
 
 const MAX_MARKOUT_HORIZON_SEC = 1800;
+const SWAP_TOPIC = '0x54bc5c027d15d7aa8ae083f994ab4411d2f223291672ecd3a344f3d92dcaf8b2';
 
 export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string) => void } = {}): Promise<CycleResult> {
   const log = opts.log ?? (() => undefined);
@@ -69,78 +74,107 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
   log('lifecycle=' + mergedLife.length + ' fills=' + mergedFills.length);
 
   const universe = await fetchRewardUniverse(cfg, nowSec);
-  log('merkl healthy=' + universe.sourceHealthy + ' opportunities=' + universe.opportunities.length);
+  log('merkl healthy=' + universe.sourceHealthy + ' opportunities=' + universe.opportunities.length + ' coverage=' + universe.coverage.detail);
 
+  // Chainlink anchor series (USD anchors only; markouts use pool prices)
   const seriesStartBlock = fillWindowStartBlock;
-  const feedNames = new Set<string>();
-  for (const f of mergedFills) {
-    for (const t of [f.tokenIn, f.tokenOut]) {
-      const fn = tokenToFeedName(t);
-      if (fn) feedNames.add(fn);
-    }
-  }
-  feedNames.add('1INCH/USD');
-  feedNames.add('ETH/USD');
-  feedNames.add('USDC/USD');
-  const series: Record<string, PriceSeries> = {};
-  const feedJobs = [...feedNames]
+  const anchors: Record<string, PriceSeries> = {};
+  const anchorNames = ['ETH/USD', 'USDC/USD', 'USDT/USD', 'DAI/USD', '1INCH/USD'];
+  const anchorJobs = anchorNames
     .filter((fn) => CHAINLINK_FEEDS[fn] !== undefined)
     .map(async (fn) => {
-      series[fn] = await fetchPriceSeries(ctx, cfg, CHAINLINK_FEEDS[fn]!, seriesStartBlock, liveCutoffBlock, (f, t, n) => log('  feed ' + fn + ' ' + f + '-' + t + ': ' + n));
-      log('feed ' + fn + ' observations=' + series[fn]!.observations.length);
+      anchors[fn] = await fetchPriceSeries(ctx, cfg, CHAINLINK_FEEDS[fn]!, seriesStartBlock, liveCutoffBlock, (f, t, n) => log('  anchor ' + fn + ' ' + f + '-' + t + ': ' + n));
+      log('anchor ' + fn + ' observations=' + anchors[fn]!.observations.length);
     });
-  await Promise.all(feedJobs);
-
-  const usdPriceAtTs = (token: string, ts: bigint): number | null => {
-    const fn = tokenToFeedName(token);
-    if (!fn || !series[fn]) return null;
-    const obs = answersAtOrBefore(series[fn]!, [ts])[0];
-    return obs ? Number(obs.answer) / 10 ** series[fn]!.decimals : null;
-  };
+  await Promise.all(anchorJobs);
   const latestUsd = (token: string): number | null => {
     const fn = tokenToFeedName(token);
-    const s = fn ? series[fn] : undefined;
+    const s = fn ? anchors[fn] : undefined;
     if (!s || s.observations.length === 0) return null;
     return Number(s.observations[s.observations.length - 1]!.answer) / 10 ** s.decimals;
   };
+  const usdPriceAtTs = (token: string, ts: bigint): number | null => {
+    const fn = tokenToFeedName(token);
+    if (!fn || !anchors[fn]) return null;
+    const obs = answersAtOrBefore(anchors[fn]!, [ts])[0];
+    return obs ? Number(obs.answer) / 10 ** anchors[fn]!.decimals : null;
+  };
 
   const fillsInWindow = mergedFills.filter((f) => f.blockNumber >= fillWindowStartBlock && f.blockNumber <= historicalCutoffBlock);
-  const groupMetrics = computeGroupMetrics(fillsInWindow, {
+  const { pairMetrics, groupMetrics } = computePairAndGroupMetrics(fillsInWindow, {
     usdPrice: usdPriceAtTs,
     latestUsdPrice: latestUsd,
-  }, Number(historicalCutoffTimestamp - fillWindowStartTs));
-  const eligible = eligibleGroups(universe, cfg, nowSec);
-  const eligibleMetrics = groupMetrics.filter((g) => eligible.has(g.group));
-  for (const g of eligibleMetrics) {
+  }, Number(historicalCutoffTimestamp - fillWindowStartTs), universe.campaignGroups);
+  for (const pm of pairMetrics) {
+    log('pair ' + pm.pairKey + ' group=' + pm.group + ' fills=' + pm.fillCount + ' grossUsd=' + pm.grossFillUsd.toFixed(2) + ' dailyRate=' + pm.dailyFillRateUsd.toFixed(2));
+  }
+  for (const g of groupMetrics) {
     log('group ' + g.group + ' fills=' + g.fillCount + ' grossUsd=' + g.grossGroupFillUsd.toFixed(2) + ' dailyRate=' + g.dailyFillRateUsd.toFixed(2));
   }
-  if (eligibleMetrics.length === 0) {
-    log('no eligible reward groups with fills; candidates will be empty');
-  }
 
-  const markoutSummaries: Record<string, ReturnType<typeof summarizeMarkouts>> = {};
-  const markoutFills = mergedFills.filter((f) => f.timestamp + BigInt(maxHorizon) <= historicalCutoffTimestamp);
-  for (const g of eligibleMetrics) {
-    const gf = markoutFills.filter((f) => classifyPair(f.tokenIn, f.tokenOut) === g.group);
-    const samples = computeMarkoutSamples(gf, { usdPriceAt: usdPriceAtTs }, cfg.markoutHorizonsSec, historicalCutoffTimestamp);
-    markoutSummaries[g.group] = summarizeMarkouts(samples);
-    log('markouts ' + g.group + ': ' + markoutSummaries[g.group]!.map((s) => s.horizonSec + 's:' + s.sampleCount).join(' '));
-  }
-
+  // Join orderHash -> decoded strategy metadata (fee/width) for empirical fill share
   const strategies = buildStrategies(mergedLife);
+  const decodedByHash = new Map<string, { fee: number; width: number }>();
+  for (const rec of strategies.values()) {
+    if (rec.decoded.feeBpsIn === null || rec.decoded.sqrtPriceMin === null || rec.decoded.sqrtPriceMax === null) continue;
+    decodedByHash.set(rec.strategyHash, { fee: rec.decoded.feeBpsIn, width: rangeHalfWidthPct(rec.decoded.sqrtPriceMin, rec.decoded.sqrtPriceMax) });
+  }
+  for (const pm of pairMetrics) {
+    for (const [hash] of pm.fillShareByStrategy) {
+      const meta = decodedByHash.get(hash);
+      if (meta) {
+        pm.strategyFees.set(hash, meta.fee);
+        pm.strategyWidths.set(hash, meta.width);
+      }
+    }
+    log('join: pair=' + pm.pairKey + ' hashes=' + pm.fillShareByStrategy.size + ' withMeta=' + pm.strategyFees.size);
+  }
   log('strategies=' + strategies.size + ' active=' + activeStrategiesAt(strategies, liveCutoffBlock, AQUA_ROUTER).length);
-  const competitions = new Map<string, Awaited<ReturnType<typeof computeCompetition>>>();
-  for (const g of eligibleMetrics) {
-    const topPairs = topPairsForGroup(mergedFills, g.group, 2);
-    for (const [ta, tb] of topPairs) {
-      const key = pairKey(ta, tb);
-      if (competitions.has(key)) continue;
-      const comp = await computeCompetition(ctx, cfg, strategies, ta, tb, liveCutoffBlock, latestUsd);
-      competitions.set(key, comp);
-      log('competition ' + key + ' active=' + comp.activeStrategies.length + ' inRange=' + comp.inRangeCount + ' backingUsd=' + comp.totalInRangeBackingUsd.toFixed(2));
+
+  // Uniswap V3 pools needed for markouts / range sims
+  const neededPools = new Map<string, { a: string; b: string }>();
+  for (const pm of pairMetrics) {
+    neededPools.set(pairKey(ONEINCH, WETH), { a: ONEINCH, b: WETH });
+    if (pm.tokenB.toLowerCase() === WETH) continue;
+    neededPools.set(pairKey(WETH, pm.tokenB), { a: WETH, b: pm.tokenB });
+  }
+  const poolMeta = new Map<string, { poolAddress: string; token0: string; token1: string; feeTier: number }>();
+  for (const [key, p] of neededPools) {
+    const found = await discoverPool(ctx, cfg, p.a, p.b);
+    if (found) {
+      poolMeta.set(key, found);
+      log('pool ' + key + ' => ' + found.poolAddress.slice(0, 12) + ' fee=' + found.feeTier);
     }
   }
+  const pools: Record<string, PoolSeries> = {};
+  await Promise.all([...poolMeta.entries()].map(async ([key, meta]) => {
+    pools[key] = await fetchPoolSeries(ctx, cfg, meta, seriesStartBlock, liveCutoffBlock, (f, t, n) => log('  pool ' + key.slice(0, 10) + ' ' + f + '-' + t + ': ' + n));
+    log('pool ' + key + ' swaps=' + pools[key]!.observations.length);
+  }));
 
+  // Fair price provider for markouts (fresh pool prices + Chainlink USD anchors)
+  const provider = buildFairPriceProvider(pools, anchors, nowSec);
+  const markoutFills = mergedFills.filter((f) => f.timestamp + BigInt(maxHorizon) <= historicalCutoffTimestamp);
+  const markoutSummaries: Record<string, ReturnType<typeof summarizeMarkouts>> = {};
+  const markoutReliabilities: Record<string, ReturnType<typeof markoutReliability>> = {};
+  for (const pm of pairMetrics) {
+    const pf = markoutFills.filter((f) => pairKey(f.tokenIn, f.tokenOut) === pm.pairKey);
+    const samples = computeMarkoutSamples(pf, provider, cfg.markoutHorizonsSec, historicalCutoffTimestamp, cfg.markoutMaxPoolAgeSec);
+    markoutSummaries[pm.pairKey] = summarizeMarkouts(samples);
+    markoutReliabilities[pm.pairKey] = markoutReliability(markoutSummaries[pm.pairKey]!, cfg.minMarkoutSamplesPerPair, cfg.markoutMaxPoolAgeSec);
+    log('markouts ' + pm.pairKey + ': ' + markoutSummaries[pm.pairKey]!.map((s) => s.horizonSec + 's:' + s.sampleCount).join(' ') + ' reliable=' + markoutReliabilities[pm.pairKey]!.reliable);
+  }
+
+  // Competition for each eligible pair (canonical keys; no cross-wiring)
+  const competitions = new Map<string, Awaited<ReturnType<typeof computeCompetition>>>();
+  for (const pm of pairMetrics) {
+    if (competitions.has(pm.pairKey)) continue;
+    const comp = await computeCompetition(ctx, cfg, strategies, pm.tokenA, pm.tokenB, liveCutoffBlock, latestUsd);
+    competitions.set(pm.pairKey, comp);
+    log('competition ' + pm.pairKey + ' active=' + comp.activeStrategies.length + ' inRange=' + comp.inRangeCount + ' backingUsd=' + comp.totalInRangeBackingUsd.toFixed(2) + ' unknownBacking=' + comp.dataUnknownCount);
+  }
+
+  // Range simulations on the most competitive pair (pool path when available)
   let rangeSims = new Map<number, { reshipsPerDay: number; timeInRangePct: number }>();
   let dailyVolPct = 0;
   const compValues = [...competitions.values()];
@@ -148,10 +182,11 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
     ? compValues.reduce((a, b) => (b.inRangeCount > a.inRangeCount ? b : a), compValues[0]!)
     : undefined;
   if (comp0) {
-    const feedA = tokenToFeedName(comp0.tokenA);
-    const feedB = tokenToFeedName(comp0.tokenB);
-    if (feedA && feedB && series[feedA] && series[feedB]) {
-      const path = buildPairPath(series[feedA]!, series[feedB]!, historicalCutoffTimestamp - BigInt(lookbackSec), historicalCutoffTimestamp);
+    const pool = pools[pairKey(comp0.tokenA, comp0.tokenB)] ?? pools[pairKey(ONEINCH, WETH)];
+    if (pool && pool.observations.length > 1) {
+      const path = samplePath(pool.observations
+        .filter((o) => o.timestamp >= historicalCutoffTimestamp - BigInt(lookbackSec) && o.timestamp <= historicalCutoffTimestamp)
+        .map((o) => ({ timestamp: o.timestamp, price: o.priceToken1PerToken0 })));
       if (path.length > 1) {
         rangeSims = new Map(simulateAllWidths(path, cfg.candidateHalfWidthsPct, cfg.reshipCooldownSec).map((s) => [s.halfWidthPct, { reshipsPerDay: s.reshipsPerDay, timeInRangePct: s.timeInRangePct }]));
         dailyVolPct = estimateDailyVolPct(path);
@@ -159,6 +194,9 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
     }
   }
   log('rangeSims=' + [...rangeSims.entries()].map(([w, s]) => w + '%:' + s.reshipsPerDay.toFixed(2) + '/d').join(' ') + ' dailyVol=' + dailyVolPct.toFixed(2) + '%');
+
+  // Lifecycle gas: measured receipt percentiles + current gas price + ETH/USD
+  const gasModel = await buildGasModel(ctx, cfg, mergedLife, latestUsd(WETH), nowSec, log);
 
   const cd: CycleData = {
     chainOk: true,
@@ -170,9 +208,11 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
     historicalCutoffBlock,
     historicalCutoffTimestamp,
     universe,
-    groupMetrics: eligibleMetrics,
+    pairMetrics,
+    groupMetrics,
     competitions,
     markoutSummaries,
+    markoutReliabilities,
     rangeSims,
     dailyVolPct,
     capitalUsd: cfg.canaryCapUsd,
@@ -183,7 +223,8 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
       feeds: nowSec.toString(),
     },
     rewardsFresh: universe.sourceHealthy,
-    feedsFresh: feedNames.size > 0 && [...feedNames].every((fn) => series[fn] !== undefined && series[fn]!.observations.length > 0),
+    feedsFresh: anchorNames.every((fn) => anchors[fn] !== undefined && anchors[fn]!.observations.length > 0),
+    gasModel,
   };
   const result = decide(cfg, cd);
   log('decision=' + result.decision.decision + ' pair=' + (result.decision.pair ?? 'none') + ' net=' + result.decision.expectedNetUsdPerDay.toFixed(4) + ' stress=' + result.decision.stressNetUsdPerDay.toFixed(4));
@@ -192,51 +233,13 @@ export async function runShadowCycle(cfg: AppConfig, opts: { log?: (msg: string)
     liveCutoffTimestamp: latest.timestamp,
     historicalCutoffBlock,
     historicalCutoffTimestamp,
-    universe,
     lifecycleEvents: mergedLife.length,
     fillEvents: mergedFills.length,
+    pairMetrics,
     groupMetrics,
     decision: result.decision,
     durationSec: (Date.now() - start) / 1000,
   };
-}
-
-function topPairsForGroup(fills: FillEvent[], group: PriceGroup, n: number): [string, string][] {
-  const counts = new Map<string, [string, string, number]>();
-  for (const f of fills) {
-    if (classifyPair(f.tokenIn, f.tokenOut) !== group) continue;
-    const key = pairKey(f.tokenIn, f.tokenOut);
-    const cur = counts.get(key);
-    if (cur) cur[2] += 1;
-    else counts.set(key, [toLowerAddress(f.tokenIn), toLowerAddress(f.tokenOut), 1]);
-  }
-  return [...counts.values()].sort((a, b) => b[2] - a[2]).slice(0, n).map(([ta, tb]) => [ta, tb]);
-}
-
-export function buildPairPath(sA: PriceSeries, sB: PriceSeries, fromTs: bigint, toTs: bigint): PricePoint[] {
-  // Use the slower feed as the sampling clock and look up the other feed at the
-  // same timestamps (latest observation at or before), so sparse feeds still
-  // produce a usable path.
-  const obsA = sA.observations.filter((o) => o.updatedAt >= fromTs && o.updatedAt <= toTs);
-  const obsB = sB.observations.filter((o) => o.updatedAt >= fromTs && o.updatedAt <= toTs);
-  const primary = obsA.length <= obsB.length ? obsA : obsB;
-  const secondary = obsA.length <= obsB.length ? obsB : obsA;
-  const primaryFeed = obsA.length <= obsB.length ? sA : sB;
-  const secondaryFeed = obsA.length <= obsB.length ? sB : sA;
-  let si = 0;
-  const points: PricePoint[] = [];
-  for (const o of primary) {
-    while (si + 1 < secondary.length && secondary[si + 1]!.updatedAt <= o.updatedAt) si++;
-    const so = secondary[si];
-    if (!so || so.updatedAt > o.updatedAt) continue;
-    const pa = Number(o.answer) / 10 ** primaryFeed.decimals;
-    const pb = Number(so.answer) / 10 ** secondaryFeed.decimals;
-    if (pa <= 0 || pb <= 0) continue;
-    // price = tokenB per tokenA where A is the primary-feed token, B secondary
-    const price = primaryFeed === sA ? pb / pa : pa / pb;
-    points.push({ timestamp: o.updatedAt, price });
-  }
-  return samplePath(points);
 }
 
 export function estimateDailyVolPct(path: PricePoint[]): number {
@@ -254,7 +257,89 @@ export function estimateDailyVolPct(path: PricePoint[]): number {
   const windowHours = Number(path[path.length - 1]!.timestamp - path[0]!.timestamp) / 3600;
   if (windowHours <= 0) return 0;
   const vol = sd * Math.sqrt(24 / windowHours) * 100;
-  // Cap at 100%/day: beyond that the path is dominated by data glitches, and an
-  // unbounded inventory buffer would veto every candidate for the wrong reason.
   return vol > 100 ? 100 : vol;
+}
+
+/**
+ * Measure lifecycle gas from historical Aqua transaction receipts (conservative
+ * p75) and the current gas price converted to USD via ETH/USD.
+ */
+async function buildGasModel(
+  ctx: RpcContext,
+  cfg: AppConfig,
+  lifecycle: LifecycleEvent[],
+  ethUsd: number | null,
+  nowSec: bigint,
+  log: (m: string) => void,
+): Promise<{ gasKnown: boolean; output: ReturnType<typeof computeGasModel>; detail: string }> {
+  const ships = [...new Set(lifecycle.filter((e) => e.kind === 'Shipped').map((e) => e.txHash))].slice(0, 40);
+  const docks = [...new Set(lifecycle.filter((e) => e.kind === 'Docked').map((e) => e.txHash))].slice(0, 40);
+  const shipUnits = await receiptGasPercentiles(ctx, cfg, ships, log, 'ship');
+  const dockUnits = await receiptGasPercentiles(ctx, cfg, docks, log, 'dock');
+  let gasPriceUsdPerUnit: number | null = null;
+  try {
+    const block = await ctx.client.getBlock({ blockTag: 'latest' });
+    const baseFee = block.baseFeePerGas ?? 0n;
+    const priorityFee = 1_000_000_000n; // conservative 1 gwei priority
+    const totalWei = baseFee * 2n + priorityFee;
+    if (ethUsd !== null && ethUsd > 0) {
+      gasPriceUsdPerUnit = (Number(totalWei) / 1e18) * ethUsd;
+    }
+  } catch {
+    gasPriceUsdPerUnit = null;
+  }
+  const input: GasModelInput = {
+    gasPriceUsdPerUnit,
+    gasUnits: {
+      approve: 46500,
+      ship: shipUnits,
+      dock: dockUnits,
+      reship: shipUnits + dockUnits,
+      inventoryRebalance: Math.floor(shipUnits / 2),
+      emergencyReserve: dockUnits,
+    },
+    gasUnitsSource: shipUnits > 0 || dockUnits > 0
+      ? 'MEASURED_RECEIPTS(p75): ship=' + shipUnits + ' dock=' + dockUnits
+      : 'CONFIGURED_FALLBACK',
+    holdingHorizonDays: cfg.holdingHorizonDays,
+    reshipsPerDay: 0,
+  };
+  const output = computeGasModel(input);
+  log('gas: ' + output.detail + ' usdPerDay(0 reships)=' + output.gasUsdPerDay.toFixed(5));
+  return { gasKnown: output.gasKnown, output, detail: output.detail };
+}
+
+async function receiptGasPercentiles(ctx: RpcContext, cfg: AppConfig, txHashes: string[], log: (m: string) => void, kind: string): Promise<number> {
+  const units: number[] = [];
+  const batchSize = 20;
+  for (let i = 0; i < txHashes.length; i += batchSize) {
+    const chunk = txHashes.slice(i, i + batchSize);
+    const body = chunk.map((h, idx) => ({ jsonrpc: '2.0', id: idx + 1, method: 'eth_getTransactionReceipt', params: [h] }));
+    try {
+      const res = await fetch(ctx.url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(60000),
+      });
+      if (res.ok) {
+        const json = (await res.json()) as { id: number; result: { gasUsed: string } | null }[];
+        const byId = new Map(json.map((r) => [r.id, r.result]));
+        for (let idx = 0; idx < chunk.length; idx++) {
+          const r = byId.get(idx + 1);
+          if (r && r.gasUsed) units.push(Number(BigInt(r.gasUsed)));
+        }
+      }
+    } catch {
+      // batch failed; skip this batch
+    }
+  }
+  if (units.length === 0) {
+    log('gas ' + kind + ': no receipts measured, using configured fallback');
+    return kind === 'ship' ? 320000 : 90000;
+  }
+  units.sort((a, b) => a - b);
+  const p75 = units[Math.min(units.length - 1, Math.floor(units.length * 0.75))]!;
+  log('gas ' + kind + ': receipts=' + units.length + ' p50=' + units[Math.floor(units.length * 0.5)] + ' p75=' + p75);
+  return p75;
 }

@@ -58,7 +58,10 @@ export function decodeStrategyBytes(rawBytes: string): DecodedStrategy {
     } catch {
       // program decode failed; instructions stay empty and strategy is unsupported
     }
-    const supported = instructions.every((ix) => AQUA_SUPPORTED_OPCODES.has(ix.opcode));
+    // If Order.decode succeeded but the program could not be decoded (or the
+    // program is empty), the strategy must NOT be treated as supported:
+    // every([]) === true would otherwise mark an unknown strategy as supported.
+    const supported = instructions.length > 0 && instructions.every((ix) => AQUA_SUPPORTED_OPCODES.has(ix.opcode));
     const unsupportedInstructions = instructions.filter((ix) => !AQUA_SUPPORTED_OPCODES.has(ix.opcode)).map((ix) => ix.opcode);
     return {
       strategyHash,

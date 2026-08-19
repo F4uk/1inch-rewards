@@ -40,32 +40,48 @@ export function listSnapshots(cfg: AppConfig): Snapshot[] {
 
 /**
  * Persistence gate: >=3 snapshots spanning >=16h; each of the recent snapshots
- * individually passes canary gates; same pair/nearby parameter regime.
+ * individually passes canary gates; same modelVersion, same configFingerprint,
+ * same exact eligible pair, compatible fee/range regime. Span is measured
+ * across QUALIFYING snapshots only; old-version snapshots never count.
  */
 export function evaluatePersistence(cfg: AppConfig, latest: DecisionResult): PersistenceStatus {
   const snapshots = listSnapshots(cfg);
   const details: string[] = [];
-  const snapshotCount = snapshots.length;
+  const qualifying = snapshots.filter((s) => {
+    if (s.modelVersion !== latest.modelVersion) return false;
+    if (s.configFingerprint !== latest.configFingerprint) return false;
+    if (s.decision.pair !== latest.pair) return false;
+    if (s.decision.decision !== 'TRADE') return false;
+    if (s.decision.expectedNetUsdPerDay <= 0) return false;
+    if (s.decision.stressNetUsdPerDay < 0) return false;
+    if (s.decision.failedGates.length > 0) return false;
+    const width = s.decision.rangeHalfWidthPct ?? -1;
+    const fee = s.decision.feeBps ?? -1;
+    const lw = latest.rangeHalfWidthPct ?? -1;
+    const lf = latest.feeBps ?? -1;
+    if (Math.abs(width - lw) > 2) return false;
+    if (Math.abs(fee - lf) > 10) return false;
+    return true;
+  });
+  const snapshotCount = qualifying.length;
   let spanHours = 0;
-  if (snapshotCount >= 2) {
-    spanHours = Number(snapshots[snapshots.length - 1]!.createdAt - snapshots[0]!.createdAt) / 3600;
+  if (qualifying.length >= 2) {
+    spanHours = Number(qualifying[qualifying.length - 1]!.createdAt - qualifying[0]!.createdAt) / 3600;
   }
-  details.push('snapshots=' + snapshotCount + ' span=' + spanHours.toFixed(1) + 'h');
+  details.push('modelVersion=' + latest.modelVersion + ' qualifyingSnapshots=' + snapshotCount + ' span=' + spanHours.toFixed(1) + 'h (total snapshots=' + snapshots.length + ')');
   if (snapshotCount < cfg.minSnapshots) {
-    details.push('FAIL: need >= ' + cfg.minSnapshots + ' snapshots');
+    details.push('FAIL: need >= ' + cfg.minSnapshots + ' qualifying snapshots (same modelVersion/configFingerprint/pair/regime, all gates passing)');
     return { snapshotCount, spanHours, gatePassed: false, details };
   }
   if (spanHours < cfg.minSnapshotSpanHours) {
     details.push('FAIL: need >= ' + cfg.minSnapshotSpanHours + 'h span');
     return { snapshotCount, spanHours, gatePassed: false, details };
   }
-  const recent = snapshots.slice(-cfg.minSnapshots);
+  const recent = qualifying.slice(-cfg.minSnapshots);
   for (const s of recent) {
     const d = s.decision;
-    const ok = d.decision === 'TRADE' && d.expectedNetUsdPerDay > 0 && d.stressNetUsdPerDay >= 0;
-    const samePair = d.pair === latest.pair;
-    details.push((ok ? 'PASS' : 'FAIL') + ' snapshot@' + s.createdAt.toString() + ' decision=' + d.decision + ' pair=' + (d.pair ?? 'null') + (samePair ? '' : ' (pair differs)'));
-    if (!ok || !samePair) {
+    details.push('PASS snapshot@' + s.createdAt.toString() + ' decision=' + d.decision + ' pair=' + (d.pair ?? 'null') + ' width=' + (d.rangeHalfWidthPct ?? '?') + ' fee=' + (d.feeBps ?? '?'));
+    if (d.decision !== 'TRADE' || d.expectedNetUsdPerDay <= 0 || d.stressNetUsdPerDay < 0) {
       details.push('FAIL: persistence not satisfied');
       return { snapshotCount, spanHours, gatePassed: false, details };
     }

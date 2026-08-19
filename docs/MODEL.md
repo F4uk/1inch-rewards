@@ -14,8 +14,11 @@ inventory buffer applies to **unfilled** capital.
 ## Fill-share model (evidence-based)
 
 - Empirical: fill share per strategy hash from observed group fills; bucket
-  comparable strategies by fee (tolerance 5 bps) and normalized range width
-  (tolerance 4 pct); estimate = p25 of comparable shares (conservative).
+  comparable strategies on the EXACT pair by fee (tolerance 5 bps) and
+  normalized range width (tolerance 4 pct); both fee and width metadata are
+  REQUIRED (null metadata is never automatically comparable); estimate = p25
+  of comparable shares (conservative).
+- pairFillCount is tracked separately from groupFillCount.
 - Structural: min of
   - fee competitiveness: 1 / (1 + in-range competitors with fee <= candidate)
   - accessible-backing share: candidate backing / (total in-range backing + candidate backing)
@@ -40,11 +43,27 @@ inventory buffer applies to **unfilled** capital.
 - Sign convention: the maker always receives tokenIn (taker pays tokenIn);
   markout is computed on the maker's received token:
   markoutBps = (P(fill) - P(fill + h)) / P(fill) * 1e4 (positive = adverse).
-- Horizons: 1m, 5m, 30m at minimum. Targets are resolved by timestamp against
-  Chainlink observations; observations strictly after the target are never used
-  (no look-ahead). Fills whose fillTs + horizon exceeds the historical cutoff
-  are excluded (no incomplete horizons).
+- Price source: Uniswap V3 pool swap series (block-granularity, discovered via
+  the V3 factory); Chainlink is used only as a USD anchor. A stale observation
+  can never masquerade as a fresh 1-minute price: observations older than
+  markoutMaxPoolAgeSec (300s) are rejected for that endpoint.
+- Every token amount uses token-specific decimals (no hardcoded 18).
+- Horizons: 1m, 5m, 30m. No look-ahead; fills whose fillTs + horizon exceeds
+  the historical cutoff are excluded.
+- Maker fee is charged on gross fill notional and is a separate income line;
+  it never offsets or double-counts the markout cost.
 - Conservative planning cost: max(weightedMean, p75) across horizons.
+- MARKOUT_UNRELIABLE (insufficient fresh samples) forbids TRADE.
+
+## Lifecycle gas (V1.1)
+
+- Gas units measured from historical Aqua transaction receipts (p75 of
+  ship and dock gasUsed; approve fixed at 46.5k). Current gas price from the
+  latest block (baseFee*2 + 1 gwei priority) converted with ETH/USD.
+- Components: approve, initial ship, eventual dock, expected reship,
+  inventory rebalance, emergency exit reserve - amortized over a documented
+  7-day holding horizon. reshipsPerDay=0 never zeroes lifecycle gas.
+- Unknown gas price => GAS_UNKNOWN => no TRADE.
 
 ## Rebalance / reship cost
 

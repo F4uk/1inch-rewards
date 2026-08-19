@@ -1,11 +1,11 @@
 import type { AppConfig } from '../config.ts';
-import type { Candidate, CompetitionState, GroupMetrics, MarkoutSummary } from '../types.ts';
+import type { Candidate, CompetitionState, MarkoutSummary, PairMetrics } from '../types.ts';
 import { usableMarkoutCount } from '../analytics/markouts.ts';
 import { comparableCount, type FillShareInput } from './fillShare.ts';
 
 export type ConfidenceInput = {
   cfg: AppConfig;
-  group: GroupMetrics;
+  pairMetrics: PairMetrics;
   competition: CompetitionState | null;
   markoutSummaries: MarkoutSummary[];
   fillShareInput: FillShareInput;
@@ -18,11 +18,14 @@ export type ConfidenceInput = {
 export type Confidence = 'LOW' | 'MEDIUM' | 'HIGH';
 
 export function assessConfidence(input: ConfidenceInput): Confidence {
-  const fillCount = input.group.fillCount;
+  const fillCount = input.pairMetrics.fillCount;
   const markoutCount = usableMarkoutCount(input.markoutSummaries);
   const compCount = comparableCount(input.fillShareInput);
+  const unknownBackingShare = input.competition && (input.competition.dataKnownCount + input.competition.dataUnknownCount) > 0
+    ? input.competition.dataUnknownCount / (input.competition.dataKnownCount + input.competition.dataUnknownCount)
+    : 0;
   const criticalMissing =
-    input.group.grossGroupFillUsd <= 0 ||
+    input.pairMetrics.grossFillUsd <= 0 ||
     !input.rewardsFresh ||
     !input.feedsFresh ||
     input.competition === null ||
@@ -30,8 +33,10 @@ export function assessConfidence(input: ConfidenceInput): Confidence {
     fillCount < input.cfg.minPairFillCount ||
     markoutCount < input.cfg.minCompletedMarkoutCount ||
     !input.baseNetPositive ||
-    !input.stressNetNonNegative;
+    !input.stressNetNonNegative ||
+    unknownBackingShare > 0.5;
   if (criticalMissing) return 'LOW';
+  if (unknownBackingShare > 0.25) return 'MEDIUM';
   if (fillCount >= 100 && markoutCount >= 100 && compCount >= 3) return 'HIGH';
   return 'MEDIUM';
 }
