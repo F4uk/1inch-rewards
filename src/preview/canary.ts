@@ -79,9 +79,11 @@ export async function buildCanaryPreview(
   const maker = cfg.makerAddress;
   if (!maker) throw new Error('MAKER_ADDRESS required for canary preview (public address; never a private key)');
   if (decision.decision !== 'TRADE') throw new Error('latest decision is not TRADE; canary preview refused');
-  const capital = Math.min(decision.capitalUsd, cfg.canaryCapUsd);
-  if (decision.capitalUsd > cfg.canaryCapUsd) {
-    throw new Error('requested capital ' + decision.capitalUsd + ' exceeds the hard cap of ' + cfg.canaryCapUsd + '; canary preview fails closed');
+  // V1.5 section 16: the live-execution safety cap applies ONLY to the
+  // unsigned preview; it is NOT a Shadow profitability limit.
+  const capital = Math.min(decision.capitalUsd, cfg.liveExecutionSafetyCapUsd);
+  if (decision.capitalUsd > cfg.liveExecutionSafetyCapUsd) {
+    throw new Error('requested capital ' + decision.capitalUsd + ' exceeds the live execution safety cap of ' + cfg.liveExecutionSafetyCapUsd + '; preview fails closed');
   }
   const halfWidth = decision.rangeHalfWidthPct;
   const feeBps = decision.feeBps;
@@ -210,7 +212,7 @@ export async function buildCanaryPreview(
     decision: decision.decision,
     pair: decision.pair,
     capitalUsd: capital,
-    capUsd: cfg.canaryCapUsd,
+    capUsd: cfg.liveExecutionSafetyCapUsd,
     makerAddress: maker,
     rangeHalfWidthPct: halfWidth,
     feeBps,

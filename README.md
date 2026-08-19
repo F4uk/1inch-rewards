@@ -50,7 +50,14 @@ public read-only RPCs are used by default.
 
 Season-1 eligibility uses the OFFICIAL 1inch market definition only (ETH/LST:
 20 markets; Stable: 25 markets; each paired with 1INCH). Observed on-chain
-pairs never create campaign membership. modelVersion is 5.
+pairs never create campaign membership. modelVersion is 6.
+
+Shadow capital is WALLET-DRIVEN (V1.5): the configured wallet's read-only
+balances are the primary capital source; the model produces a wallet-relative
+capital curve (10/25/50/75/100% of deployable capital), a hypothetical
+capacity curve (>1x, labeled HYPOTHETICAL_CAPACITY), marginal returns, ROC,
+and a research capacity summary. No fixed USD ceiling; the $50 live-execution
+safety cap applies ONLY to the unsigned preview.
 
 ## Constraints (see AGENTS.md)
 

@@ -8,6 +8,8 @@ import { decide, MODEL_VERSION, type CycleData } from '../src/decision/decide.ts
 import { evaluatePersistence, snapshotDir } from '../src/decision/persistence.ts';
 import type { CompetitionState, DecisionResult, GroupMetrics, PairMetrics, RewardUniverse } from '../src/types.ts';
 import { makeUniverseFixture } from './analytics.test.ts';
+import { makeSyntheticWalletState } from '../src/sources/wallet.ts';
+import { buildCapitalGrid } from '../src/model/capital.ts';
 
 const USDC = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
 const ONEINCH = '0x111111111117dc0aa78b770fa6a738034120c302';
@@ -22,7 +24,7 @@ function pairMetrics(): PairMetrics {
   widths.set('0x' + 'aa'.repeat(32), 5);
   for (let i = 3; i < 23; i++) {
     const h = '0x' + (10 + i).toString(16).padStart(2, '0').repeat(32);
-    shares.set(h, { fillUsd: 40, share: 0.02, count: 5 });
+    shares.set(h, { fillUsd: 500, share: 0.5, count: 5 });
     fees.set(h, 20);
     widths.set(h, 5);
   }
@@ -168,7 +170,13 @@ function cycleData(over: Partial<CycleData> & { adverseBps?: number; capitalUsd?
     },
     oneInchUsdAt: () => 12,
     fairUsdAt: (token: string) => (token.toLowerCase() === ONEINCH ? 12 : 1),
-    capitalUsd: over.capitalUsd ?? 50,
+    walletState: makeSyntheticWalletState(over.capitalUsd ?? 50, 12),
+    capitalResearch: {
+      walletFractions: [...DEFAULT_CONFIG.walletCapitalFractions],
+      capacityMultipliers: [...DEFAULT_CONFIG.capacityMultipliers],
+      syntheticOverrideUsed: false,
+      fullCapitalGrid: buildCapitalGrid(makeSyntheticWalletState(over.capitalUsd ?? 50, 12), DEFAULT_CONFIG),
+    },
     lookbackHours: 72,
     sourceTimestamps: { live: '1000000', merkl: '1000000', feeds: '1000000' },
     rewardsFresh: over.universeHealthy !== false,
@@ -269,12 +277,14 @@ test('decision: zero pair volume => DO_NOT_TRADE', () => {
   }
 });
 
-test('decision: canary cap > 50 rejected (P1)', () => {
+test('V1.5: shadow candidate above $50 is NOT rejected by the live-execution safety cap', () => {
   const cfg = tempCfg();
   try {
     const r = decide(cfg, cycleData({ capitalUsd: 60 }));
     assert.equal(r.decision.decision, 'DO_NOT_TRADE');
-    assert.ok(r.decision.failedGates.some((g) => g.name === 'canary-cap'));
+    assert.ok(!r.decision.failedGates.some((g) => g.name === 'canary-cap' || g.name.includes('live-execution')));
+    assert.ok(r.candidates.some((c) => c.capitalUsd === 60 && c.capitalSource === 'ACTUAL_WALLET'));
+    assert.ok(r.decision.failedGates.some((g) => g.name === 'wallet-capital-known') === false);
   } finally {
     rmSync(cfg.dataDir, { recursive: true, force: true });
   }
@@ -296,6 +306,7 @@ function seedSnapshot(cfg: AppConfig, createdAt: number, decision: 'TRADE' | 'DO
     historicalCutoffBlock: '900',
     historicalCutoffTimestamp: '999000',
     sourceTimestamps: {},
+    walletState: { walletAddress: '0x0000000000000000000000000000000000000000', deployableWalletCapitalUsd: 50 },
     rewardUniverse: null,
     groupMetrics: [],
     competition: [],
@@ -308,6 +319,10 @@ function seedSnapshot(cfg: AppConfig, createdAt: number, decision: 'TRADE' | 'DO
       decision,
       pair,
       capitalUsd: 50,
+      capitalSource: 'ACTUAL_WALLET',
+      capitalFractionOfWallet: 1,
+      walletAddress: '0x0000000000000000000000000000000000000000',
+      walletDeployableCapitalUsd: 50,
       rangeHalfWidthPct: 5,
       feeBps: 20,
       expectedGrossFillUsdPerDay: 100,
@@ -326,6 +341,8 @@ function seedSnapshot(cfg: AppConfig, createdAt: number, decision: 'TRADE' | 'DO
       failedGates: [],
       passedGates: [],
       bestCandidate: null,
+      capacitySummary: null,
+      marginalReturns: [],
       generatedAt: createdAt,
     },
     persistence: { snapshotCount: 0, spanHours: 0, gatePassed: false, details: [] },
@@ -407,6 +424,10 @@ test('persistence status helper counts qualifying snapshots', () => {
       decision: 'TRADE',
       pair: KEY,
       capitalUsd: 50,
+      capitalSource: 'ACTUAL_WALLET',
+      capitalFractionOfWallet: 1,
+      walletAddress: '0x0000000000000000000000000000000000000000',
+      walletDeployableCapitalUsd: 50,
       rangeHalfWidthPct: 5,
       feeBps: 20,
       expectedGrossFillUsdPerDay: 1,
@@ -425,6 +446,8 @@ test('persistence status helper counts qualifying snapshots', () => {
       failedGates: [],
       passedGates: [],
       bestCandidate: null,
+      capacitySummary: null,
+      marginalReturns: [],
       generatedAt: 1000000n,
     };
     const p = evaluatePersistence(cfg, d);

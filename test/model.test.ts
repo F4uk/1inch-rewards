@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { blendFillShare, type FillShareInput } from '../src/model/fillShare.ts';
 import { computeStressNet } from '../src/model/pnl.ts';
+import type { PnlInputs } from '../src/model/pnl.ts';
 import { computeCandidateGas } from '../src/model/gas.ts';
 import { assessConfidence } from '../src/model/confidence.ts';
 import { DEFAULT_CONFIG, type AppConfig } from '../src/config.ts';
@@ -161,7 +162,7 @@ test('confidence: MEDIUM/HIGH with sufficient samples', () => {
 });
 
 test('stress arithmetic uses configured factors exactly', () => {
-  const input = {
+  const input: PnlInputs = {
     cfg,
     pairMetrics: pairMetrics(),
     group: { group: 'STABLE' as const, grossGroupFillUsd: 1000, fillCount: 30, pricedFillCount: 30, unpricedFillCount: 0, totalOneInchAmount: 300, pricedOneInchAmount: 300, pricingCoveragePct: 100, fillCountCoveragePct: 100, oneInchAmountCoveragePct: 100, dailyFillRateUsd: 500, fillShareByStrategy: new Map(), strategyFees: new Map(), strategyWidths: new Map() },
@@ -177,6 +178,18 @@ test('stress arithmetic uses configured factors exactly', () => {
     halfWidthPct: 5,
     feeBps: 20,
     capitalUsd: 50,
+    capitalSource: 'ACTUAL_WALLET',
+    capitalFractionOfWallet: 0.5,
+    capitalMultipleOfWallet: 0.5,
+    requiredTokenAUsd: 25,
+    requiredTokenBUsd: 25,
+    availableTokenAUsd: 25,
+    availableTokenBUsd: 25,
+    initialRebalanceUsd: 0,
+    initialRebalanceLossUsd: 0,
+    capitalActuallyDeployableUsd: 50,
+    walletInventorySufficient: true,
+    walletInsufficiencyReason: null,
     dailyVolPct: 2,
     rewardEligible: true,
     inventory: {
@@ -184,6 +197,7 @@ test('stress arithmetic uses configured factors exactly', () => {
       unservedFillUsdPerDay: 0,
       rebalanceCountPerDay: 0,
       rebalanceLossUsdPerDay: 0,
+      initialRebalanceLossUsdPerDay: 0,
       utilizationPct: 50,
       imbalanceUsdPerDay: 0,
       detail: 'test',
@@ -212,13 +226,13 @@ test('gas model: lifecycle gas never vanishes at 0 reships; candidate gas scales
     gasUnitsSource: 'MEASURED',
     measured: true,
   };
-  const out = computeCandidateGas({ measurements, holdingHorizonDays: 7, reshipsPerDay: 0, expectedRebalanceTxsPerDay: 0 });
+  const out = computeCandidateGas({ measurements, holdingHorizonDays: 7, reshipsPerDay: 0, expectedInventoryRebalanceTxsPerDay: 0 });
   assert.equal(out.gasKnown, true);
   assert.ok(out.entryExitAmortizedUsdPerDay > 0);
   assert.equal(out.rerangeGasUsdPerDay, 0);
   assert.ok(out.gasUsdPerDay > 0);
-  const busy = computeCandidateGas({ measurements, holdingHorizonDays: 7, reshipsPerDay: 2, expectedRebalanceTxsPerDay: 2 });
+  const busy = computeCandidateGas({ measurements, holdingHorizonDays: 7, reshipsPerDay: 2, expectedInventoryRebalanceTxsPerDay: 2 });
   assert.ok(busy.gasUsdPerDay > out.gasUsdPerDay, '2 reships/day MUST cost more than 0 reships/day');
-  const unknown = computeCandidateGas({ measurements: { ...measurements, gasPriceUsdPerUnit: null }, holdingHorizonDays: 7, reshipsPerDay: 1, expectedRebalanceTxsPerDay: 1 });
+  const unknown = computeCandidateGas({ measurements: { ...measurements, gasPriceUsdPerUnit: null }, holdingHorizonDays: 7, reshipsPerDay: 1, expectedInventoryRebalanceTxsPerDay: 1 });
   assert.equal(unknown.gasKnown, false);
 });

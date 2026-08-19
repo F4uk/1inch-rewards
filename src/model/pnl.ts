@@ -1,5 +1,5 @@
 import type { AppConfig } from '../config.ts';
-import type { Candidate, CandidateGasOutput, CompetitionState, GroupMetrics, MarkoutReliability, MarkoutSummary, PairMetrics } from '../types.ts';
+import type { Candidate, CandidateGasOutput, CapitalSource, CompetitionState, GroupMetrics, MarkoutReliability, MarkoutSummary, PairMetrics } from '../types.ts';
 import { clamp } from '../util/units.ts';
 import { conservativeAdverseRateUsdPerUsd } from '../analytics/markouts.ts';
 
@@ -19,6 +19,18 @@ export type PnlInputs = {
   halfWidthPct: number;
   feeBps: number;
   capitalUsd: number;
+  capitalSource: CapitalSource;
+  capitalFractionOfWallet: number;
+  capitalMultipleOfWallet: number;
+  requiredTokenAUsd: number;
+  requiredTokenBUsd: number;
+  availableTokenAUsd: number;
+  availableTokenBUsd: number;
+  initialRebalanceUsd: number;
+  initialRebalanceLossUsd: number;
+  capitalActuallyDeployableUsd: number;
+  walletInventorySufficient: boolean;
+  walletInsufficiencyReason: string | null;
   dailyVolPct: number;
   rewardEligible: boolean;
   /** P0-7 inventory-throughput result (serviceable fill bounds reward + fees). */
@@ -27,6 +39,8 @@ export type PnlInputs = {
     unservedFillUsdPerDay: number;
     rebalanceCountPerDay: number;
     rebalanceLossUsdPerDay: number;
+    /** One-time initial rebalance loss amortized per day (V1.5 wallet composition). */
+    initialRebalanceLossUsdPerDay: number;
     utilizationPct: number;
     imbalanceUsdPerDay: number;
     detail: string;
@@ -77,7 +91,8 @@ export function computeCandidatePnl(input: PnlInputs): Candidate {
   // V1.4 P0-2: inventory rebalance cost is the ACTUAL modeled value loss from
   // the replay (value-conserving conversions + modeled loss); never a
   // count*capital approximation that could double-count or create value.
-  const rebalanceCostUsdPerDay = reshipsPerDay * capitalUsd * priceLossBps + inventory.rebalanceLossUsdPerDay;
+  const rangeRebalanceCostUsdPerDay = reshipsPerDay * capitalUsd * priceLossBps;
+  const rebalanceCostUsdPerDay = rangeRebalanceCostUsdPerDay + inventory.rebalanceLossUsdPerDay + inventory.initialRebalanceLossUsdPerDay;
   const gasUsdPerDay = gasModel.gasUsdPerDay;
   const expectedNetUsdPerDay = rewardIncomeUsdPerDay + makerFeeIncomeUsdPerDay - adverseSelectionUsdPerDay - rebalanceCostUsdPerDay - gasUsdPerDay;
   const inventoryNotionalUsd = capitalUsd;
@@ -97,6 +112,19 @@ export function computeCandidatePnl(input: PnlInputs): Candidate {
     tokenB: pairMetrics.tokenB,
     halfWidthPct: input.halfWidthPct,
     feeBps: input.feeBps,
+    capitalUsd,
+    capitalSource: input.capitalSource,
+    capitalFractionOfWallet: input.capitalFractionOfWallet,
+    capitalMultipleOfWallet: input.capitalMultipleOfWallet,
+    requiredTokenAUsd: input.requiredTokenAUsd,
+    requiredTokenBUsd: input.requiredTokenBUsd,
+    availableTokenAUsd: input.availableTokenAUsd,
+    availableTokenBUsd: input.availableTokenBUsd,
+    initialRebalanceUsd: input.initialRebalanceUsd,
+    initialRebalanceLossUsd: input.initialRebalanceLossUsd,
+    capitalActuallyDeployableUsd: input.capitalActuallyDeployableUsd,
+    walletInventorySufficient: input.walletInventorySufficient,
+    walletInsufficiencyReason: input.walletInsufficiencyReason,
     empiricalFillShare: null,
     structuralShare: null,
     fillShare,
@@ -119,10 +147,14 @@ export function computeCandidatePnl(input: PnlInputs): Candidate {
     makerFeeIncomeUsdPerDay,
     adverseSelectionUsdPerDay,
     expectedReshipsPerDay: reshipsPerDay,
+    rangeRebalanceCostUsdPerDay,
     rebalanceCostUsdPerDay,
+    inventoryRebalanceLossUsdPerDay: inventory.rebalanceLossUsdPerDay,
     gasUsdPerDay,
     expectedNetUsdPerDay,
     stressNetUsdPerDay: stress.net,
+    expectedReturnOnCapitalPctPerDay: capitalUsd > 0 ? (expectedNetUsdPerDay / capitalUsd) * 100 : 0,
+    stressReturnOnCapitalPctPerDay: capitalUsd > 0 ? (stress.net / capitalUsd) * 100 : 0,
     turnoverPerDay,
     inventoryUtilizationPct: inventory.utilizationPct,
     directionalImbalanceUsdPerDay: inventory.imbalanceUsdPerDay,

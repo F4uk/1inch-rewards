@@ -357,6 +357,153 @@ export type InventoryThroughput = {
   detail: string;
 };
 
+// ---------- V1.5 wallet / capital ----------
+
+export type CapitalSource = 'ACTUAL_WALLET' | 'HYPOTHETICAL_CAPACITY' | 'SYNTHETIC_TEST';
+
+/** Capital research axis point (pair-independent; feasibility is computed per pair). */
+export type CapitalAxisPoint = {
+  capitalUsd: number;
+  capitalFractionOfWallet: number;
+  capitalMultipleOfWallet: number;
+  capitalSource: CapitalSource;
+};
+
+export type WalletAssetState = {
+  token: string;
+  symbol: string;
+  decimals: number;
+  rawBalance: string;
+  tokenAmount: number;
+  fairUsdPrice: number | null;
+  usdValue: number | null;
+  relevance: 'RELEVANT' | 'EXCLUDED' | 'UNKNOWN';
+  deployableStatus: 'DEPLOYABLE' | 'RESERVED_GAS' | 'RESERVED_EMERGENCY' | 'EXCLUDED' | 'UNPRICED' | 'UNKNOWN';
+  exclusionReason: string | null;
+};
+
+export type WalletState = {
+  walletAddress: string | null;
+  snapshotBlock: bigint;
+  snapshotTimestamp: bigint;
+  source: 'ACTUAL_WALLET' | 'SYNTHETIC_TEST';
+  assets: WalletAssetState[];
+  walletNavUsd: number;
+  strategyRelevantNavUsd: number;
+  gasReserveUsd: number;
+  emergencyReserveUsd: number;
+  excludedAssetUsd: number;
+  unpricedAssetUsd: number;
+  deployableWalletCapitalUsd: number;
+  gasReserveSufficient: boolean;
+  priceUnknownTokens: string[];
+  balanceUnknownTokens: string[];
+  unknown: boolean;
+  detail: string;
+};
+
+/** One research capital level with wallet-feasibility metadata (section 4/10). */
+export type CapitalLevel = {
+  capitalUsd: number;
+  capitalFractionOfWallet: number;
+  capitalMultipleOfWallet: number;
+  capitalSource: CapitalSource;
+  /** ACTUAL_WALLET only: can the wallet construct the proposed initial inventory? */
+  requiredTokenAUsd: number;
+  requiredTokenBUsd: number;
+  availableTokenAUsd: number;
+  availableTokenBUsd: number;
+  initialRebalanceUsd: number;
+  initialRebalanceLossUsd: number;
+  capitalActuallyDeployableUsd: number;
+  walletInventorySufficient: boolean;
+  walletInsufficiencyReason: string | null;
+};
+
+/** One point on a per pair/range/fee capital curve (section 11). */
+export type CapitalCurvePoint = {
+  capitalUsd: number;
+  capitalFractionOfWallet: number;
+  capitalMultipleOfWallet: number;
+  capitalSource: CapitalSource;
+  candidateFillShare: number;
+  empiricalFillShare: number | null;
+  structuralFillShare: number | null;
+  requestedFillUsdPerDay: number;
+  serviceableFillUsdPerDay: number;
+  unservedFillUsdPerDay: number;
+  turnoverPerCapitalPerDay: number;
+  startingTokenAUsd: number;
+  startingTokenBUsd: number;
+  initialRebalanceUsd: number;
+  initialRebalanceLossUsd: number;
+  inventoryRebalancesPerDay: number;
+  inventoryRebalanceLossUsdPerDay: number;
+  rewardIncomeUsdPerDay: number;
+  makerFeeIncomeUsdPerDay: number;
+  adverseSelectionUsdPerDay: number;
+  rangeRebalanceCostUsdPerDay: number;
+  gasUsdPerDay: number;
+  expectedNetUsdPerDay: number;
+  stressNetUsdPerDay: number;
+  expectedReturnOnCapitalPctPerDay: number;
+  stressReturnOnCapitalPctPerDay: number;
+  walletInventorySufficient: boolean;
+  walletInsufficiencyReason: string | null;
+};
+
+export type CapitalCurve = {
+  pairKey: string;
+  halfWidthPct: number;
+  feeBps: number;
+  points: CapitalCurvePoint[];
+};
+
+/** Adjacent capital-level marginal returns (section 12). */
+export type MarginalReturn = {
+  fromCapitalUsd: number;
+  toCapitalUsd: number;
+  capitalSource: CapitalSource;
+  incrementalCapitalUsd: number;
+  incrementalExpectedNetUsdPerDay: number;
+  incrementalStressNetUsdPerDay: number;
+  marginalExpectedPnlPerDollar: number;
+  marginalStressPnlPerDollar: number;
+  marginalExpectedROCPct: number;
+  marginalStressROCPct: number;
+};
+
+/** Saturation / decay diagnostics (section 13). */
+export type CapacityDiagnostics = {
+  fillShareSaturation: number | null;
+  inventoryThroughputSaturation: number | null;
+  rewardShareSaturation: number | null;
+  turnoverDecay: number | null;
+  rocDecay: number | null;
+  marginalPnlDecay: number | null;
+  detail: string;
+};
+
+export type CapacitySummary = {
+  bestActualWalletCapital: number | null;
+  bestActualWalletFraction: number | null;
+  highestAbsoluteExpectedNetCapital: number | null;
+  highestAbsoluteStressNetCapital: number | null;
+  highestExpectedROCCapital: number | null;
+  highestStressROCCapital: number | null;
+  estimatedCapacityRangeUsd: [number, number] | null;
+  diagnostics: CapacityDiagnostics;
+  recommendation: 'USE_LESS_THAN_WALLET' | 'FULL_WALLET_OK' | 'ADDITIONAL_CAPITAL_MAY_BE_EFFICIENT' | 'NO_RECOMMENDATION';
+  detail: string;
+};
+
+export type CapitalResearch = {
+  walletFractions: number[];
+  capacityMultipliers: number[];
+  syntheticOverrideUsed: boolean;
+  fullCapitalGrid: CapitalAxisPoint[];
+};
+
 export type RangeSimulation = {
   halfWidthPct: number;
   windowSec: number;
@@ -372,6 +519,19 @@ export type Candidate = {
   tokenB: string;
   halfWidthPct: number;
   feeBps: number;
+  capitalUsd: number;
+  capitalSource: CapitalSource;
+  capitalFractionOfWallet: number;
+  capitalMultipleOfWallet: number;
+  requiredTokenAUsd: number;
+  requiredTokenBUsd: number;
+  availableTokenAUsd: number;
+  availableTokenBUsd: number;
+  initialRebalanceUsd: number;
+  initialRebalanceLossUsd: number;
+  capitalActuallyDeployableUsd: number;
+  walletInventorySufficient: boolean;
+  walletInsufficiencyReason: string | null;
   empiricalFillShare: number | null;
   structuralShare: number | null;
   fillShare: number;
@@ -394,10 +554,14 @@ export type Candidate = {
   makerFeeIncomeUsdPerDay: number;
   adverseSelectionUsdPerDay: number;
   expectedReshipsPerDay: number;
+  rangeRebalanceCostUsdPerDay: number;
   rebalanceCostUsdPerDay: number;
+  inventoryRebalanceLossUsdPerDay: number;
   gasUsdPerDay: number;
   expectedNetUsdPerDay: number;
   stressNetUsdPerDay: number;
+  expectedReturnOnCapitalPctPerDay: number;
+  stressReturnOnCapitalPctPerDay: number;
   turnoverPerDay: number;
   inventoryUtilizationPct: number;
   directionalImbalanceUsdPerDay: number;
@@ -431,6 +595,10 @@ export type DecisionResult = {
   decision: 'TRADE' | 'DO_NOT_TRADE';
   pair: string | null;
   capitalUsd: number;
+  capitalSource: CapitalSource | null;
+  capitalFractionOfWallet: number | null;
+  walletAddress: string | null;
+  walletDeployableCapitalUsd: number | null;
   rangeHalfWidthPct: number | null;
   feeBps: number | null;
   expectedGrossFillUsdPerDay: number;
@@ -449,6 +617,8 @@ export type DecisionResult = {
   failedGates: GateResult[];
   passedGates: GateResult[];
   bestCandidate: Candidate | null;
+  capacitySummary: CapacitySummary | null;
+  marginalReturns: MarginalReturn[];
   generatedAt: bigint;
 };
 
@@ -486,7 +656,8 @@ export type CandidateGasInput = {
   measurements: GasMeasurements;
   holdingHorizonDays: number;
   reshipsPerDay: number;
-  expectedRebalanceTxsPerDay: number;
+  /** V1.5: inventory rebalance transactions ONLY (range reships are charged separately). */
+  expectedInventoryRebalanceTxsPerDay: number;
 };
 
 export type CandidateGasOutput = {
@@ -525,6 +696,10 @@ export type Snapshot = {
   historicalCutoffBlock: string;
   historicalCutoffTimestamp: string;
   sourceTimestamps: Record<string, string>;
+  walletState: WalletState | null;
+  capitalResearch: CapitalResearch;
+  capitalCurves: CapitalCurve[];
+  capacitySummary: CapacitySummary | null;
   rewardUniverse: RewardUniverse | null;
   campaignInventory: CampaignInventory;
   denominatorScopes: Record<PriceGroup, DenominatorState>;

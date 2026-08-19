@@ -68,6 +68,25 @@ inventory buffer applies to **unfilled** capital.
   to exist with at least the per-horizon minimum sample count; abundant 1m
   data never hides missing 30m data.
 
+## V1.5 wallet-driven capital
+
+- walletNavUsd = sum of USD value of all readable wallet assets.
+- deployableWalletCapitalUsd = walletNavUsd - gasReserveUsd -
+  emergencyReserveUsd - excludedAssetUsd - unpricedAssetUsd (never a fixed
+  USD ceiling).
+- Capital grid: ACTUAL_WALLET = fractions x deployable; HYPOTHETICAL_CAPACITY
+  = multipliers x deployable (labeled, research only); SYNTHETIC_TEST only for
+  tests/fixtures.
+- REAL_EXPECTED_NET = campaign reward + maker fee - adverse selection -
+  inventory/rebalance loss - lifecycle gas - non-overlapping inventory risk
+  (the stress inventory buffer). Every capital level is recomputed from
+  scratch; empirical fill share never scales with capital.
+- Marginal returns and ROC: expectedReturnOnCapitalPctPerDay =
+  expectedNetUsdPerDay / capitalUsd x 100; marginal PnL per dollar =
+  incrementalNet / incrementalCapital. Capacity/saturation diagnostics
+  (fillShare/inventoryThroughput/rewardShare saturation, turnover/ROC/marginal
+  decay) are persisted per regime curve.
+
 ## Adverse selection (markouts)
 
 - Sign convention: the maker always receives tokenIn (taker pays tokenIn);

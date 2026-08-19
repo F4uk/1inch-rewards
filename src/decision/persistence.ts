@@ -50,9 +50,27 @@ export function evaluatePersistence(cfg: AppConfig, latest: DecisionResult): Per
   const qualifying = snapshots.filter((s) => {
     // P0-9: validation-only snapshots (validationOnly=true) can never qualify.
     if (s.validationOnly === true) return false;
+    // V1.5 section 18: hypothetical-capacity candidates can NEVER satisfy the
+    // live persistence gate; only ACTUAL_WALLET candidates may qualify.
+    if (s.decision.capitalSource !== 'ACTUAL_WALLET') return false;
+    if (s.decision.capitalSource !== latest.capitalSource) return false;
     if (s.modelVersion !== latest.modelVersion) return false;
     if (s.configFingerprint !== latest.configFingerprint) return false;
     if (s.decision.pair !== latest.pair) return false;
+    // V1.5 section 18: within a compatible wallet regime the candidate keeps
+    // the SAME configured fraction; small capital drift from NAV drift is
+    // tolerated up to the regime tolerance (a major change resets persistence).
+    if (Math.abs((s.decision.capitalFractionOfWallet ?? 0) - (latest.capitalFractionOfWallet ?? 0)) > 1e-9) return false;
+    const capitalDriftPct = latest.capitalUsd > 0 ? (Math.abs(s.decision.capitalUsd - latest.capitalUsd) / latest.capitalUsd) * 100 : 100;
+    if (capitalDriftPct > cfg.walletCapitalRegimeTolerancePct) return false;
+    if ((s.walletState?.walletAddress ?? null) !== latest.walletAddress) return false;
+    // V1.5 section 18: a conservative wallet-capital regime tolerance allows
+    // small natural balance drift (<=5% deployable NAV) but a major
+    // deposit/withdrawal resets persistence.
+    if (s.walletState && latest.walletDeployableCapitalUsd !== null && s.walletState.deployableWalletCapitalUsd > 0) {
+      const driftPct = (Math.abs(s.walletState.deployableWalletCapitalUsd - latest.walletDeployableCapitalUsd) / latest.walletDeployableCapitalUsd) * 100;
+      if (driftPct > cfg.walletCapitalRegimeTolerancePct) return false;
+    }
     if (s.decision.decision !== 'TRADE') return false;
     if (s.decision.expectedNetUsdPerDay <= 0) return false;
     if (s.decision.stressNetUsdPerDay < 0) return false;
@@ -70,9 +88,9 @@ export function evaluatePersistence(cfg: AppConfig, latest: DecisionResult): Per
   if (qualifying.length >= 2) {
     spanHours = Number(qualifying[qualifying.length - 1]!.createdAt - qualifying[0]!.createdAt) / 3600;
   }
-  details.push('modelVersion=' + latest.modelVersion + ' qualifyingSnapshots=' + snapshotCount + ' span=' + spanHours.toFixed(1) + 'h (total snapshots=' + snapshots.length + ', validationOnly excluded)');
+  details.push('modelVersion=' + latest.modelVersion + ' capital=' + latest.capitalUsd + ' (' + (latest.capitalSource ?? 'none') + ')' + ' qualifyingSnapshots=' + snapshotCount + ' span=' + spanHours.toFixed(1) + 'h (total snapshots=' + snapshots.length + ', validationOnly excluded, hypothetical never qualifies)');
   if (snapshotCount < cfg.minSnapshots) {
-    details.push('FAIL: need >= ' + cfg.minSnapshots + ' qualifying snapshots (same modelVersion/configFingerprint/pair/regime, all gates passing)');
+    details.push('FAIL: need >= ' + cfg.minSnapshots + ' qualifying snapshots (same modelVersion/configFingerprint/pair/fee/range/capitalUsd/capitalSource + wallet regime, all gates passing)');
     return { snapshotCount, spanHours, gatePassed: false, details };
   }
   if (spanHours < cfg.minSnapshotSpanHours) {

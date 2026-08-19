@@ -25,6 +25,11 @@ export async function runDoctor(cfg: AppConfig, env: NodeJS.ProcessEnv = process
   push('node-version', nodeMajor >= 22, 'node=' + process.versions.node);
 
   push('no-signer-config', !signerConfigPresent(env), 'no private key/seed/signer env vars detected');
+  if (cfg.walletAddress) {
+    push('wallet-config', /^0x[a-fA-F0-9]{40}$/.test(cfg.walletAddress), 'wallet=' + cfg.walletAddress + ' (read-only)');
+  } else {
+    push('wallet-config', true, 'no wallet configured; shadow capital will fail closed with WALLET_CAPITAL_UNKNOWN');
+  }
 
   let ctx;
   try {

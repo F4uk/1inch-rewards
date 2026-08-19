@@ -460,7 +460,7 @@ test('P1: committed audit artifact contains validatedCodeSha, artifactGeneratedA
   const a = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
   assert.ok(typeof a.validatedCodeSha === 'string' && a.validatedCodeSha.length === 40, 'validatedCodeSha is a 40-char sha');
   assert.ok(typeof a.artifactGeneratedAt === 'string', 'artifactGeneratedAt present');
-  assert.equal(a.modelVersion, 5);
+  assert.equal(a.modelVersion, 6);
   assert.ok(a.cutoffs && typeof a.cutoffs === 'object');
   assert.ok(a.denominatorMarkets && typeof a.denominatorMarkets === 'object');
   assert.ok(a.perMarketDenominatorMetrics && Array.isArray(a.perMarketDenominatorMetrics));
@@ -605,6 +605,38 @@ function minimalCycleData(cfg: AppConfig, uni: RewardUniverse, validationOnly: b
       gasUnits: { approve: 46500, ship: 158895, dock: 70343, reship: 229238, emergencyReserve: 70343 },
       gasUnitsSource: 'test',
       measured: true,
+    },
+    walletState: {
+      walletAddress: '0x0000000000000000000000000000000000000000',
+      snapshotBlock: 1000n,
+      snapshotTimestamp: 1000000n,
+      source: 'SYNTHETIC_TEST',
+      assets: [],
+      walletNavUsd: 100,
+      strategyRelevantNavUsd: 100,
+      gasReserveUsd: 0,
+      emergencyReserveUsd: 0,
+      excludedAssetUsd: 0,
+      unpricedAssetUsd: 0,
+      deployableWalletCapitalUsd: 100,
+      gasReserveSufficient: true,
+      priceUnknownTokens: [],
+      balanceUnknownTokens: [],
+      unknown: false,
+      detail: 'test',
+    },
+    capitalResearch: {
+      walletFractions: [0.1, 0.25, 0.5, 0.75, 1],
+      capacityMultipliers: [1.5, 2, 4],
+      syntheticOverrideUsed: false,
+      fullCapitalGrid: [
+        { capitalUsd: 10, capitalFractionOfWallet: 0.1, capitalMultipleOfWallet: 0.1, capitalSource: 'ACTUAL_WALLET' },
+        { capitalUsd: 25, capitalFractionOfWallet: 0.25, capitalMultipleOfWallet: 0.25, capitalSource: 'ACTUAL_WALLET' },
+        { capitalUsd: 50, capitalFractionOfWallet: 0.5, capitalMultipleOfWallet: 0.5, capitalSource: 'ACTUAL_WALLET' },
+        { capitalUsd: 75, capitalFractionOfWallet: 0.75, capitalMultipleOfWallet: 0.75, capitalSource: 'ACTUAL_WALLET' },
+        { capitalUsd: 100, capitalFractionOfWallet: 1, capitalMultipleOfWallet: 1, capitalSource: 'ACTUAL_WALLET' },
+        { capitalUsd: 150, capitalFractionOfWallet: 1.5, capitalMultipleOfWallet: 1.5, capitalSource: 'HYPOTHETICAL_CAPACITY' },
+      ],
     },
   } as never;
 }

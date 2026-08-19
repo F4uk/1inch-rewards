@@ -18,6 +18,10 @@ function decision(over: Partial<DecisionResult> = {}): DecisionResult {
     decision: 'TRADE',
     pair: USDC + '/' + WETH,
     capitalUsd: 50,
+    capitalSource: 'ACTUAL_WALLET',
+    capitalFractionOfWallet: 0.5,
+    walletAddress: MAKER,
+    walletDeployableCapitalUsd: 100,
     rangeHalfWidthPct: 5,
     feeBps: 20,
     expectedGrossFillUsdPerDay: 1,
@@ -36,6 +40,8 @@ function decision(over: Partial<DecisionResult> = {}): DecisionResult {
     failedGates: [],
     passedGates: [],
     bestCandidate: null,
+    capacitySummary: null,
+    marginalReturns: [],
     generatedAt: 1n,
     ...over,
   };
@@ -84,7 +90,7 @@ test('preview: capital above 50 USD fails closed (no silent clamp)', async () =>
   const cfg = cfgWithMaker('data-test-preview-c');
   await assert.rejects(
     buildCanaryPreview(fakeCtx(0n), cfg, decision({ capitalUsd: 100 }), { tokenA: 1, tokenB: 1912 }, false),
-    /exceeds the hard cap/,
+    /exceeds the live execution safety cap/,
   );
 });
 

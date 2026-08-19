@@ -1,5 +1,5 @@
 import type { AppConfig } from '../config.ts';
-import type { Candidate, CompetitionState, DenominatorState, GateResult, GroupMetrics, MarkoutReliability, MarkoutSummary, PairMetrics, RewardUniverse } from '../types.ts';
+import type { Candidate, CompetitionState, DenominatorState, GateResult, GroupMetrics, MarkoutReliability, MarkoutSummary, PairMetrics, RewardUniverse, WalletState } from '../types.ts';
 import { usableMarkoutCount } from '../analytics/markouts.ts';
 import { activeCampaigns } from '../sources/merkl.ts';
 import { confidenceAtLeast } from '../model/confidence.ts';
@@ -23,6 +23,7 @@ export type GateContext = {
   candidate: Candidate;
   campaignHoursRemaining: number;
   capitalUsd: number;
+  walletState: WalletState | null;
 };
 
 export function evaluateGates(ctx: GateContext): { passed: GateResult[]; failed: GateResult[] } {
@@ -69,8 +70,18 @@ export function evaluateGates(ctx: GateContext): { passed: GateResult[]; failed:
     'net=' + ctx.candidate.expectedNetUsdPerDay.toFixed(4) + ' usd/day');
   push('stress-net-nonnegative', ctx.candidate.stressNetUsdPerDay >= 0,
     'stressNet=' + ctx.candidate.stressNetUsdPerDay.toFixed(4) + ' usd/day');
-  push('canary-cap', ctx.capitalUsd <= ctx.cfg.canaryCapUsd,
-    'capital=' + ctx.capitalUsd + ' cap=' + ctx.cfg.canaryCapUsd);
+  // V1.5 section 16: Shadow profitability is NOT capped by the live-execution
+  // safety cap (that cap applies only to the unsigned preview). A candidate
+  // still must be based on real wallet capital.
+  push('shadow-capital-positive', ctx.capitalUsd > 0, 'capital=' + ctx.capitalUsd.toFixed(2) + ' (wallet-driven; no fixed USD ceiling)');
+  push('wallet-capital-known', ctx.walletState !== null && !ctx.walletState.unknown && ctx.walletState.deployableWalletCapitalUsd > 0,
+    ctx.walletState ? (ctx.walletState.unknown ? 'WALLET_CAPITAL_UNKNOWN: ' + ctx.walletState.detail : 'deployable=' + ctx.walletState.deployableWalletCapitalUsd.toFixed(2)) : 'WALLET_CAPITAL_UNKNOWN: no wallet state');
+  push('gas-reserve-known', ctx.walletState !== null && ctx.walletState.gasReserveSufficient,
+    ctx.walletState ? (ctx.walletState.gasReserveSufficient ? 'gasReserve=' + ctx.walletState.gasReserveUsd.toFixed(2) : 'GAS_RESERVE_UNKNOWN: ' + ctx.walletState.detail) : 'GAS_RESERVE_UNKNOWN');
+  push('wallet-assets-priced', ctx.walletState !== null && ctx.walletState.priceUnknownTokens.length === 0,
+    ctx.walletState && ctx.walletState.priceUnknownTokens.length > 0 ? 'WALLET_ASSET_PRICE_UNKNOWN: ' + ctx.walletState.priceUnknownTokens.join(',') : 'all relevant wallet assets priced');
+  push('wallet-inventory-sufficient', ctx.candidate.capitalSource !== 'ACTUAL_WALLET' || ctx.candidate.walletInventorySufficient,
+    ctx.candidate.walletInventorySufficient ? 'wallet can construct initial inventory' : (ctx.candidate.walletInsufficiencyReason ?? 'WALLET_INVENTORY_INSUFFICIENT'));
 
   return { passed: gates.filter((g) => g.pass), failed: gates.filter((g) => !g.pass) };
 }

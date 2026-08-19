@@ -221,6 +221,43 @@ canary preview. It never signs or broadcasts transactions.
   tiny priced fills.
 - modelVersion = 5; v1-v4 snapshots never qualify.
 
+## V1.5 wallet-driven capital scaling (modelVersion 6)
+
+- The PRIMARY shadow capital source is the configured wallet's read-only
+  balances (WALLET_ADDRESS). Wallet NAV, strategy-relevant NAV, gas reserve,
+  emergency reserve, excluded/unpriced assets, and deployable wallet capital
+  are persisted; any essential unknown fails closed with WALLET_CAPITAL_UNKNOWN.
+- Capital architecture: Wallet NAV / Deployable Wallet Capital / Shadow
+  Research Capital / Hypothetical Strategy Capacity are separate; the future
+  live-execution safety cap ($50) applies ONLY to the unsigned preview and is
+  NOT a Shadow profitability limit.
+- Capital curves are wallet-relative: default fractions 10/25/50/75/100% of
+  deployableWalletCapitalUsd (configurable via SHADOW_WALLET_CAPITAL_FRACTIONS)
+  plus hypothetical multipliers 1.5/2.0/4.0 (HYPOTHETICAL_CAPACITY, clearly
+  labeled, never deployable money). An optional synthetic absolute grid
+  (SHADOW_SYNTHETIC_CAPITAL_GRID_USD) exists ONLY for tests/fixtures.
+- Capital is a full candidate dimension (pair x range x fee x capitalUsd x
+  capitalSource): every level is recomputed from scratch (fill share,
+  inventory throughput, gas, reward, stress, ROC) - never a linear multiple.
+- Empirical fill share does NOT scale with capital; structural fill share may
+  improve with backing; the conservative blend naturally produces saturation,
+  flat serviceable volume and ROC decay (a key research output).
+- Actual-wallet feasibility: per pair and capital level the wallet must be
+  able to construct the initial inventory (required/available 1INCH + paired
+  asset, initial rebalance + loss); otherwise WALLET_INVENTORY_INSUFFICIENT.
+- Marginal returns are computed across adjacent capital levels
+  (incrementalCapitalUsd, incremental net, marginal PnL per dollar, marginal
+  ROC); no linearity is inferred. Capacity diagnostics and a research
+  recommendation (USE_LESS_THAN_WALLET / FULL_WALLET_OK /
+  ADDITIONAL_CAPITAL_MAY_BE_EFFICIENT) are persisted.
+- Gas fix: range reships are charged ONLY as rerange gas (dock+ship);
+  inventory rebalances are charged separately as ship-only transactions.
+- Persistence identity includes modelVersion, configFingerprint, pair, fee,
+  range, capitalUsd, capitalSource, plus wallet address and a conservative
+  wallet-capital regime (<=5% deployable NAV drift compatible; major
+  deposits/withdrawals reset). Hypothetical candidates NEVER qualify.
+- Wallet reads only; NO_BROADCAST remains green; validation-only mode only.
+
 ## Dual-cutoff time model (mandatory)
 
 - liveCutoffBlock - latest finalized block. Used for: active strategy state,

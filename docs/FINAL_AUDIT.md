@@ -806,3 +806,121 @@ validation ladder (189/189 tests, typecheck, build, doctor 13/13) and a live
 read-only validation-only cycle; the honest live decision is DO_NOT_TRADE; no
 v5 persistence begins until external architecture ACCEPT; no transaction was
 signed or broadcast.
+
+---
+
+# V1.5 WALLET-DRIVEN CAPITAL SCALING (branch feature/shadow-v1-wallet-capital-scaling)
+
+## BASELINE
+
+- Base: 6f82cb5b64e000fb6aadb45d87718f94ef3d72ac
+  (feature/shadow-v1-model-correctness-hotfix). No main modification, no merge.
+- MODEL_VERSION bumped 5 -> 6; v1-v5 snapshots non-qualifying; no persistence
+  window started; no broadcaster.
+
+## MODEL VERSION
+
+6.
+
+## WALLET STATE / DEPLOYABLE CAPITAL
+
+- Read-only wallet balances (1INCH + official Season-1 paired assets + WETH +
+  native ETH) via multicall/getBalance at the live cutoff.
+- Persisted: walletAddress, walletSnapshotBlock/Timestamp, assets, walletNavUsd,
+  strategyRelevantNavUsd, gasReserveUsd, emergencyReserveUsd, excludedAssetUsd,
+  unpricedAssetUsd, deployableWalletCapitalUsd, gasReserveSufficient,
+  priceUnknownTokens, balanceUnknownTokens, unknown flag.
+- Fail closed: no wallet configured / balance read failure / required price
+  unknown / gas reserve unknown => WALLET_CAPITAL_UNKNOWN or explicit gates.
+
+## CAPITAL ARCHITECTURE
+
+- Wallet NAV, Deployable Wallet Capital, Shadow Research Capital, Hypothetical
+  Strategy Capacity are separate concepts; the future Live Execution Safety
+  Cap (USD 50) applies only to the unsigned preview, never to Shadow
+  profitability (canary-cap gate removed).
+
+## ACTUAL-WALLET CAPITAL CURVE
+
+- Default fractions 0.10/0.25/0.50/0.75/1.00 of deployableWalletCapitalUsd
+  (configurable + validated). Wallet=500 => 50/125/250/375/500; wallet=2000 =>
+  200/500/1000/1500/2000 without config changes.
+
+## HYPOTHETICAL CAPACITY CURVE
+
+- Multipliers 1.5/2.0/4.0 => >1x points labeled HYPOTHETICAL_CAPACITY, scaled
+  proportionally from the deployable wallet composition, never deployable
+  money, never persistence-qualifying.
+
+## CAPITAL CURVES
+
+- Per pair/range/fee: full curve persisted with fill share (empirical fixed,
+  structural capital-aware), requested/serviceable/unserved fill,
+  turnover/ROC, starting allocation + initial rebalance + loss, inventory
+  rebalances/loss, reward/fee/adverse/range-rebalance/gas, expected/stress net.
+
+## CAPACITY / SATURATION
+
+- Diagnostics: fillShareSaturation, inventoryThroughputSaturation,
+  rewardShareSaturation, turnoverDecay, rocDecay, marginalPnlDecay;
+  bestActualWalletCapital/fraction, highestAbsolute(Expected|StressNet),
+  highest(Expected|Stress)ROCCapital, estimatedCapacityRangeUsd, and a
+  research recommendation (never simply the largest capital).
+
+## MARGINAL RETURNS
+
+- Adjacent-level incrementalCapitalUsd / incrementalNet / marginal PnL per
+  dollar / marginal ROC; no linearity inferred.
+
+## GAS FIX
+
+- Range reships charged only as rerange gas (dock+ship); inventory rebalances
+  charged separately as ship-only; 1 reship + 0 rebalances = exactly one
+  rerange cost (regression tested).
+
+## PERSISTENCE IDENTITY
+
+- Qualifying identity: modelVersion, configFingerprint, pair, fee, range,
+  capitalUsd, capitalSource (ACTUAL_WALLET only), walletAddress, and a
+  conservative wallet-capital regime (<=5% deployable NAV drift compatible,
+  same candidate fraction; major deposit/withdrawal resets; hypothetical never
+  qualifies).
+
+## TESTS
+
+- 235 tests total (189 preserved + 46 V1.5 regressions). Every regression
+  calls production functions (computeWalletState, buildCapitalGrid,
+  computeCapitalLevel, structuralFillShare, empiricalFillShare,
+  replayInventoryCapacity, computeCandidatePnl, computeCandidateGas,
+  marginalReturns, capacitySummaryForCurve, evaluatePersistence, decide,
+  buildCanaryPreview).
+
+## LIVE VALIDATION
+
+- npm ci / typecheck / npm test (235) / build / doctor / shadow-cycle
+  --validation-only / decision/status (see final report; no wallet configured
+  in the validation environment => WALLET_CAPITAL_UNKNOWN fail-closed is the
+  expected correct result).
+
+## CI
+
+- GitHub Actions PASS on the pushed head (independent; never equated with
+  local tests).
+
+## SAFETY
+
+- Wallet reads only; NO_BROADCAST green; no signing/broadcast/approvals;
+  validation-only mode; no v6 persistence started.
+
+## KNOWN GAPS
+
+- Without a configured WALLET_ADDRESS the live cycle returns
+  WALLET_CAPITAL_UNKNOWN (fail-closed by design); configuring a real read-only
+  wallet address enables live deployable-capital research.
+- 1INCH/WETH reference-pool freshness still gates CURRENT_FAIR_PRICE and
+  RANGE_PATH_RELIABLE conservatively; BTC wrapper / DeFi major / RWA excluded;
+  0.60 qualification haircut remains.
+
+## FINAL VERDICT
+
+**SHADOW_MODEL_READY** (see final report for the live decision).

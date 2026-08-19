@@ -243,8 +243,8 @@ test('P0-13: candidate with 2 reships/day has higher gas than 0 reships/day', ()
     gasUnitsSource: 'test',
     measured: true,
   };
-  const g0 = computeCandidateGas({ measurements, holdingHorizonDays: 7, reshipsPerDay: 0, expectedRebalanceTxsPerDay: 0 });
-  const g2 = computeCandidateGas({ measurements, holdingHorizonDays: 7, reshipsPerDay: 2, expectedRebalanceTxsPerDay: 2 });
+  const g0 = computeCandidateGas({ measurements, holdingHorizonDays: 7, reshipsPerDay: 0, expectedInventoryRebalanceTxsPerDay: 0 });
+  const g2 = computeCandidateGas({ measurements, holdingHorizonDays: 7, reshipsPerDay: 2, expectedInventoryRebalanceTxsPerDay: 2 });
   assert.ok(g2.gasUsdPerDay > g0.gasUsdPerDay);
 });
 
@@ -276,6 +276,10 @@ function seedVnSnapshot(cfg: AppConfig, createdAt: number, modelVersion: number,
       decision: 'TRADE',
       pair,
       capitalUsd: 50,
+      capitalSource: 'ACTUAL_WALLET',
+      capitalFractionOfWallet: 1,
+      walletAddress: '0x0000000000000000000000000000000000000000',
+      walletDeployableCapitalUsd: 50,
       rangeHalfWidthPct: 5,
       feeBps: 20,
       expectedGrossFillUsdPerDay: 1,
@@ -313,6 +317,10 @@ test('P1-15: v2 snapshots never satisfy v3 persistence', () => {
       decision: 'TRADE',
       pair,
       capitalUsd: 50,
+      capitalSource: 'ACTUAL_WALLET',
+      capitalFractionOfWallet: 0.5,
+      walletAddress: null,
+      walletDeployableCapitalUsd: 50,
       rangeHalfWidthPct: 5,
       feeBps: 20,
       expectedGrossFillUsdPerDay: 1,
@@ -331,6 +339,8 @@ test('P1-15: v2 snapshots never satisfy v3 persistence', () => {
       failedGates: [],
       passedGates: [],
       bestCandidate: null,
+      capacitySummary: null,
+      marginalReturns: [],
       generatedAt: 1000000n,
     };
     const p = evaluatePersistence(cfg, d);
@@ -341,6 +351,8 @@ test('P1-15: v2 snapshots never satisfy v3 persistence', () => {
   }
 });
 
-test('P1: <=50 hard cap enforced', () => {
-  assert.ok(DEFAULT_CONFIG.canaryCapUsd <= 50);
+test('V1.5: live execution safety cap is 50 but Shadow capital is wallet-driven (no fixed ceiling)', () => {
+  assert.ok(DEFAULT_CONFIG.liveExecutionSafetyCapUsd <= 50);
+  assert.equal(DEFAULT_CONFIG.syntheticCapitalGridUsd, null);
+  assert.deepEqual(DEFAULT_CONFIG.walletCapitalFractions, [0.1, 0.25, 0.5, 0.75, 1.0]);
 });

@@ -18,6 +18,9 @@ import { buildFairPriceProvider, computeMarkoutSamples, summarizeMarkouts, marko
 import { simulateAllWidths, type PricePoint } from './analytics/rangeCross.ts';
 import { realizedDailyVolPct } from './util/vol.ts';
 import { decide, type CycleData } from './decision/decide.ts';
+import { buildCapitalGrid } from './model/capital.ts';
+import { fetchWalletState, makeSyntheticWalletState } from './sources/wallet.ts';
+import type { CapitalResearch, WalletState } from './types.ts';
 import { rangeHalfWidthPct } from './util/price.ts';
 import { AQUA_ROUTER, REGISTRY_DEPLOY_BLOCK, SEASON1_GROUPS } from './constants.ts';
 
@@ -320,6 +323,35 @@ export async function runShadowCycle(
   };
   const gasMeasurements = await buildGasMeasurements(ctx, cfg, mergedLife, latestUsd(WETH), nowSec, log);
 
+  // V1.5: WALLET IS THE PRIMARY SHADOW CAPITAL SOURCE (read-only).
+  // If no wallet is configured, do NOT fabricate a production wallet; the
+  // model fails closed with WALLET_CAPITAL_UNKNOWN.
+  let walletState: WalletState | null = null;
+  if (cfg.walletAddress) {
+    const measuredLifecycleGasUsd = gasMeasurements.gasPriceUsdPerUnit !== null
+      ? gasMeasurements.gasPriceUsdPerUnit * (gasMeasurements.gasUnits.approve + gasMeasurements.gasUnits.ship + gasMeasurements.gasUnits.dock + gasMeasurements.gasUnits.emergencyReserve) * cfg.gasReserveMargin
+      : null;
+    const requiredGasReserveUsd = Math.max(cfg.gasReserveUsd, measuredLifecycleGasUsd ?? 0);
+    const walletPriceAt = (token: string): number | null => {
+      const o = valuationProvider.usdPriceAt(token, latest.timestamp, cfg.fillPricingMaxAgeSec);
+      return o ? o.price : null;
+    };
+    walletState = await fetchWalletState(ctx, cfg, cfg.walletAddress, walletPriceAt, requiredGasReserveUsd, cfg.emergencyReserveUsd, liveCutoffBlock, nowSec);
+  } else if (cfg.syntheticCapitalGridUsd && cfg.syntheticCapitalGridUsd.length > 0) {
+    // Deterministic synthetic wallet ONLY for tests/fixtures/debug (never the
+    // production default capital source).
+    const gridMax = Math.max(...cfg.syntheticCapitalGridUsd);
+    const oneInchNow = valuationProvider.usdPriceAt(ONEINCH, latest.timestamp, cfg.fillPricingMaxAgeSec);
+    walletState = makeSyntheticWalletState(gridMax, oneInchNow ? oneInchNow.price : 1, liveCutoffBlock, nowSec);
+  }
+  const capitalResearch: CapitalResearch = {
+    walletFractions: [...cfg.walletCapitalFractions],
+    capacityMultipliers: [...cfg.capacityMultipliers],
+    syntheticOverrideUsed: cfg.syntheticCapitalGridUsd !== null && cfg.syntheticCapitalGridUsd.length > 0,
+    fullCapitalGrid: buildCapitalGrid(walletState, cfg),
+  };
+  log('wallet: ' + (walletState ? walletState.detail : 'WALLET_CAPITAL_UNKNOWN: no wallet configured') + ' gridLevels=' + capitalResearch.fullCapitalGrid.length);
+
   const cd: CycleData = {
     chainOk: true,
     contractsOk: true,
@@ -351,7 +383,8 @@ export async function runShadowCycle(
       return o ? o.price : null;
     },
     dailyVolPctByPair,
-    capitalUsd: cfg.canaryCapUsd,
+    walletState,
+    capitalResearch,
     lookbackHours: cfg.lookbackHours,
     sourceTimestamps: {
       live: latest.timestamp.toString(),
@@ -557,6 +590,36 @@ function writeAuditArtifact(input: AuditInput): string {
       historicalCutoffTimestamp: cd.historicalCutoffTimestamp.toString(),
     },
     sourceTimestamps: cd.sourceTimestamps,
+    wallet: cd.walletState
+      ? {
+          address: cd.walletState.walletAddress,
+          snapshotBlock: cd.walletState.snapshotBlock.toString(),
+          snapshotTimestamp: cd.walletState.snapshotTimestamp.toString(),
+          source: cd.walletState.source,
+          assets: cd.walletState.assets,
+          walletNavUsd: cd.walletState.walletNavUsd,
+          strategyRelevantNavUsd: cd.walletState.strategyRelevantNavUsd,
+          gasReserveUsd: cd.walletState.gasReserveUsd,
+          emergencyReserveUsd: cd.walletState.emergencyReserveUsd,
+          excludedAssetUsd: cd.walletState.excludedAssetUsd,
+          unpricedAssetUsd: cd.walletState.unpricedAssetUsd,
+          deployableWalletCapitalUsd: cd.walletState.deployableWalletCapitalUsd,
+          gasReserveSufficient: cd.walletState.gasReserveSufficient,
+          priceUnknownTokens: cd.walletState.priceUnknownTokens,
+          balanceUnknownTokens: cd.walletState.balanceUnknownTokens,
+          unknown: cd.walletState.unknown,
+          detail: cd.walletState.detail,
+        }
+      : null,
+    capitalResearch: {
+      walletFractions: cd.capitalResearch.walletFractions,
+      capacityMultipliers: cd.capitalResearch.capacityMultipliers,
+      syntheticOverrideUsed: cd.capitalResearch.syntheticOverrideUsed,
+      fullCapitalGrid: cd.capitalResearch.fullCapitalGrid,
+    },
+    capitalCurves: result.snapshot.capitalCurves,
+    capacitySummary: d.capacitySummary,
+    marginalReturns: d.marginalReturns,
     denominatorMarkets: Object.fromEntries(
       Object.entries(cd.denominatorScopes).map(([g, s]) => [
         g,
@@ -680,6 +743,21 @@ function writeAuditArtifact(input: AuditInput): string {
       pairKey: c.pairKey,
       halfWidthPct: c.halfWidthPct,
       feeBps: c.feeBps,
+      capitalUsd: c.capitalUsd,
+      capitalSource: c.capitalSource,
+      capitalFractionOfWallet: c.capitalFractionOfWallet,
+      capitalMultipleOfWallet: c.capitalMultipleOfWallet,
+      walletFeasibility: {
+        requiredTokenAUsd: c.requiredTokenAUsd,
+        requiredTokenBUsd: c.requiredTokenBUsd,
+        availableTokenAUsd: c.availableTokenAUsd,
+        availableTokenBUsd: c.availableTokenBUsd,
+        initialRebalanceUsd: c.initialRebalanceUsd,
+        initialRebalanceLossUsd: c.initialRebalanceLossUsd,
+        capitalActuallyDeployableUsd: c.capitalActuallyDeployableUsd,
+        walletInventorySufficient: c.walletInventorySufficient,
+        walletInsufficiencyReason: c.walletInsufficiencyReason,
+      },
       fillShare: c.fillShare,
       fillShareSource: c.fillShareSource,
       comparableStrategyCount: c.comparableStrategyCount,
@@ -705,6 +783,10 @@ function writeAuditArtifact(input: AuditInput): string {
         gasUsdPerDay: c.gasUsdPerDay,
         expectedNetUsdPerDay: c.expectedNetUsdPerDay,
         stressNetUsdPerDay: c.stressNetUsdPerDay,
+        expectedReturnOnCapitalPctPerDay: c.expectedReturnOnCapitalPctPerDay,
+        stressReturnOnCapitalPctPerDay: c.stressReturnOnCapitalPctPerDay,
+        rangeRebalanceCostUsdPerDay: c.rangeRebalanceCostUsdPerDay,
+        inventoryRebalanceLossUsdPerDay: c.inventoryRebalanceLossUsdPerDay,
       },
       inventoryThroughput: {
         serviceableFillUsdPerDay: c.expectedServiceableFillUsdPerDay,

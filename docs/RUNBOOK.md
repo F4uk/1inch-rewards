@@ -47,6 +47,17 @@ snapshot: any snapshot written carries validationOnly=true and
 evaluatePersistence excludes it. No real v4 persistence begins until external
 architecture ACCEPT.
 
+### Wallet-driven capital (V1.5)
+
+- Set WALLET_ADDRESS (public, read-only) to the wallet whose balances drive
+  shadow research capital. No signing/broadcast ever touches this wallet.
+- Optional: SHADOW_WALLET_CAPITAL_FRACTIONS (default 0.10,0.25,0.50,0.75,1.00),
+  SHADOW_CAPACITY_MULTIPLIERS (default 1.5,2.0,4.0),
+  SHADOW_SYNTHETIC_CAPITAL_GRID_USD (tests/fixtures only),
+  GAS_RESERVE_USD / EMERGENCY_RESERVE_USD.
+- If no wallet is configured the live cycle fails closed with
+  WALLET_CAPITAL_UNKNOWN (still a correct implementation).
+
 ### Decision status
 
     npm run decision/status
@@ -89,3 +100,5 @@ the shadow cycle running (e.g., every 4-8 hours) to collect snapshots.
 - RANGE_PATH_RELIABLE failed (coverage/bars below minimum or no path) =>
   TRADE forbidden (missing paths never default to 0 reships / 100% in-range).
 - Current fresh fair price missing => TRADE forbidden.
+- Wallet state unknown / required wallet price unknown / gas reserve unknown /
+  wallet inventory insufficient (ACTUAL_WALLET) => TRADE forbidden.
