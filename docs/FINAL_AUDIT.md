@@ -902,6 +902,20 @@ signed or broadcast.
   in the validation environment => WALLET_CAPITAL_UNKNOWN fail-closed is the
   expected correct result).
 
+### Live read-only result (2026-08-20 ~00:44 local / 2026-08-19 ~16:44 UTC)
+
+- Decision: **DO_NOT_TRADE** (modelVersion 6, validation-only).
+- liveCutoffBlock 25790132 / historicalCutoffBlock 25789683.
+- No wallet configured in the validation environment => WALLET_CAPITAL_UNKNOWN
+  + CAPITAL_GRID_EMPTY (fail-closed by design, per spec section 24); the full
+  analytics still completed end-to-end (denominators, pools, markouts,
+  competition, range paths, gas measurements).
+- persistence: modelVersion=6 capital=0 (none), qualifyingSnapshots=0.
+- Deterministic coverage of the wallet/capital paths (NAV, deployable capital,
+  actual/hypothetical/synthetic grids, feasibility, curves, marginals,
+  capacity summary, gas separation, persistence identity) is provided by the
+  46-test V1.5 suite using synthetic wallet fixtures.
+
 ## CI
 
 - GitHub Actions PASS on the pushed head (independent; never equated with
