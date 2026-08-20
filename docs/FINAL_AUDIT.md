@@ -997,6 +997,19 @@ signed or broadcast.
   => WALLET_CAPITAL_UNKNOWN fail-closed; deterministic mocked-RPC integration
   included).
 
+### Live read-only result (2026-08-20 ~10:56 local / ~02:56 UTC)
+
+- Decision: **DO_NOT_TRADE** (modelVersion 8, validation-only).
+- liveCutoffBlock 25793481 / historicalCutoffBlock 25793032.
+- No wallet configured => WALLET_CAPITAL_UNKNOWN + CAPITAL_GRID_EMPTY +
+  eligibleActualCandidates=0 + "no eligible ACTUAL_WALLET regime (fail
+  closed)" (correct fail-closed behavior; full analytics completed
+  end-to-end).
+- persistence: modelVersion=8 capital=0 (none), qualifyingSnapshots=0.
+- Deterministic mocked-RPC fetchWalletState integration (block-pinned native
+  ETH + ERC20 reads, zero-balance price exemption, candidate-essential
+  fail-closed) runs in the test suite without a private key.
+
 ## CI
 
 - GitHub Actions PASS on the pushed head (independent; never equated with
