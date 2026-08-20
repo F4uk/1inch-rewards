@@ -7,7 +7,7 @@ import type { PriceGroup } from '../constants.ts';
 import { computeCandidatePnl, type PnlInputs } from '../model/pnl.ts';
 import { computeCandidateGas } from '../model/gas.ts';
 import { replayInventoryCapacity } from '../model/inventory.ts';
-import { blendFillShare } from '../model/fillShare.ts';
+import { blendFillShare, type FillShareInput } from '../model/fillShare.ts';
 import { assessConfidence } from '../model/confidence.ts';
 import { conservativeAdverseRateUsdPerUsd } from '../analytics/markouts.ts';
 import { evaluateGates, campaignHoursRemaining, type GateContext } from '../decision/gates.ts';
@@ -34,10 +34,15 @@ export type EconomicSimulationResult = {
   expectedROCPctPerDay: number;
   stressROCPctPerDay: number;
   fillShare: number;
+  empiricalFillShare: number | null;
+  structuralFillShare: number | null;
+  fillShareSource: string;
+  comparableStrategyCount: number;
   serviceableFillUsdPerDay: number;
   rewardIncomeUsdPerDay: number;
   makerFeeIncomeUsdPerDay: number;
   adverseSelectionUsdPerDay: number;
+  rebalanceCostUsdPerDay: number;
   gasUsdPerDay: number;
   qualified: boolean;
   failedGates: string[];
@@ -47,6 +52,28 @@ export type EconomicSimulationResult = {
 /** Select the top N ranked opportunities (input is already ranked by V9). */
 export function selectTopOpportunities(ranked: RankedOpportunity[], topN: number): RankedOpportunity[] {
   return ranked.slice(0, Math.max(0, Math.floor(topN)));
+}
+
+/**
+ * Single source of truth for the research candidate fill-share comparability
+ * semantics used by the V9->V8 bridge: 20bps / 5% candidate, fee tolerance 5,
+ * width tolerance 4, and the configured minimum comparable strategies. The
+ * V9.2.1 attribution layer reuses this exact input so it can never drift from
+ * the accepted V8 blendFillShare() result.
+ */
+export function fillShareInputForCapital(cfg: AppConfig, cd: CycleData, pairKey: string, capitalUsd: number): FillShareInput {
+  const pair = cd.pairMetrics.find((p) => p.pairKey.toLowerCase() === pairKey.toLowerCase());
+  if (!pair) throw new Error('bridge: pair not found ' + pairKey);
+  return {
+    pairMetrics: pair,
+    competition: cd.competitions.get(pair.pairKey) ?? null,
+    candidateFeeBps: BRIDGE_DEFAULT_FEE_BPS,
+    candidateHalfWidthPct: BRIDGE_DEFAULT_WIDTH_PCT,
+    candidateBackingUsd: capitalUsd,
+    comparableFeeTolerance: 5,
+    comparableWidthTolerance: 4,
+    minComparableStrategies: cfg.minComparableStrategies,
+  };
 }
 
 /**
@@ -67,16 +94,7 @@ export function buildPnlInputsForCapital(cfg: AppConfig, cd: CycleData, pairKey:
   const rangeSim = rangeSims.get(BRIDGE_DEFAULT_WIDTH_PCT) ?? { reshipsPerDay: 0, timeInRangePct: 0 };
   const pathReliability = cd.rangePathReliableByPair[pair.pairKey] ?? { reliable: false, reason: 'RANGE_PATH_RELIABLE: no path data' };
   const windowSec = cd.lookbackHours * 3600;
-  const fs = blendFillShare({
-    pairMetrics: pair,
-    competition,
-    candidateFeeBps: BRIDGE_DEFAULT_FEE_BPS,
-    candidateHalfWidthPct: BRIDGE_DEFAULT_WIDTH_PCT,
-    candidateBackingUsd: capitalUsd,
-    comparableFeeTolerance: 5,
-    comparableWidthTolerance: 4,
-    minComparableStrategies: cfg.minComparableStrategies,
-  });
+  const fs = blendFillShare(fillShareInputForCapital(cfg, cd, pairKey, capitalUsd));
   const inventory = replayInventoryCapacity({
     pairKey: pair.pairKey,
     fills: cd.pairFills[pair.pairKey] ?? [],
@@ -198,6 +216,7 @@ export function evaluateBridgeCandidate(cfg: AppConfig, cd: CycleData, candidate
 export function simulateOpportunityAtCapital(cfg: AppConfig, cd: CycleData, pairKey: string, group: string, capitalUsd: number): EconomicSimulationResult {
   const inputs = buildPnlInputsForCapital(cfg, cd, pairKey, group, capitalUsd);
   const candidate = computeCandidatePnl(inputs);
+  const fs = blendFillShare(fillShareInputForCapital(cfg, cd, pairKey, capitalUsd));
   candidate.confidence = assessConfidence({
     cfg,
     pairMetrics: inputs.pairMetrics,
@@ -229,10 +248,15 @@ export function simulateOpportunityAtCapital(cfg: AppConfig, cd: CycleData, pair
     expectedROCPctPerDay: candidate.expectedReturnOnCapitalPctPerDay,
     stressROCPctPerDay: candidate.stressReturnOnCapitalPctPerDay,
     fillShare: candidate.fillShare,
+    empiricalFillShare: fs.empirical,
+    structuralFillShare: fs.structural,
+    fillShareSource: fs.source,
+    comparableStrategyCount: fs.comparableStrategyCount,
     serviceableFillUsdPerDay: candidate.expectedServiceableFillUsdPerDay,
     rewardIncomeUsdPerDay: candidate.rewardIncomeUsdPerDay,
     makerFeeIncomeUsdPerDay: candidate.makerFeeIncomeUsdPerDay,
     adverseSelectionUsdPerDay: candidate.adverseSelectionUsdPerDay,
+    rebalanceCostUsdPerDay: candidate.rebalanceCostUsdPerDay,
     gasUsdPerDay: candidate.gasUsdPerDay,
     qualified: gate.qualified,
     failedGates: gate.failedGates,

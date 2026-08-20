@@ -133,27 +133,28 @@ inventory buffer applies to **unfilled** capital.
   (groupDailyReward * pairShareOfGroup * 0.6) / tier.
 - This ranking NEVER replaces V8 PnL, never lowers V8 gates, and never trades.
 
-## V9.2 fill-volume attribution (research-only)
+## V9.2 fill-volume attribution (research-only, V9.2.1 corrected)
 
-- Captured volume per research capital level C and competitor backing B:
-  backingShare = C/(B+C) (concave; 10x capital never yields 10x volume),
-  feeShare = 1/(1+cheaperOrEqualInRange), structuralShare =
-  min(feeShare, backingShare), fillShare = min(structuralShare,
-  empiricalFillShare25) where empiricalFillShare25 is the 25th percentile of
-  comparable active strategies' observed fill share (fee/width buckets).
-- capturedVolume = marketVolumeUsd * fillShare * timeInRangePct/100 where
-  marketVolumeUsd is the pair's real observed daily fill rate.
-- rewardVolume = capturedVolume * qualificationHaircut (conservative haircut
-  for unknown resolver eligibility); rewardUsd = groupDailyRewardUsd *
-  rewardVolume / groupVolumeUsd. Reward is always earned on CAPTURED volume,
-  never on total market volume.
-- makerFeeUsd = capturedVolume * feeBps/1e4; netBeforeRisk = rewardUsd +
-  makerFeeUsd; netAfterRisk = netBeforeRisk - adverseRate*capturedVolume -
-  reshipsPerDay*capital*rebalanceLossBps/1e4 - gasUsdPerDay.
-- Fail closed: netAfterRisk is null (and reliable=false) whenever adverse
-  rate, gas, time-in-range, or data gates (current-price, markout-reliable,
-  range-path-reliable) are unavailable or failing, or empirical fill share is
-  missing. The layer ranks markets only; it never lowers V8 gates or trades.
+- Fill share is the accepted V8 blendFillShare() result (backingShare
+  C/(B+C) concave, feeShare 1/(1+cheaperOrEqualInRange), structural =
+  min(feeShare, backingShare), blended = min(empirical, structural), where
+  empirical is the p25 over strategies comparable to a 20bps/5% candidate
+  within tolerance 5/4). Non-comparable fee/range strategies never cap the
+  candidate.
+- potentialCapturedVolumeUsd = marketVolumeUsd * blendedFillShare *
+  timeInRangePct/100; trustedServiceableVolumeUsd = min(potential,
+  v8ServiceableFillUsdPerDay) where v8ServiceableFillUsdPerDay is the accepted
+  V8 inventory replay serviceable fill; unservedVolumeUsd = potential - trusted.
+  volumeLimitReason reports FILL_SHARE / RANGE_TIME / INVENTORY_CAPACITY.
+- Attribution reward diagnostic (labeled, never authoritative): groupReward *
+  trusted * haircut / groupVolume, i.e. reward on CAPTURED/trusted volume only,
+  never total market volume. Authoritative PnL is copied from the V8 bridge
+  result and is the only basis for ranking.
+- reliable=true ONLY when the V8 research candidate is fully qualified (full
+  non-wallet gate set via evaluateBridgeCandidate) AND attribution inputs are
+  available (time-in-range, adverse rate, non-zero blended fill share). Adverse
+  rate 0 is valid when markouts are reliable; unreliable markouts => null.
+  The layer never lowers V8 gates or trades.
 
 ## Adverse selection (markouts)
 

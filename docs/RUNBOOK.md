@@ -69,10 +69,12 @@ audit/opportunity-economic-ranking.json + .md. Research only; no execution.
 Runs automatically inside every shadow-cycle (validation-only), after the
 economic bridge: the same top-N ranked opportunities (default 10) are
 attributed at 50/100/250/500 USD research capital levels using real
-competition backing, in-range fee competition, empirical fill-share p25,
-range time-in-range, markout adverse rates, and lifecycle gas. Outputs
-audit/opportunity-volume-attribution.json + .md. Fill share is concave in
-capital, reward uses captured (never total) volume, and missing/unsafe inputs
+competition backing, the accepted V8 blendFillShare() (identical comparability
+semantics), range time-in-range, markout adverse rates, and the accepted V8
+inventory serviceable fill. Trusted serviceable volume is min(potential
+captured volume, V8 inventory serviceable); authoritative PnL is the V8 bridge
+result; reliable requires the full V8 research candidate to be qualified.
+Outputs audit/opportunity-volume-attribution.json + .md. Missing/unsafe inputs
 fail closed to reliable=false. Research only; no execution.
 
 ### Wallet-driven capital (V1.5)

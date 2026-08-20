@@ -131,7 +131,8 @@ test('bridge: failed gates remain fail closed (unreliable markouts block qualifi
 test('bridge: economic ranking orders qualified, stress-safe, ROC, absolute net', () => {
   const mk = (pairKey: string, capitalUsd: number, net: number, stress: number, roc: number, qualified: boolean): EconomicSimulationResult => ({
     rank: 0, pairKey, group: 'STABLE', capitalUsd, expectedNetUsdPerDay: net, stressNetUsdPerDay: stress, expectedROCPctPerDay: roc, stressROCPctPerDay: roc,
-    fillShare: 0.1, serviceableFillUsdPerDay: 10, rewardIncomeUsdPerDay: 1, makerFeeIncomeUsdPerDay: 0.1, adverseSelectionUsdPerDay: 0, gasUsdPerDay: 0.1,
+    fillShare: 0.1, empiricalFillShare: 0.1, structuralFillShare: 0.1, fillShareSource: 'test', comparableStrategyCount: 20,
+    serviceableFillUsdPerDay: 10, rewardIncomeUsdPerDay: 1, makerFeeIncomeUsdPerDay: 0.1, adverseSelectionUsdPerDay: 0, rebalanceCostUsdPerDay: 0, gasUsdPerDay: 0.1,
     qualified, failedGates: qualified ? [] : ['markout-reliable: x'], walletGatesNotEvaluated: true,
   });
   const ranked = rankEconomicOpportunities([

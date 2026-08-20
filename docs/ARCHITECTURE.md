@@ -361,35 +361,44 @@ canary preview. It never signs or broadcasts transactions.
 - Ranking: qualified -> stress safe -> expected ROC -> expected absolute net.
 - Outputs: audit/opportunity-economic-ranking.json + .md.
 
-## V9.2 fill-volume attribution layer (research-only)
+## V9.2 fill-volume attribution layer (research-only, V9.2.1 corrected)
 
 - src/opportunity/attribution.ts answers "if I provide 50/100/250/500 USD
   liquidity, how much trading volume can I realistically capture?" It is a
-  research-only layer on top of the V9->V8 bridge; V8 PnL, gates, wallet,
-  execution, persistence, and broadcaster are untouched.
-- Pure core estimateAttribution() with documented concave formulas:
-  backingShare = C/(B+C); feeShare = 1/(1+cheaperOrEqualInRange);
-  structuralShare = min(feeShare, backingShare); fillShare =
-  min(structuralShare, empiricalFillShare25) when the empirical p25 is
-  available; capturedVolume = marketVolumeUsd * fillShare * timeInRange%;
-  rewardVolume = capturedVolume * qualificationHaircut; rewardUsd =
-  groupDailyRewardUsd * rewardVolume / groupVolumeUsd (CAPTURED volume only,
-  never total market volume); netAfterRisk = reward + makerFee - adverse -
-  rebalance - gas.
-- estimateOpportunityAttribution() pulls real V8 cycle data: pair/group
-  dailyFillRateUsd (market volume), campaign budget, in-range competitor
-  counts and cheaper-or-equal fee counts, accessible backing, conservative
-  markout adverse rate, range-sim time-in-range/reships, empirical fill-share
-  p25 (fillShareByStrategy x strategyFees/strategyWidths), and lifecycle gas.
-- Fail closed: missing adverse/gas/time-in-range, failed data gates
-  (current-price / markout-reliable / range-path-reliable), or missing
-  empirical fill share all yield reliable=false; data-gate failure also
-  nulls netAfterRisk. The layer never bypasses V8 gates and never feeds TRADE.
+  research-only volume-explanation layer on top of the V9->V8 bridge; V8 PnL,
+  gates, wallet, execution, persistence, and broadcaster are untouched.
+- Fill share (P0-1): the ACCEPTED V8 blendFillShare() result with EXACTLY the
+  V8 bridge comparability semantics (candidateFeeBps=20,
+  candidateHalfWidthPct=5, tolerance 5/4, minComparableStrategies=cfg
+  .minComparableStrategies) via bridge.fillShareInputForCapital(). The
+  duplicate all-strategies p25 was deleted, so non-comparable fee/range
+  strategies never cap the candidate. Persisted: empiricalFillShare,
+  structuralFillShare, blendedFillShare, fillShareSource,
+  comparableStrategyCount.
+- Volume semantics (P0-2): potentialCapturedVolumeUsd = marketVolumeUsd *
+  blendedFillShare * timeInRange%; v8ServiceableFillUsdPerDay comes from the
+  accepted V8 inventory replay path; trustedServiceableVolumeUsd =
+  min(potential, v8Serviceable); unservedVolumeUsd and volumeLimitReason
+  (FILL_SHARE / RANGE_TIME / INVENTORY_CAPACITY) are persisted so the
+  constraint is auditable.
+- No second economic model (P0-3): authoritative PnL fields are copied from
+  the V8 bridge result (v8ExpectedNetUsdPerDay, v8StressNetUsdPerDay,
+  v8RewardIncomeUsdPerDay, v8MakerFeeIncomeUsdPerDay,
+  v8AdverseSelectionUsdPerDay, v8RebalanceCostUsdPerDay, v8GasUsdPerDay,
+  v8ExpectedROCPctPerDay, v8StressROCPctPerDay). The captured-volume reward is
+  a labeled attributionRewardDiagnosticUsd and NEVER ranks/recommends.
+- Full-gate reuse (P0-4): reliable=true ONLY when the V8 research candidate is
+  qualified through evaluateBridgeCandidate (all non-wallet gates: coverage,
+  competition, campaign consistency, current price, markouts, range path, gas,
+  confidence, base/stress PnL, ...) AND attribution inputs are available; all
+  failed gates are persisted.
+- Zero adverse rate is valid data when markout reliability is true (P1-1);
+  only unreliable markouts yield adverse=null.
 - runVolumeAttributionLayer() runs inside shadow-cycle after the economic
   bridge (additive): top-N ranked opportunities x 50/100/250/500 research
-  capital levels, deterministic ranking (reliable first, then net-after-risk,
-  then pair/group/capital), outputs audit/opportunity-volume-attribution.json
-  + .md.
+  capital levels, deterministic ranking (reliable first, then the
+  AUTHORITATIVE V8 expected net, then pair/group/capital - never the
+  diagnostic), outputs audit/opportunity-volume-attribution.json + .md.
 
 ## Dual-cutoff time model (mandatory)
 

@@ -1075,6 +1075,60 @@ signed or broadcast.
 
 ---
 
+# V9.2.1 ATTRIBUTION CORRECTNESS REPAIR (branch feature/shadow-v1-volume-attribution-correctness)
+
+## BASELINE
+
+- Base: f5599df6d924f8fec0357eb73b6c480f34618ce4 (V9.2 branch). V8 economic
+  model and wallet logic untouched; MODEL_VERSION remains 8; no persistence;
+  no broadcaster.
+
+## REPAIR
+
+- P0-1: the duplicate all-strategies empiricalFillShare25() was deleted. The
+  layer now reuses the accepted V8 blendFillShare() with EXACTLY the V8 bridge
+  comparability semantics via bridge.fillShareInputForCapital() (20bps/5%
+  candidate, tolerance 5/4, cfg.minComparableStrategies). Persisted:
+  empiricalFillShare, structuralFillShare, blendedFillShare, fillShareSource,
+  comparableStrategyCount.
+- P0-2: potentialCapturedVolumeUsd and v8ServiceableFillUsdPerDay are separate;
+  trustedServiceableVolumeUsd = min(potential, V8 inventory serviceable);
+  unservedVolumeUsd and volumeLimitReason (FILL_SHARE / RANGE_TIME /
+  INVENTORY_CAPACITY) are persisted for auditability.
+- P0-3: no second economic model. Authoritative PnL fields (v8ExpectedNet,
+  v8StressNet, v8RewardIncome, v8MakerFeeIncome, v8AdverseSelection,
+  v8RebalanceCost, v8Gas, v8ExpectedROC, v8StressROC) are copied from the V8
+  bridge result; the captured-volume reward is labeled
+  attributionRewardDiagnosticUsd and never ranks/recommends.
+- P0-4: reliable=true only when the V8 research candidate is fully qualified
+  via evaluateBridgeCandidate (full non-wallet gate set) AND attribution inputs
+  are available; all failed gates are persisted.
+- P1-1: adverse rate 0 is valid data when markout reliability is true; only
+  unreliable/missing markouts make adverse unavailable (null).
+- P1-2: inRangeCompetitorCount is explicitly diagnostic-only; it does not enter
+  the formula.
+
+## TESTS
+
+- test/attribution.test.ts (V9.2.1): 16 attribution regressions including the
+  required 10: non-comparable strategy cannot cap a 20bps/5% candidate;
+  comparable p25 exactly matches V8 blendFillShare; inventory bound 200<=500;
+  inventory-unbounded equality; denominator-pricing-coverage failure keeps
+  reliable=false; campaign-budget-consistent failure => reliable=false;
+  negative V8 net never trusted; zero adverse accepted; authoritative PnL
+  fields equal V8 bridge exactly; NO_BROADCAST. Full suite: 339 tests pass.
+
+## LIVE VALIDATION / CI / SAFETY
+
+- See final report. No signing/broadcast/approvals; validationOnly=true;
+  NO_BROADCAST green; no persistence window started.
+
+## FINAL VERDICT
+
+**SHADOW_MODEL_READY** (see final report).
+
+---
+
 # V1.5.2 WALLET-READ INTEGRITY REPAIR (branch feature/shadow-v1-wallet-read-integrity)
 
 ## BASELINE

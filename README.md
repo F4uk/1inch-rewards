@@ -82,11 +82,14 @@ validation-only shadow cycle.
 V9.2 adds a research-only fill-volume attribution layer on top of the bridge:
 for every ranked opportunity it estimates how much of the real market volume a
 50/100/250/500 USD position could capture, using actual competition backing,
-in-range fee competition, empirical fill-share p25, range time-in-range,
-markout adverse rates, and lifecycle gas. The fill share is concave in capital
-(larger capital never implies linear volume), reward is computed on CAPTURED
-volume (never total market volume), and any missing/unsafe data input fails
-closed to `reliable=false` / null net-after-risk. Outputs:
+in-range fee competition, the accepted V8 blendFillShare() result (identical
+comparability semantics: 20bps/5% candidate, tolerance 5/4, configured minimum
+comparable strategies), range time-in-range, markout adverse rates, and the
+accepted V8 inventory serviceable fill. Trusted serviceable volume is
+min(potential captured volume, V8 inventory serviceable fill); authoritative
+PnL is the V8 bridge result only (attribution diagnostics never rank or
+recommend); and reliable=true requires the full V8 research candidate to be
+qualified. Missing/unsafe inputs fail closed to reliable=false. Outputs:
 audit/opportunity-volume-attribution.json/.md. Research only; never feeds TRADE.
 
 ## Constraints (see AGENTS.md)
