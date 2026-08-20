@@ -1013,6 +1013,19 @@ signed or broadcast.
   => WALLET_CAPITAL_UNKNOWN fail-closed, plus a deterministic read-only wallet
   integration fixture through the production wallet path).
 
+### Live read-only result (2026-08-20 ~09:02 local / 2026-08-19 ~01:02 UTC)
+
+- Decision: **DO_NOT_TRADE** (modelVersion 7, validation-only).
+- liveCutoffBlock 25792587 / historicalCutoffBlock 25792137.
+- No wallet configured => WALLET_CAPITAL_UNKNOWN + CAPITAL_GRID_EMPTY +
+  eligibleActualCandidates=0 + "no eligible ACTUAL_WALLET regime (fail
+  closed)" (correct fail-closed behavior per spec; full analytics completed
+  end-to-end).
+- persistence: modelVersion=7 capital=0 (none), qualifyingSnapshots=0.
+- Deterministic wallet integration fixture (native ETH + WETH + 1INCH +
+  paired asset) exercised through the production wallet-read/accounting path
+  in the test suite (no private key).
+
 ## CI
 
 - GitHub Actions PASS on the pushed head (independent; never equated with
