@@ -1,0 +1,1068 @@
+{
+  "generatedAt": "2026-08-20T17:32:47.666Z",
+  "capitalLevels": [
+    50,
+    100,
+    250,
+    500
+  ],
+  "note": "Research volume attribution; NOT a trade recommendation; V8 gates preserved.",
+  "ranked": [
+    {
+      "rank": 1,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+      "group": "STABLE",
+      "capitalUsd": 50,
+      "result": {
+        "marketVolumeUsd": 60885.00252868644,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 50,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00039628690406781056,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.963e-4)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 2,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+      "group": "STABLE",
+      "capitalUsd": 100,
+      "result": {
+        "marketVolumeUsd": 60885.00252868644,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 100,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00039628690406781056,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.963e-4)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 3,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+      "group": "STABLE",
+      "capitalUsd": 250,
+      "result": {
+        "marketVolumeUsd": 60885.00252868644,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 250,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00039628690406781056,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.963e-4)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 4,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+      "group": "STABLE",
+      "capitalUsd": 500,
+      "result": {
+        "marketVolumeUsd": 60885.00252868644,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 500,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00039628690406781056,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.963e-4)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 5,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x6b175474e89094c44da98b954eedeac495271d0f",
+      "group": "STABLE",
+      "capitalUsd": 50,
+      "result": {
+        "marketVolumeUsd": 368488.10070065904,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 50,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00042726421281189143,
+        "estimatedServiceableVolumeUsd": 150.95558099603343,
+        "estimatedRewardVolumeUsd": 90.57334859762005,
+        "estimatedRewardUsd": 0.03647131161198994,
+        "estimatedMakerFeeUsd": 0.30191116199206686,
+        "estimatedNetBeforeRiskUsd": 0.3383824736040568,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=4.273e-4)",
+          "data gates failed; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 6,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x6b175474e89094c44da98b954eedeac495271d0f",
+      "group": "STABLE",
+      "capitalUsd": 100,
+      "result": {
+        "marketVolumeUsd": 368488.10070065904,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 100,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00042726421281189143,
+        "estimatedServiceableVolumeUsd": 150.95558099603343,
+        "estimatedRewardVolumeUsd": 90.57334859762005,
+        "estimatedRewardUsd": 0.03647131161198994,
+        "estimatedMakerFeeUsd": 0.30191116199206686,
+        "estimatedNetBeforeRiskUsd": 0.3383824736040568,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=4.273e-4)",
+          "data gates failed; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 7,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x6b175474e89094c44da98b954eedeac495271d0f",
+      "group": "STABLE",
+      "capitalUsd": 250,
+      "result": {
+        "marketVolumeUsd": 368488.10070065904,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 250,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00042726421281189143,
+        "estimatedServiceableVolumeUsd": 150.95558099603343,
+        "estimatedRewardVolumeUsd": 90.57334859762005,
+        "estimatedRewardUsd": 0.03647131161198994,
+        "estimatedMakerFeeUsd": 0.30191116199206686,
+        "estimatedNetBeforeRiskUsd": 0.3383824736040568,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=4.273e-4)",
+          "data gates failed; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 8,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x6b175474e89094c44da98b954eedeac495271d0f",
+      "group": "STABLE",
+      "capitalUsd": 500,
+      "result": {
+        "marketVolumeUsd": 368488.10070065904,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 500,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00042726421281189143,
+        "estimatedServiceableVolumeUsd": 150.95558099603343,
+        "estimatedRewardVolumeUsd": 90.57334859762005,
+        "estimatedRewardUsd": 0.03647131161198994,
+        "estimatedMakerFeeUsd": 0.30191116199206686,
+        "estimatedNetBeforeRiskUsd": 0.3383824736040568,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=4.273e-4)",
+          "data gates failed; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 9,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x6c3ea9036406852006290770bedfcaba0e23a0e8",
+      "group": "STABLE",
+      "capitalUsd": 50,
+      "result": {
+        "marketVolumeUsd": 54523.9766308637,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 50,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00230805035966168,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=2.308e-3)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 10,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x6c3ea9036406852006290770bedfcaba0e23a0e8",
+      "group": "STABLE",
+      "capitalUsd": 100,
+      "result": {
+        "marketVolumeUsd": 54523.9766308637,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 100,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00230805035966168,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=2.308e-3)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 11,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x6c3ea9036406852006290770bedfcaba0e23a0e8",
+      "group": "STABLE",
+      "capitalUsd": 250,
+      "result": {
+        "marketVolumeUsd": 54523.9766308637,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 250,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00230805035966168,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=2.308e-3)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 12,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x6c3ea9036406852006290770bedfcaba0e23a0e8",
+      "group": "STABLE",
+      "capitalUsd": 500,
+      "result": {
+        "marketVolumeUsd": 54523.9766308637,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 500,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00230805035966168,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=2.308e-3)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 13,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "group": "ETH_LST",
+      "capitalUsd": 50,
+      "result": {
+        "marketVolumeUsd": 259815.69840703957,
+        "totalEligibleLiquidityUsd": 0.034754756994875784,
+        "competitionBackingUsd": 0.034754756994875784,
+        "candidateCapitalUsd": 50,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00032426276142364334,
+        "estimatedServiceableVolumeUsd": 80.14807759963897,
+        "estimatedRewardVolumeUsd": 48.08884655978338,
+        "estimatedRewardUsd": 0.046870900796996975,
+        "estimatedMakerFeeUsd": 0.16029615519927792,
+        "estimatedNetBeforeRiskUsd": 0.20716705599627488,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.243e-4)",
+          "data gates failed; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 14,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "group": "ETH_LST",
+      "capitalUsd": 100,
+      "result": {
+        "marketVolumeUsd": 259815.69840703957,
+        "totalEligibleLiquidityUsd": 0.034754756994875784,
+        "competitionBackingUsd": 0.034754756994875784,
+        "candidateCapitalUsd": 100,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00032426276142364334,
+        "estimatedServiceableVolumeUsd": 80.14807759963897,
+        "estimatedRewardVolumeUsd": 48.08884655978338,
+        "estimatedRewardUsd": 0.046870900796996975,
+        "estimatedMakerFeeUsd": 0.16029615519927792,
+        "estimatedNetBeforeRiskUsd": 0.20716705599627488,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.243e-4)",
+          "data gates failed; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 15,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "group": "ETH_LST",
+      "capitalUsd": 250,
+      "result": {
+        "marketVolumeUsd": 259815.69840703957,
+        "totalEligibleLiquidityUsd": 0.034754756994875784,
+        "competitionBackingUsd": 0.034754756994875784,
+        "candidateCapitalUsd": 250,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00032426276142364334,
+        "estimatedServiceableVolumeUsd": 80.14807759963897,
+        "estimatedRewardVolumeUsd": 48.08884655978338,
+        "estimatedRewardUsd": 0.046870900796996975,
+        "estimatedMakerFeeUsd": 0.16029615519927792,
+        "estimatedNetBeforeRiskUsd": 0.20716705599627488,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.243e-4)",
+          "data gates failed; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 16,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "group": "ETH_LST",
+      "capitalUsd": 500,
+      "result": {
+        "marketVolumeUsd": 259815.69840703957,
+        "totalEligibleLiquidityUsd": 0.034754756994875784,
+        "competitionBackingUsd": 0.034754756994875784,
+        "candidateCapitalUsd": 500,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.00032426276142364334,
+        "estimatedServiceableVolumeUsd": 80.14807759963897,
+        "estimatedRewardVolumeUsd": 48.08884655978338,
+        "estimatedRewardUsd": 0.046870900796996975,
+        "estimatedMakerFeeUsd": 0.16029615519927792,
+        "estimatedNetBeforeRiskUsd": 0.20716705599627488,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.243e-4)",
+          "data gates failed; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 17,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "group": "ETH_LST",
+      "capitalUsd": 50,
+      "result": {
+        "marketVolumeUsd": 231439.5665623497,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 50,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.0003553606378029857,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.554e-4)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 18,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "group": "ETH_LST",
+      "capitalUsd": 100,
+      "result": {
+        "marketVolumeUsd": 231439.5665623497,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 100,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.0003553606378029857,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.554e-4)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 19,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "group": "ETH_LST",
+      "capitalUsd": 250,
+      "result": {
+        "marketVolumeUsd": 231439.5665623497,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 250,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.0003553606378029857,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.554e-4)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 20,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
+      "group": "ETH_LST",
+      "capitalUsd": 500,
+      "result": {
+        "marketVolumeUsd": 231439.5665623497,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 500,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.0003553606378029857,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.554e-4)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 21,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "group": "ETH_LST",
+      "capitalUsd": 50,
+      "result": {
+        "marketVolumeUsd": 3038799.4029624956,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 50,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.000039704896024369194,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.970e-5)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 22,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "group": "ETH_LST",
+      "capitalUsd": 100,
+      "result": {
+        "marketVolumeUsd": 3038799.4029624956,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 100,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.000039704896024369194,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.970e-5)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 23,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "group": "ETH_LST",
+      "capitalUsd": 250,
+      "result": {
+        "marketVolumeUsd": 3038799.4029624956,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 250,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.000039704896024369194,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.970e-5)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 24,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "group": "ETH_LST",
+      "capitalUsd": 500,
+      "result": {
+        "marketVolumeUsd": 3038799.4029624956,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 500,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.000039704896024369194,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.970e-5)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 25,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+      "group": "ETH_LST",
+      "capitalUsd": 50,
+      "result": {
+        "marketVolumeUsd": 122481.53585398162,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 50,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.0013874656393238396,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=1.387e-3)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 26,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+      "group": "ETH_LST",
+      "capitalUsd": 100,
+      "result": {
+        "marketVolumeUsd": 122481.53585398162,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 100,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.0013874656393238396,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=1.387e-3)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 27,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+      "group": "ETH_LST",
+      "capitalUsd": 250,
+      "result": {
+        "marketVolumeUsd": 122481.53585398162,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 250,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.0013874656393238396,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=1.387e-3)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 28,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
+      "group": "ETH_LST",
+      "capitalUsd": 500,
+      "result": {
+        "marketVolumeUsd": 122481.53585398162,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 500,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.0013874656393238396,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=1.387e-3)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 29,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xdac17f958d2ee523a2206206994597c13d831ec7",
+      "group": "STABLE",
+      "capitalUsd": 50,
+      "result": {
+        "marketVolumeUsd": 4682940.106467437,
+        "totalEligibleLiquidityUsd": 2075.760759649306,
+        "competitionBackingUsd": 2075.760759649306,
+        "candidateCapitalUsd": 50,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.000035484421317962405,
+        "estimatedServiceableVolumeUsd": 163.81342750398053,
+        "estimatedRewardVolumeUsd": 98.28805650238832,
+        "estimatedRewardUsd": 0.039577805082163776,
+        "estimatedMakerFeeUsd": 0.32762685500796107,
+        "estimatedNetBeforeRiskUsd": 0.36720466009012487,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.548e-5)",
+          "data gates failed; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 30,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xdac17f958d2ee523a2206206994597c13d831ec7",
+      "group": "STABLE",
+      "capitalUsd": 100,
+      "result": {
+        "marketVolumeUsd": 4682940.106467437,
+        "totalEligibleLiquidityUsd": 2075.760759649306,
+        "competitionBackingUsd": 2075.760759649306,
+        "candidateCapitalUsd": 100,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.000035484421317962405,
+        "estimatedServiceableVolumeUsd": 163.81342750398053,
+        "estimatedRewardVolumeUsd": 98.28805650238832,
+        "estimatedRewardUsd": 0.039577805082163776,
+        "estimatedMakerFeeUsd": 0.32762685500796107,
+        "estimatedNetBeforeRiskUsd": 0.36720466009012487,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.548e-5)",
+          "data gates failed; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 31,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xdac17f958d2ee523a2206206994597c13d831ec7",
+      "group": "STABLE",
+      "capitalUsd": 250,
+      "result": {
+        "marketVolumeUsd": 4682940.106467437,
+        "totalEligibleLiquidityUsd": 2075.760759649306,
+        "competitionBackingUsd": 2075.760759649306,
+        "candidateCapitalUsd": 250,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.000035484421317962405,
+        "estimatedServiceableVolumeUsd": 163.81342750398053,
+        "estimatedRewardVolumeUsd": 98.28805650238832,
+        "estimatedRewardUsd": 0.039577805082163776,
+        "estimatedMakerFeeUsd": 0.32762685500796107,
+        "estimatedNetBeforeRiskUsd": 0.36720466009012487,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.548e-5)",
+          "data gates failed; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 32,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xdac17f958d2ee523a2206206994597c13d831ec7",
+      "group": "STABLE",
+      "capitalUsd": 500,
+      "result": {
+        "marketVolumeUsd": 4682940.106467437,
+        "totalEligibleLiquidityUsd": 2075.760759649306,
+        "competitionBackingUsd": 2075.760759649306,
+        "candidateCapitalUsd": 500,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.000035484421317962405,
+        "estimatedServiceableVolumeUsd": 163.81342750398053,
+        "estimatedRewardVolumeUsd": 98.28805650238832,
+        "estimatedRewardUsd": 0.039577805082163776,
+        "estimatedMakerFeeUsd": 0.32762685500796107,
+        "estimatedNetBeforeRiskUsd": 0.36720466009012487,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=3.548e-5)",
+          "data gates failed; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 33,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+      "group": "STABLE",
+      "capitalUsd": 50,
+      "result": {
+        "marketVolumeUsd": 82760.51353560721,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 50,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.0004948899086539225,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=4.949e-4)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 34,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+      "group": "STABLE",
+      "capitalUsd": 100,
+      "result": {
+        "marketVolumeUsd": 82760.51353560721,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 100,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.0004948899086539225,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=4.949e-4)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 35,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+      "group": "STABLE",
+      "capitalUsd": 250,
+      "result": {
+        "marketVolumeUsd": 82760.51353560721,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 250,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.0004948899086539225,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=4.949e-4)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 36,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+      "group": "STABLE",
+      "capitalUsd": 500,
+      "result": {
+        "marketVolumeUsd": 82760.51353560721,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 500,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.0004948899086539225,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=4.949e-4)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 37,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xe343167631d89b6ffc58b88d6b7fb0228795491d",
+      "group": "STABLE",
+      "capitalUsd": 50,
+      "result": {
+        "marketVolumeUsd": 50302.50837798532,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 50,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.007856206192063214,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=7.856e-3)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 38,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xe343167631d89b6ffc58b88d6b7fb0228795491d",
+      "group": "STABLE",
+      "capitalUsd": 100,
+      "result": {
+        "marketVolumeUsd": 50302.50837798532,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 100,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.007856206192063214,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=7.856e-3)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 39,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xe343167631d89b6ffc58b88d6b7fb0228795491d",
+      "group": "STABLE",
+      "capitalUsd": 250,
+      "result": {
+        "marketVolumeUsd": 50302.50837798532,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 250,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.007856206192063214,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=7.856e-3)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    },
+    {
+      "rank": 40,
+      "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xe343167631d89b6ffc58b88d6b7fb0228795491d",
+      "group": "STABLE",
+      "capitalUsd": 500,
+      "result": {
+        "marketVolumeUsd": 50302.50837798532,
+        "totalEligibleLiquidityUsd": 0,
+        "competitionBackingUsd": 0,
+        "candidateCapitalUsd": 500,
+        "candidateRangeHalfWidthPct": 5,
+        "estimatedFillShare": 0.007856206192063214,
+        "estimatedServiceableVolumeUsd": 0,
+        "estimatedRewardVolumeUsd": 0,
+        "estimatedRewardUsd": 0,
+        "estimatedMakerFeeUsd": 0,
+        "estimatedNetBeforeRiskUsd": 0,
+        "estimatedNetAfterRiskUsd": null,
+        "reliable": false,
+        "detail": [
+          "empirical cap applied (p25=7.856e-3)",
+          "time-in-range unavailable; captured volume null",
+          "data gates failed; netAfterRisk null (fail closed)",
+          "adverse rate unavailable; netAfterRisk null (fail closed)"
+        ]
+      }
+    }
+  ]
+}
