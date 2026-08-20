@@ -2,7 +2,7 @@
 
 - modelVersion: 8
 - validatedCodeSha: 71641ece813ce1f4b4e6a5ca2497a4a5effd3f1c
-- generatedAt: 2026-08-20T13:58:08.879Z
+- generatedAt: 2026-08-20T14:16:29.463Z
 - markets ranked: 24
 
 _Research ranking only. NOT a trade recommendation. Does not lower V8 safety gates._
