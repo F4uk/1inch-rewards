@@ -990,6 +990,46 @@ signed or broadcast.
 
 ---
 
+# V9->V8 ECONOMIC BRIDGE (branch feature/shadow-v1-opportunity-v8-bridge)
+
+## BASELINE
+
+- Base: 0caa0fe531c8f06884a2877e5c4c4c3297904f1a (V9 scanner branch). V8
+  economic model untouched; no persistence; no broadcaster.
+
+## BRIDGE
+
+- src/opportunity/bridge.ts connects V9 top-N ranking into the accepted V8
+  pipeline (computeCandidatePnl, replayInventoryCapacity, computeCandidateGas,
+  blendFillShare, assessConfidence, evaluateGates). Research regime fee=20bps /
+  width=5%; capital levels 50/100/250/500 USD as ACTUAL_WALLET research levels
+  only (no synthetic capital). Wallet gates N/A without a live wallet; all
+  economic/data gates fail closed. Ranking: qualified -> stress safe ->
+  expected ROC -> absolute net.
+
+## OUTPUT
+
+- audit/opportunity-economic-ranking.json + .md written during each
+  validation-only shadow cycle.
+
+## TESTS
+
+- 301 total (V8/V9 preserved + bridge regressions: ranking feeds simulator,
+  V8 economics unchanged (bridge inputs produce identical computeCandidatePnl
+  output), capital levels preserved, failed gates fail closed, no execution
+  path).
+
+## LIVE VALIDATION / CI / SAFETY
+
+- See final report. No signing/broadcast/approvals; validationOnly=true;
+  NO_BROADCAST green; no persistence window started.
+
+## FINAL VERDICT
+
+**SHADOW_MODEL_READY** (see final report).
+
+---
+
 # V1.5.2 WALLET-READ INTEGRITY REPAIR (branch feature/shadow-v1-wallet-read-integrity)
 
 ## BASELINE

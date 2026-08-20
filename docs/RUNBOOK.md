@@ -56,6 +56,14 @@ audit/opportunity-ranking.json + opportunity-ranking.md with the full ranked
 opportunity list (top-20 table). Research ranking only; it never trades and
 never lowers V8 gates.
 
+### V9->V8 economic bridge (V9.1, read-only)
+
+Runs automatically inside every shadow-cycle (validation-only): the top-N V9
+ranked opportunities (default 10, OPPORTUNITY_TOP_N) are simulated at
+50/100/250/500 USD research capital levels through the accepted V8
+computeCandidatePnl pipeline and written to
+audit/opportunity-economic-ranking.json + .md. Research only; no execution.
+
 ### Wallet-driven capital (V1.5)
 
 - Set WALLET_ADDRESS (public, read-only) to the wallet whose balances drive

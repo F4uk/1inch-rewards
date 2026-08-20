@@ -74,6 +74,11 @@ V9 adds a read-only opportunity discovery & ranking layer (SmallCapital-
 OpportunityScore) on top of the accepted V8 model - research ranking only; it
 never trades, never lowers V8 safety gates, and never signs/broadcasts.
 
+The V9->V8 economic bridge (research) simulates the top-N ranked opportunities
+through the accepted V8 PnL pipeline at 50/100/250/500 USD research capital
+levels and writes audit/opportunity-economic-ranking.json/.md during every
+validation-only shadow cycle.
+
 ## Constraints (see AGENTS.md)
 
 Ethereum only; official Aqua registry/router and official SDKs only; no custom

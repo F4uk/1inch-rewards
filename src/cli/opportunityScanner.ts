@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { bigintReplacer, bigintReviver } from '../index/store.ts';
 import { rankOpportunities } from '../opportunity/rank.ts';
-import type { AuditScannerInput } from '../opportunity/scanner.ts';
+import { scannerInputFromAudit } from '../opportunity/scanner.ts';
 import type { RankedOpportunity } from '../opportunity/types.ts';
 
 const AUDIT_PATH = join(process.cwd(), 'audit', 'latest-shadow.json');
@@ -12,28 +12,6 @@ const OUT_MD = join(process.cwd(), 'audit', 'opportunity-ranking.md');
 function loadAudit(): Record<string, unknown> {
   if (!existsSync(AUDIT_PATH)) throw new Error('audit/latest-shadow.json not found; run npm run shadow-cycle -- --validation-only first');
   return JSON.parse(readFileSync(AUDIT_PATH, 'utf8'), bigintReviver) as Record<string, unknown>;
-}
-
-function asArray(v: unknown): never[] {
-  return Array.isArray(v) ? (v as never[]) : [];
-}
-
-export function scannerInputFromAudit(audit: Record<string, unknown>): AuditScannerInput {
-  const cutoffs = (audit.cutoffs ?? {}) as Record<string, unknown>;
-  const nowSec = BigInt(String(cutoffs.liveCutoffTimestamp ?? '0'));
-  return {
-    perMarketDenominatorMetrics: asArray(audit.perMarketDenominatorMetrics),
-    groupDenominatorTotals: asArray(audit.groupDenominatorTotals),
-    competition: asArray(audit.competition),
-    markoutsPerHorizon: (audit.markoutsPerHorizon ?? {}) as Record<string, never[]>,
-    adverseRateSelected: (audit.adverseRateSelected ?? {}) as Record<string, number>,
-    rangePathCoverage: (audit.rangePathCoverage ?? {}) as Record<string, never>,
-    pairCurrentPrices: (audit.pairCurrentPrices ?? {}) as Record<string, never>,
-    opportunityInventory: asArray(audit.opportunityInventory),
-    campaignInventory: asArray(audit.campaignInventory),
-    activeCampaignBudgetCalculation: (audit.activeCampaignBudgetCalculation ?? {}) as Record<string, never>,
-    nowSec,
-  };
 }
 
 function renderMd(ranked: RankedOpportunity[], audit: Record<string, unknown>): string {

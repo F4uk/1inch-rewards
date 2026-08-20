@@ -345,6 +345,22 @@ canary preview. It never signs or broadcasts transactions.
   can later feed the V8 candidate pipeline (computeCandidatePnl + inventory
   replay); it is a preparation interface with no execution/signing fields.
 
+## V9->V8 economic bridge (research-only)
+
+- src/opportunity/bridge.ts connects the V9 top-N ranking output into the
+  ACCEPTED V8 economic simulator WITHOUT modifying V8 (reward model, wallet,
+  capital model, execution, persistence, broadcaster all untouched).
+- Runs inside shadow-cycle after decide (additive): selects top N (default 10,
+  OPPORTUNITY_TOP_N) ranked opportunities and simulates each at the research
+  capital levels 50/100/250/500 USD (ACTUAL_WALLET research levels only; no
+  synthetic capital) through computeCandidatePnl + replayInventoryCapacity +
+  computeCandidateGas + assessConfidence + evaluateGates.
+- Default research regime fee=20bps / width=5% (documented; the ranking layer
+  carries no fee/width). Wallet-dependent gates are marked NOT_EVALUATED when
+  no live wallet is configured; all economic/data gates still fail closed.
+- Ranking: qualified -> stress safe -> expected ROC -> expected absolute net.
+- Outputs: audit/opportunity-economic-ranking.json + .md.
+
 ## Dual-cutoff time model (mandatory)
 
 - liveCutoffBlock - latest finalized block. Used for: active strategy state,

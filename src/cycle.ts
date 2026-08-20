@@ -20,6 +20,7 @@ import { realizedDailyVolPct } from './util/vol.ts';
 import { decide, type CycleData } from './decision/decide.ts';
 import { buildCapitalGrid } from './model/capital.ts';
 import { fetchWalletState, makeSyntheticWalletState } from './sources/wallet.ts';
+import { runOpportunityEconomicBridge } from './opportunity/bridge.ts';
 import type { CapitalResearch, WalletState } from './types.ts';
 import { rangeHalfWidthPct } from './util/price.ts';
 import { AQUA_ROUTER, REGISTRY_DEPLOY_BLOCK, SEASON1_GROUPS } from './constants.ts';
@@ -397,7 +398,7 @@ export async function runShadowCycle(
   };
   const result = decide(cfg, cd);
   log('decision=' + result.decision.decision + ' pair=' + (result.decision.pair ?? 'none') + ' net=' + result.decision.expectedNetUsdPerDay.toFixed(4) + ' stress=' + result.decision.stressNetUsdPerDay.toFixed(4));
-  const auditPath = writeAuditArtifact({
+  const auditOut = writeAuditArtifact({
     result,
     cd,
     universe,
@@ -409,6 +410,10 @@ export async function runShadowCycle(
     gasMeasurements,
     validationOnly,
   });
+  const auditPath = auditOut.path;
+  // V9->V8 bridge (additive research layer): simulate the top ranked V9
+  // opportunities through the accepted V8 computeCandidatePnl pipeline.
+  runOpportunityEconomicBridge(cfg, cd, auditOut.audit, cfg.opportunityTopN, log);
   return {
     liveCutoffBlock,
     liveCutoffTimestamp: latest.timestamp,
@@ -554,7 +559,7 @@ type AuditInput = {
  * the artifact was written - the artifact may be committed later, so it never
  * claims the artifact HEAD equals the validated code commit.
  */
-function writeAuditArtifact(input: AuditInput): string {
+function writeAuditArtifact(input: AuditInput): { path: string; audit: Record<string, unknown> } {
   const { result, cd, universe, poolSelections, valuationPoolInfo, currentUsdByPair, rangePathStatsByPair, dailyVolPctByPair, gasMeasurements, validationOnly } = input;
   const dir = join(process.cwd(), 'audit');
   mkdirSync(dir, { recursive: true });
@@ -853,5 +858,5 @@ function writeAuditArtifact(input: AuditInput): string {
   mdLines.push('');
   mdLines.push('_Read-only shadow audit; no transaction was signed or broadcast. The artifact may be committed in a later audit-only commit; validatedCodeSha identifies the code commit that was validated._');
   writeFileSync(join(dir, 'latest-shadow.md'), mdLines.join('\n'), 'utf8');
-  return jsonPath;
+  return { path: jsonPath, audit };
 }

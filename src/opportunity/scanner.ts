@@ -61,6 +61,26 @@ export type ScannerResult = {
   metricsByPair: Record<string, OpportunityMarketMetrics>;
 };
 
+/** Build the scanner input from the persisted audit artifact (pure, shared by CLI + cycle bridge). */
+export function scannerInputFromAudit(audit: Record<string, unknown>): AuditScannerInput {
+  const asArray = (v: unknown): never[] => (Array.isArray(v) ? (v as never[]) : []);
+  const cutoffs = (audit.cutoffs ?? {}) as Record<string, unknown>;
+  const nowSec = BigInt(String(cutoffs.liveCutoffTimestamp ?? '0'));
+  return {
+    perMarketDenominatorMetrics: asArray(audit.perMarketDenominatorMetrics),
+    groupDenominatorTotals: asArray(audit.groupDenominatorTotals),
+    competition: asArray(audit.competition),
+    markoutsPerHorizon: (audit.markoutsPerHorizon ?? {}) as Record<string, never[]>,
+    adverseRateSelected: (audit.adverseRateSelected ?? {}) as Record<string, number>,
+    rangePathCoverage: (audit.rangePathCoverage ?? {}) as Record<string, never>,
+    pairCurrentPrices: (audit.pairCurrentPrices ?? {}) as Record<string, never>,
+    opportunityInventory: asArray(audit.opportunityInventory),
+    campaignInventory: asArray(audit.campaignInventory),
+    activeCampaignBudgetCalculation: (audit.activeCampaignBudgetCalculation ?? {}) as Record<string, never>,
+    nowSec,
+  };
+}
+
 const TERMINATED = new Set(['ENDED', 'CANCELLED', 'TERMINATED', 'EXPIRED']);
 
 function normPairKey(k: string): string {

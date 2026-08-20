@@ -27,6 +27,8 @@ export type AppConfig = {
   capacityMultipliers: number[];
   /** Optional deterministic absolute capital grid for tests/fixtures ONLY (SYNTHETIC_TEST). */
   syntheticCapitalGridUsd: number[] | null;
+  /** V9->V8 bridge: number of top ranked opportunities to simulate (default 10). */
+  opportunityTopN: number;
   /** USD gas reserve kept physically available for lifecycle operations (never deployable strategy capital). */
   gasReserveUsd: number;
   /** USD emergency reserve kept aside (never deployable strategy capital). */
@@ -117,6 +119,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   walletCapitalFractions: [0.1, 0.25, 0.5, 0.75, 1.0],
   capacityMultipliers: [1.5, 2.0, 4.0],
   syntheticCapitalGridUsd: null,
+  opportunityTopN: 10,
   gasReserveUsd: 15,
   emergencyReserveUsd: 10,
   gasReserveMargin: 1.5,
@@ -192,6 +195,8 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (multipliers) cfg.capacityMultipliers = parseNumberList(multipliers, 'SHADOW_CAPACITY_MULTIPLIERS');
   const synthetic = env.SHADOW_SYNTHETIC_CAPITAL_GRID_USD;
   if (synthetic) cfg.syntheticCapitalGridUsd = parseNumberList(synthetic, 'SHADOW_SYNTHETIC_CAPITAL_GRID_USD');
+  const topN = env.OPPORTUNITY_TOP_N;
+  if (topN && Number.isInteger(Number(topN)) && Number(topN) > 0) cfg.opportunityTopN = Number(topN);
   const gasReserve = env.GAS_RESERVE_USD;
   if (gasReserve && Number.isFinite(Number(gasReserve)) && Number(gasReserve) >= 0) cfg.gasReserveUsd = Number(gasReserve);
   const emergency = env.EMERGENCY_RESERVE_USD;
