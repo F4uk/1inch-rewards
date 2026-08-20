@@ -460,7 +460,7 @@ test('P1: committed audit artifact contains validatedCodeSha, artifactGeneratedA
   const a = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
   assert.ok(typeof a.validatedCodeSha === 'string' && a.validatedCodeSha.length === 40, 'validatedCodeSha is a 40-char sha');
   assert.ok(typeof a.artifactGeneratedAt === 'string', 'artifactGeneratedAt present');
-  assert.equal(a.modelVersion, 7);
+  assert.equal(a.modelVersion, 8);
   assert.ok(a.cutoffs && typeof a.cutoffs === 'object');
   assert.ok(a.denominatorMarkets && typeof a.denominatorMarkets === 'object');
   assert.ok(a.perMarketDenominatorMetrics && Array.isArray(a.perMarketDenominatorMetrics));

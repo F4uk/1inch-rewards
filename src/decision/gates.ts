@@ -1,5 +1,6 @@
 import type { AppConfig } from '../config.ts';
 import type { Candidate, CompetitionState, DenominatorState, GateResult, GroupMetrics, MarkoutReliability, MarkoutSummary, PairMetrics, RewardUniverse, WalletState } from '../types.ts';
+import { candidateEssentialWalletPricesKnown } from '../sources/wallet.ts';
 import { usableMarkoutCount } from '../analytics/markouts.ts';
 import { activeCampaigns } from '../sources/merkl.ts';
 import { confidenceAtLeast } from '../model/confidence.ts';
@@ -78,8 +79,13 @@ export function evaluateGates(ctx: GateContext): { passed: GateResult[]; failed:
     ctx.walletState ? (ctx.walletState.unknown ? 'WALLET_CAPITAL_UNKNOWN: ' + ctx.walletState.detail : 'deployable=' + ctx.walletState.deployableWalletCapitalUsd.toFixed(2)) : 'WALLET_CAPITAL_UNKNOWN: no wallet state');
   push('gas-reserve-known', ctx.walletState !== null && ctx.walletState.gasReserveSufficient,
     ctx.walletState ? (ctx.walletState.gasReserveSufficient ? 'gasReserve=' + ctx.walletState.gasReserveUsd.toFixed(2) : 'GAS_RESERVE_UNKNOWN: ' + ctx.walletState.detail) : 'GAS_RESERVE_UNKNOWN');
-  push('wallet-assets-priced', ctx.walletState !== null && ctx.walletState.priceUnknownTokens.length === 0,
-    ctx.walletState && ctx.walletState.priceUnknownTokens.length > 0 ? 'WALLET_ASSET_PRICE_UNKNOWN: ' + ctx.walletState.priceUnknownTokens.join(',') : 'all relevant wallet assets priced');
+  // V1.5.2 P0-3: the gate means "all wallet prices materially required for THIS
+  // candidate are known" (native ETH + 1INCH + candidate paired asset);
+  // zero-balance unrelated supported tokens never block another pair. Other
+  // nonzero unpriced assets remain visible and non-deployable.
+  const essential = ctx.walletState ? candidateEssentialWalletPricesKnown(ctx.walletState, ctx.candidate.tokenA, ctx.candidate.tokenB) : { ok: false, missing: [] };
+  push('wallet-assets-priced', ctx.walletState !== null && !ctx.walletState.unknown && essential.ok,
+    essential.ok ? 'candidate-essential wallet prices known' : 'WALLET_ASSET_PRICE_UNKNOWN: ' + (essential.missing.length > 0 ? essential.missing.join(',') : 'wallet state unavailable'));
   push('wallet-inventory-sufficient', ctx.candidate.capitalSource !== 'ACTUAL_WALLET' || ctx.candidate.walletInventorySufficient,
     ctx.candidate.walletInventorySufficient ? 'wallet can construct initial inventory' : (ctx.candidate.walletInsufficiencyReason ?? 'WALLET_INVENTORY_INSUFFICIENT'));
 

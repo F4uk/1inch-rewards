@@ -104,6 +104,19 @@ inventory buffer applies to **unfilled** capital.
 - Diagnostics are last/first growth ratios across the full curve (research
   only); the underlying curves are persisted for reconstruction.
 
+## V1.5.2 wallet-read integrity
+
+- Zero-balance assets require no price (status ZERO_BALANCE; never
+  priceUnknown). Nonzero unpriced assets are non-deployable, visible, and
+  never synthesized; they fail closed only when candidate-essential.
+- The wallet-assets-priced gate is candidate-relative: native ETH (gas
+  reserve), 1INCH, and the candidate paired asset must be priced when nonzero;
+  other pairs are unaffected by unrelated unpriced supported tokens.
+- All wallet reads (native ETH + ERC20) are pinned to the same finalized
+  walletSnapshotBlock; erc20BalanceBlock == nativeEthBalanceBlock ==
+  walletSnapshotBlock is persisted and enforced. No fallback to latest;
+  failed historical reads => WALLET_STATE_UNKNOWN.
+
 ## Adverse selection (markouts)
 
 - Sign convention: the maker always receives tokenIn (taker pays tokenIn);

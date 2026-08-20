@@ -50,7 +50,7 @@ public read-only RPCs are used by default.
 
 Season-1 eligibility uses the OFFICIAL 1inch market definition only (ETH/LST:
 20 markets; Stable: 25 markets; each paired with 1INCH). Observed on-chain
-pairs never create campaign membership. modelVersion is 7.
+pairs never create campaign membership. modelVersion is 8.
 
 Shadow capital is WALLET-DRIVEN (V1.5): the configured wallet's read-only
 balances are the primary capital source; the model produces a wallet-relative
@@ -64,6 +64,10 @@ an eligible ACTUAL_WALLET set, and a conservative marginal-efficiency policy
 (MIN_MARGINAL_EFFICIENCY_RATIO default 0.25) choose the recommended capital;
 absolute net is a diagnostic. Gas is reserved in native ETH only; fee and
 range are exact persistence identity.
+
+Wallet reads (V1.5.2) are block-pinned to the same finalized snapshot block
+for native ETH and ERC20; zero-balance supported tokens never require a price,
+and the wallet price gate is candidate-relative.
 
 ## Constraints (see AGENTS.md)
 

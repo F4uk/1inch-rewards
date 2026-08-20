@@ -35,7 +35,7 @@ import { atomicWriteJson } from '../index/store.ts';
 import { campaignBudgetByGroup } from '../sources/merkl.ts';
 import type { PriceGroup } from '../constants.ts';
 
-export const MODEL_VERSION = 7;
+export const MODEL_VERSION = 8;
 
 export type CycleData = {
   chainOk: boolean;

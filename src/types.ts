@@ -375,10 +375,12 @@ export type WalletAssetState = {
   decimals: number;
   rawBalance: string;
   tokenAmount: number;
+  /** True when the balanceOf/getBalance read succeeded (never fabricated zeros). */
+  balanceReadOk: boolean;
   fairUsdPrice: number | null;
   usdValue: number | null;
   relevance: 'RELEVANT' | 'EXCLUDED' | 'UNKNOWN';
-  deployableStatus: 'DEPLOYABLE' | 'RESERVED_GAS' | 'RESERVED_EMERGENCY' | 'EXCLUDED' | 'UNPRICED' | 'UNKNOWN';
+  deployableStatus: 'DEPLOYABLE' | 'RESERVED_GAS' | 'RESERVED_EMERGENCY' | 'EXCLUDED' | 'UNPRICED' | 'ZERO_BALANCE' | 'UNKNOWN';
   exclusionReason: string | null;
   /** USD reserved for native gas from THIS asset (native ETH only). */
   reservedGasUsd: number;
@@ -392,6 +394,10 @@ export type WalletState = {
   walletAddress: string | null;
   snapshotBlock: bigint;
   snapshotTimestamp: bigint;
+  /** Block used for ERC20 balanceOf reads (V1.5.2 snapshot invariant). */
+  erc20BalanceBlock: bigint;
+  /** Block used for the native ETH balance read (V1.5.2 snapshot invariant). */
+  nativeEthBalanceBlock: bigint;
   source: 'ACTUAL_WALLET' | 'SYNTHETIC_TEST';
   assets: WalletAssetState[];
   walletNavUsd: number;

@@ -941,6 +941,85 @@ signed or broadcast.
 
 ---
 
+# V1.5.2 WALLET-READ INTEGRITY REPAIR (branch feature/shadow-v1-wallet-read-integrity)
+
+## BASELINE
+
+- Base: 31967d55a40dde47320e28db63f81e1c69b8ce23
+  (feature/shadow-v1-wallet-capital-correctness). No main modification, no
+  merge; no persistence started; no broadcaster.
+- MODEL_VERSION bumped 7 -> 8; v1-v7 snapshots non-qualifying.
+
+## ZERO-BALANCE PRICING FIX (P0-1/P0-2)
+
+- A successfully-read ZERO balance never requires a price: status
+  ZERO_BALANCE, usdValue/deployableUsd = 0, never in priceUnknownTokens.
+- A NONZERO unpriced asset stays UNPRICED / non-deployable, visible in the
+  audit, no synthetic price; candidate-essential nonzero unpriced assets fail
+  closed.
+
+## CANDIDATE-RELEVANT PRICE GATING (P0-3)
+
+- The wallet-assets-priced gate is candidate-relative: native ETH (gas reserve
+  valuation), 1INCH, and the candidate paired asset must be priced when
+  nonzero; zero-balance unrelated supported tokens never block another pair;
+  other nonzero unpriced assets remain visible diagnostics.
+
+## BLOCK-PINNED WALLET READS (P0-4/P0-5)
+
+- ERC20 balanceOf multicall now executes at blockNumber = liveCutoffBlock
+  (same block as the native ETH getBalance). Persisted provenance:
+  walletSnapshotBlock == erc20BalanceBlock == nativeEthBalanceBlock (enforced
+  in computeWalletState). Failed historical reads => WALLET_STATE_UNKNOWN, no
+  fallback to latest.
+
+## PRODUCTION WALLET-READ INTEGRATION TEST (P0-6/P0-7)
+
+- Deterministic mocked-RPC test calls the real fetchWalletState ->
+  computeWalletState path and asserts: getBalance + multicall block-pinned,
+  ETH/WETH/1INCH/USDC balances flow through, zero-balance null-price scope
+  tokens are not priceUnknown, nonzero candidate-required unpriced token stays
+  fail-closed, and the test fails if multicall loses blockNumber.
+- Realistic ETH + 1INCH + USDC wallet with dozens of zero-balance unpriced
+  supported tokens remains usable.
+
+## TESTS
+
+- 262 tests total (252 preserved + 10 V1.5.2 regressions), all calling
+  production functions (computeWalletState, fetchWalletState,
+  candidateEssentialWalletPricesKnown, walletAssetScope, evaluatePersistence,
+  makeSyntheticWalletState).
+
+## LIVE VALIDATION
+
+- npm ci / typecheck / npm test (262) / build / doctor / shadow-cycle
+  --validation-only / decision/status (see final report; no wallet configured
+  => WALLET_CAPITAL_UNKNOWN fail-closed; deterministic mocked-RPC integration
+  included).
+
+## CI
+
+- GitHub Actions PASS on the pushed head (independent; never equated with
+  local tests).
+
+## SAFETY
+
+- No private key / signer / approvals / broadcast; NO_BROADCAST green;
+  validation-only mode; no v8 persistence started.
+
+## KNOWN GAPS
+
+- Live deployable-capital research requires a configured read-only
+  WALLET_ADDRESS (absent in this environment by design); 1INCH/WETH pool
+  freshness gates remain conservative; BTC wrapper / DeFi major / RWA
+  excluded; 0.60 haircut remains.
+
+## FINAL VERDICT
+
+**SHADOW_MODEL_READY** (see final report for the live decision).
+
+---
+
 # V1.5.1 WALLET/CAPITAL CORRECTNESS REPAIR (branch feature/shadow-v1-wallet-capital-correctness)
 
 ## BASELINE

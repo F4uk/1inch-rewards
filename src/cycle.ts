@@ -595,6 +595,8 @@ function writeAuditArtifact(input: AuditInput): string {
           address: cd.walletState.walletAddress,
           snapshotBlock: cd.walletState.snapshotBlock.toString(),
           snapshotTimestamp: cd.walletState.snapshotTimestamp.toString(),
+          erc20BalanceBlock: cd.walletState.erc20BalanceBlock.toString(),
+          nativeEthBalanceBlock: cd.walletState.nativeEthBalanceBlock.toString(),
           source: cd.walletState.source,
           assets: cd.walletState.assets,
           walletNavUsd: cd.walletState.walletNavUsd,

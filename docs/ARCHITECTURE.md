@@ -294,6 +294,31 @@ canary preview. It never signs or broadcasts transactions.
   (research-only, never gate overrides); the full capital curves persist fill
   share / serviceable / reward / ROC / marginal data for reconstruction.
 
+## V1.5.2 wallet-read integrity repair (modelVersion 8)
+
+- P0-1: a successfully-read ZERO balance never requires a USD price; such
+  assets are marked ZERO_BALANCE with usdValue/deployableUsd = 0 and are NOT
+  added to priceUnknownTokens.
+- P0-2: a NONZERO unpriced asset stays UNPRICED / non-deployable, remains
+  visible in the audit, and never receives a synthetic price; when it is
+  candidate-essential it fails the candidate (fail-closed).
+- P0-3: the wallet-assets-priced gate is CANDIDATE-RELEVANT: native ETH (gas
+  reserve valuation), 1INCH, and the candidate paired asset (nonzero) must be
+  priced; zero-balance unrelated supported tokens never block another pair.
+  Other nonzero unpriced assets remain visible diagnostics.
+- P0-4/P0-5: ERC20 balanceOf multicall is block-pinned to the same finalized
+  liveCutoffBlock as the native ETH read; walletSnapshotBlock ==
+  erc20BalanceBlock == nativeEthBalanceBlock is persisted and enforced; a
+  failed historical read yields WALLET_STATE_UNKNOWN with NO fallback to
+  latest.
+- P0-6/P0-7: deterministic mocked-RPC integration exercises the real
+  fetchWalletState -> computeWalletState path (block-pinned getBalance +
+  multicall, zero-balance price exemption, candidate-essential fail-closed),
+  plus a realistic ETH + 1INCH + USDC wallet with dozens of zero-balance
+  unpriced supported tokens.
+- P1: balance-read failures never fabricate zero balances (rawBalance=''),
+  remain globally fail-closed (WALLET_STATE_UNKNOWN), and are documented.
+
 ## Dual-cutoff time model (mandatory)
 
 - liveCutoffBlock - latest finalized block. Used for: active strategy state,

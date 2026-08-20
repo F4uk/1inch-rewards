@@ -62,6 +62,11 @@ architecture ACCEPT.
   modeled). Capital efficiency thresholds are configurable via
   MIN_MARGINAL_EFFICIENCY_RATIO / NEGLIGIBLE_INCREMENTAL_NET_PCT /
   MIN_ROC_RETENTION_RATIO.
+- V1.5.2: wallet reads are block-pinned to the same finalized snapshot block
+  (native ETH + ERC20); zero-balance supported tokens need no price; the
+  wallet-assets-priced gate is candidate-relative (native ETH + 1INCH +
+  candidate paired asset). A failed historical read fails closed with
+  WALLET_STATE_UNKNOWN (no fallback to latest).
 
 ### Decision status
 

@@ -23,6 +23,10 @@ export type ComputeWalletInput = {
   walletAddress: string | null;
   snapshotBlock: bigint;
   snapshotTimestamp: bigint;
+  /** Block used for ERC20 balanceOf reads (must equal snapshotBlock). */
+  erc20BalanceBlock?: bigint;
+  /** Block used for the native ETH balance read (must equal snapshotBlock). */
+  nativeEthBalanceBlock?: bigint;
   assets: WalletAssetInput[];
   requiredGasReserveUsd: number;
   emergencyReserveUsd: number;
@@ -48,6 +52,33 @@ export function walletAssetScope(): { token: string; symbol: string; decimals: n
 }
 
 /**
+ * V1.5.2 P0-3: candidate-essential wallet price gating. Returns the set of
+ * assets whose PRICE is materially required to evaluate this ACTUAL_WALLET
+ * candidate and is unknown. Zero-balance assets never require a price.
+ * Required: native ETH (gas reserve valuation), 1INCH, the candidate paired
+ * asset. Other nonzero unpriced assets stay visible/non-deployable but do not
+ * gate this candidate.
+ */
+export function candidateEssentialWalletPricesKnown(wallet: WalletState, tokenA: string, tokenB: string): { ok: boolean; missing: string[] } {
+  const missing: string[] = [];
+  const ethAsset = wallet.assets.find((a) => a.symbol === 'ETH');
+  if (!ethAsset || !ethAsset.balanceReadOk) {
+    missing.push('ETH');
+  } else if (Number(ethAsset.rawBalance) > 0 && ethAsset.fairUsdPrice === null) {
+    missing.push('ETH');
+  }
+  for (const t of [tokenA.toLowerCase(), tokenB.toLowerCase()]) {
+    const asset = wallet.assets.find((a) => a.token.toLowerCase() === t);
+    if (!asset || !asset.balanceReadOk) {
+      missing.push(t);
+    } else if (Number(asset.rawBalance) > 0 && asset.fairUsdPrice === null) {
+      missing.push(t);
+    }
+  }
+  return { ok: missing.length === 0, missing: [...new Set(missing)] };
+}
+
+/**
  * Pure V1.5 wallet computation (production function; also used by tests with
  * synthetic balances):
  *   walletNavUsd                  = sum USD value of all readable assets
@@ -60,7 +91,11 @@ export function walletAssetScope(): { token: string; symbol: string; decimals: n
  * are UNPRICED and never counted as deployable.
  */
 export function computeWalletState(input: ComputeWalletInput): WalletState {
-  const { walletAddress, snapshotBlock, snapshotTimestamp, assets, requiredGasReserveUsd, emergencyReserveUsd, source } = input;
+  const { walletAddress, snapshotBlock, snapshotTimestamp, erc20BalanceBlock = snapshotBlock, nativeEthBalanceBlock = snapshotBlock, assets, requiredGasReserveUsd, emergencyReserveUsd, source } = input;
+  // V1.5.2 P0-5: hard snapshot invariant - all balance reads share one block.
+  if (erc20BalanceBlock !== snapshotBlock || nativeEthBalanceBlock !== snapshotBlock) {
+    throw new Error('WALLET_SNAPSHOT_INVARIANT_VIOLATION: erc20BalanceBlock=' + erc20BalanceBlock.toString() + ' nativeEthBalanceBlock=' + nativeEthBalanceBlock.toString() + ' walletSnapshotBlock=' + snapshotBlock.toString());
+  }
   let walletNavUsd = 0;
   let strategyRelevantNavUsd = 0;
   let excludedAssetUsd = 0;
@@ -69,12 +104,17 @@ export function computeWalletState(input: ComputeWalletInput): WalletState {
   const out: WalletAssetState[] = [];
   for (const a of assets) {
     const tokenAmount = a.balanceReadOk ? Number(a.rawBalance) / 10 ** a.decimals : 0;
-    const usdValue = a.fairUsdPrice !== null && a.fairUsdPrice > 0 && a.balanceReadOk ? tokenAmount * a.fairUsdPrice : null;
+    const isZeroBalance = a.balanceReadOk && Number(a.rawBalance) === 0;
+    // V1.5.2 P0-1: a successfully-read ZERO balance never requires a price.
+    const usdValue = isZeroBalance ? 0 : a.fairUsdPrice !== null && a.fairUsdPrice > 0 && a.balanceReadOk ? tokenAmount * a.fairUsdPrice : null;
     if (!a.balanceReadOk) balanceUnknownTokens.push(a.token + ':' + a.symbol);
     if (usdValue !== null) walletNavUsd += usdValue;
     let deployableStatus: WalletAssetState['deployableStatus'] = 'DEPLOYABLE';
     let exclusionReason: string | null = null;
-    if (!a.balanceReadOk) {
+    if (isZeroBalance) {
+      deployableStatus = 'ZERO_BALANCE';
+      exclusionReason = 'zero balance; price not required';
+    } else if (!a.balanceReadOk) {
       deployableStatus = 'UNKNOWN';
       exclusionReason = 'WALLET_STATE_UNKNOWN: balance read failed';
     } else if (a.relevance === 'EXCLUDED') {
@@ -87,7 +127,7 @@ export function computeWalletState(input: ComputeWalletInput): WalletState {
     } else if (usdValue === null) {
       deployableStatus = 'UNPRICED';
       exclusionReason = 'WALLET_ASSET_PRICE_UNKNOWN';
-      unpricedRelevant.push(a.token + ':' + a.symbol);
+      if (!isZeroBalance) unpricedRelevant.push(a.token.toLowerCase() + ':' + a.symbol);
     } else {
       strategyRelevantNavUsd += usdValue;
     }
@@ -95,8 +135,9 @@ export function computeWalletState(input: ComputeWalletInput): WalletState {
       token: a.token,
       symbol: a.symbol,
       decimals: a.decimals,
-      rawBalance: a.balanceReadOk ? a.rawBalance : '0',
+      rawBalance: a.balanceReadOk ? a.rawBalance : '',
       tokenAmount,
+      balanceReadOk: a.balanceReadOk,
       fairUsdPrice: a.fairUsdPrice,
       usdValue,
       relevance: a.relevance,
@@ -163,6 +204,8 @@ export function computeWalletState(input: ComputeWalletInput): WalletState {
     walletAddress,
     snapshotBlock,
     snapshotTimestamp,
+    erc20BalanceBlock,
+    nativeEthBalanceBlock,
     source,
     assets: out,
     walletNavUsd,
@@ -223,7 +266,11 @@ export async function fetchWalletState(
   };
   const assets: WalletAssetInput[] = [];
   assets.push(ethAsset);
-  const results = await withRetry(async () => ctx.client.multicall({ contracts: balanceCalls } as never), cfg.maxRetries).catch(() => null);
+  // V1.5.2 P0-4: ERC20 balanceOf reads MUST execute at the exact same
+  // finalized live cutoff block as the native ETH read. No silent fallback to
+  // latest: a failed historical read keeps balanceReadOk=false and the wallet
+  // state becomes WALLET_STATE_UNKNOWN.
+  const results = await withRetry(async () => ctx.client.multicall({ contracts: balanceCalls, blockNumber: liveCutoffBlock } as never), cfg.maxRetries).catch(() => null);
   for (let i = 0; i < scope.length; i++) {
     const a = scope[i]!;
     const r = results?.[i] as { status: string; result?: unknown } | undefined;
@@ -242,6 +289,8 @@ export async function fetchWalletState(
     walletAddress,
     snapshotBlock: liveCutoffBlock,
     snapshotTimestamp: nowSec,
+    erc20BalanceBlock: liveCutoffBlock,
+    nativeEthBalanceBlock: liveCutoffBlock,
     assets,
     requiredGasReserveUsd,
     emergencyReserveUsd,
