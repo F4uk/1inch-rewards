@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bigintReviver } from '../index/store.ts';
+import { bigintReplacer, bigintReviver } from '../index/store.ts';
 import { rankOpportunities } from '../opportunity/rank.ts';
 import type { AuditScannerInput } from '../opportunity/scanner.ts';
 import type { RankedOpportunity } from '../opportunity/types.ts';
@@ -82,7 +82,7 @@ function renderMd(ranked: RankedOpportunity[], audit: Record<string, unknown>): 
 const audit = loadAudit();
 const ranked = rankOpportunities(scannerInputFromAudit(audit));
 mkdirSync(join(process.cwd(), 'audit'), { recursive: true });
-writeFileSync(OUT_JSON, JSON.stringify({ validatedCodeSha: audit.validatedCodeSha, modelVersion: audit.modelVersion, generatedAt: new Date().toISOString(), ranked }, null, 2), 'utf8');
+writeFileSync(OUT_JSON, JSON.stringify({ validatedCodeSha: audit.validatedCodeSha, modelVersion: audit.modelVersion, generatedAt: new Date().toISOString(), ranked }, bigintReplacer, 2), 'utf8');
 writeFileSync(OUT_MD, renderMd(ranked, audit), 'utf8');
 console.log('opportunity ranking written: ' + OUT_JSON);
 console.log('ranked markets: ' + ranked.length);

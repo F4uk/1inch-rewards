@@ -63,6 +63,14 @@ export type ScannerResult = {
 
 const TERMINATED = new Set(['ENDED', 'CANCELLED', 'TERMINATED', 'EXPIRED']);
 
+function normPairKey(k: string): string {
+  return k.toLowerCase();
+}
+
+function activeCount(v: unknown): number {
+  return Array.isArray(v) ? v.length : typeof v === 'number' ? v : 0;
+}
+
 function toBigint(v: string | number): bigint {
   return typeof v === 'bigint' ? v : BigInt(v);
 }
@@ -124,32 +132,33 @@ export function buildOpportunityUniverse(input: AuditScannerInput): ScannerResul
   const groupVolume = new Map<string, number>();
   for (const g of input.groupDenominatorTotals) groupVolume.set(g.group, g.grossVolumeUsd);
   const competitionByPair = new Map<string, AuditCompetition>();
-  for (const c of input.competition) competitionByPair.set(c.pairKey, c);
+  for (const c of input.competition) competitionByPair.set(normPairKey(c.pairKey), c);
 
   const metricsByPair: Record<string, OpportunityMarketMetrics> = {};
   for (const m of input.perMarketDenominatorMetrics) {
+    const key = normPairKey(m.pairKey);
     const groupVol = groupVolume.get(m.group) ?? 0;
     const pairShare = groupVol > 0 ? m.volumeUsd / groupVol : 0;
-    const comp = competitionByPair.get(m.pairKey);
-    const markouts = input.markoutsPerHorizon[m.pairKey] ?? [];
+    const comp = competitionByPair.get(key);
+    const markouts = input.markoutsPerHorizon[m.pairKey] ?? input.markoutsPerHorizon[key] ?? [];
     const markoutSampleCount = markouts.reduce((a, s) => a + s.sampleCount, 0);
     const markoutAvailable = markouts.some((s) => s.sampleCount >= MIN_MARKOUT_SAMPLES);
-    const prices = input.pairCurrentPrices[m.pairKey];
+    const prices = input.pairCurrentPrices[m.pairKey] ?? input.pairCurrentPrices[key];
     const priceReliable = prices !== undefined && prices.usdTokenA !== null && prices.usdTokenB !== null && m.pricingCoveragePct >= PRICING_COVERAGE_MIN_PCT;
-    const rangeReliable = input.rangePathCoverage[m.pairKey]?.reliable ?? false;
+    const rangeReliable = input.rangePathCoverage[m.pairKey]?.reliable ?? input.rangePathCoverage[key]?.reliable ?? false;
     const inRange = comp?.inRangeCount ?? 0;
     const backing = comp?.totalInRangeBackingUsd ?? 0;
     const competitionScore = inRange + Math.log10(backing + 1) * 2.0;
     const dailyRewardUsd = budgetByGroup.get(m.group) ?? 0;
-    metricsByPair[m.pairKey] = {
-      pairKey: m.pairKey,
+    metricsByPair[key] = {
+      pairKey: key,
       group: m.group,
       dailyRewardUsd,
       rewardGroup: m.group,
       groupVolumeUsd72h: groupVol,
       pairVolumeUsd72h: m.volumeUsd,
       pairShareOfGroup: pairShare,
-      activeStrategies: comp?.activeStrategies ?? 0,
+      activeStrategies: activeCount(comp?.activeStrategies),
       inRangeStrategies: inRange,
       accessibleBackingUsd: backing,
       competitionScore,
@@ -161,7 +170,7 @@ export function buildOpportunityUniverse(input: AuditScannerInput): ScannerResul
       fillFrequencyPerHour: m.fillCount / 72,
       markoutAvailable,
       markoutSampleCount,
-      adverseSelectionBps: input.adverseRateSelected[m.pairKey] ?? 0,
+      adverseSelectionBps: input.adverseRateSelected[m.pairKey] ?? input.adverseRateSelected[key] ?? 0,
       priceReliable,
       pricingCoveragePct: m.pricingCoveragePct,
       rangeReliable,
@@ -172,7 +181,7 @@ export function buildOpportunityUniverse(input: AuditScannerInput): ScannerResul
   for (const opp of opportunities) {
     const market = input.perMarketDenominatorMetrics.find((m) => m.group === opp.group);
     if (market) {
-      opp.pairKey = market.pairKey;
+      opp.pairKey = normPairKey(market.pairKey);
       opp.tokenB = market.tokenB;
     }
   }
