@@ -10,7 +10,7 @@ import { replayInventoryCapacity } from '../model/inventory.ts';
 import { blendFillShare } from '../model/fillShare.ts';
 import { assessConfidence } from '../model/confidence.ts';
 import { conservativeAdverseRateUsdPerUsd } from '../analytics/markouts.ts';
-import { evaluateGates, type GateContext } from '../decision/gates.ts';
+import { evaluateGates, campaignHoursRemaining, type GateContext } from '../decision/gates.ts';
 import { campaignBudgetByGroup } from '../sources/merkl.ts';
 import { scannerInputFromAudit } from './scanner.ts';
 import { rankOpportunities } from './rank.ts';
@@ -180,7 +180,7 @@ export function evaluateBridgeCandidate(cfg: AppConfig, cd: CycleData, candidate
     currentPriceOk: cd.currentPriceOk[candidate.pairKey] ?? false,
     gasKnown: candidate.gasKnown,
     candidate,
-    campaignHoursRemaining: 0,
+    campaignHoursRemaining: campaignHoursRemaining(cd.universe, candidate.group, cd.nowSec),
     capitalUsd: candidate.capitalUsd,
     walletState: cd.walletState,
   };
