@@ -1030,6 +1030,51 @@ signed or broadcast.
 
 ---
 
+# V9.2 FILL VOLUME ATTRIBUTION (branch feature/shadow-v1-volume-attribution)
+
+## BASELINE
+
+- Base: f64468cd94b42d60797a76f9f21b1861d75b9a0e (V9->V8 bridge branch). V8
+  economic model untouched; no persistence; no broadcaster.
+
+## ATTRIBUTION
+
+- src/opportunity/attribution.ts adds a research-only captured-volume layer:
+  backingShare C/(B+C) (concave), feeShare 1/(1+cheaperOrEqualInRange),
+  fillShare = min(structural, empiricalFillShare25), capturedVolume =
+  marketVolumeUsd * fillShare * timeInRange%, rewardUsd =
+  groupDailyRewardUsd * capturedVolume * haircut / groupVolumeUsd (CAPTURED
+  volume only, never total market volume), netAfterRisk = reward + maker fee -
+  adverse - rebalance - gas.
+- Inputs are real V8 cycle data (pair/group daily fill rate, campaign budget,
+  competition in-range/cheaper-or-equal counts, accessible backing, markout
+  adverse rate, range-sim time-in-range, empirical fill-share p25, lifecycle
+  gas). Missing/unsafe inputs and failed data gates yield reliable=false and
+  null netAfterRisk; the layer never bypasses V8 gates and never feeds TRADE.
+- In-cycle wiring: src/cycle.ts runs the attribution layer after the economic
+  bridge (additive). Outputs audit/opportunity-volume-attribution.json + .md.
+
+## TESTS
+
+- test/attribution.test.ts adds regressions: concave capital (larger capital
+  never implies linear volume), high competition reduces fill share,
+  low-competition market can outperform high-volume market, reward uses
+  captured volume not total market volume, fail-closed on missing
+  adverse/gas/time-in-range/data gates, cycle gate pass/fail reliability,
+  deterministic reliable-first ranking, and no execution path. NO_BROADCAST
+  global scan still covers src/opportunity/attribution.ts.
+
+## LIVE VALIDATION / CI / SAFETY
+
+- See final report. No signing/broadcast/approvals; validationOnly=true;
+  NO_BROADCAST green; no persistence window started.
+
+## FINAL VERDICT
+
+**SHADOW_MODEL_READY** (see final report).
+
+---
+
 # V1.5.2 WALLET-READ INTEGRITY REPAIR (branch feature/shadow-v1-wallet-read-integrity)
 
 ## BASELINE

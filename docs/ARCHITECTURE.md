@@ -361,6 +361,36 @@ canary preview. It never signs or broadcasts transactions.
 - Ranking: qualified -> stress safe -> expected ROC -> expected absolute net.
 - Outputs: audit/opportunity-economic-ranking.json + .md.
 
+## V9.2 fill-volume attribution layer (research-only)
+
+- src/opportunity/attribution.ts answers "if I provide 50/100/250/500 USD
+  liquidity, how much trading volume can I realistically capture?" It is a
+  research-only layer on top of the V9->V8 bridge; V8 PnL, gates, wallet,
+  execution, persistence, and broadcaster are untouched.
+- Pure core estimateAttribution() with documented concave formulas:
+  backingShare = C/(B+C); feeShare = 1/(1+cheaperOrEqualInRange);
+  structuralShare = min(feeShare, backingShare); fillShare =
+  min(structuralShare, empiricalFillShare25) when the empirical p25 is
+  available; capturedVolume = marketVolumeUsd * fillShare * timeInRange%;
+  rewardVolume = capturedVolume * qualificationHaircut; rewardUsd =
+  groupDailyRewardUsd * rewardVolume / groupVolumeUsd (CAPTURED volume only,
+  never total market volume); netAfterRisk = reward + makerFee - adverse -
+  rebalance - gas.
+- estimateOpportunityAttribution() pulls real V8 cycle data: pair/group
+  dailyFillRateUsd (market volume), campaign budget, in-range competitor
+  counts and cheaper-or-equal fee counts, accessible backing, conservative
+  markout adverse rate, range-sim time-in-range/reships, empirical fill-share
+  p25 (fillShareByStrategy x strategyFees/strategyWidths), and lifecycle gas.
+- Fail closed: missing adverse/gas/time-in-range, failed data gates
+  (current-price / markout-reliable / range-path-reliable), or missing
+  empirical fill share all yield reliable=false; data-gate failure also
+  nulls netAfterRisk. The layer never bypasses V8 gates and never feeds TRADE.
+- runVolumeAttributionLayer() runs inside shadow-cycle after the economic
+  bridge (additive): top-N ranked opportunities x 50/100/250/500 research
+  capital levels, deterministic ranking (reliable first, then net-after-risk,
+  then pair/group/capital), outputs audit/opportunity-volume-attribution.json
+  + .md.
+
 ## Dual-cutoff time model (mandatory)
 
 - liveCutoffBlock - latest finalized block. Used for: active strategy state,

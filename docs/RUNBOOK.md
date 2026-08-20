@@ -64,6 +64,17 @@ ranked opportunities (default 10, OPPORTUNITY_TOP_N) are simulated at
 computeCandidatePnl pipeline and written to
 audit/opportunity-economic-ranking.json + .md. Research only; no execution.
 
+### V9.2 fill-volume attribution (read-only)
+
+Runs automatically inside every shadow-cycle (validation-only), after the
+economic bridge: the same top-N ranked opportunities (default 10) are
+attributed at 50/100/250/500 USD research capital levels using real
+competition backing, in-range fee competition, empirical fill-share p25,
+range time-in-range, markout adverse rates, and lifecycle gas. Outputs
+audit/opportunity-volume-attribution.json + .md. Fill share is concave in
+capital, reward uses captured (never total) volume, and missing/unsafe inputs
+fail closed to reliable=false. Research only; no execution.
+
 ### Wallet-driven capital (V1.5)
 
 - Set WALLET_ADDRESS (public, read-only) to the wallet whose balances drive

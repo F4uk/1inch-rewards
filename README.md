@@ -79,6 +79,16 @@ through the accepted V8 PnL pipeline at 50/100/250/500 USD research capital
 levels and writes audit/opportunity-economic-ranking.json/.md during every
 validation-only shadow cycle.
 
+V9.2 adds a research-only fill-volume attribution layer on top of the bridge:
+for every ranked opportunity it estimates how much of the real market volume a
+50/100/250/500 USD position could capture, using actual competition backing,
+in-range fee competition, empirical fill-share p25, range time-in-range,
+markout adverse rates, and lifecycle gas. The fill share is concave in capital
+(larger capital never implies linear volume), reward is computed on CAPTURED
+volume (never total market volume), and any missing/unsafe data input fails
+closed to `reliable=false` / null net-after-risk. Outputs:
+audit/opportunity-volume-attribution.json/.md. Research only; never feeds TRADE.
+
 ## Constraints (see AGENTS.md)
 
 Ethereum only; official Aqua registry/router and official SDKs only; no custom
