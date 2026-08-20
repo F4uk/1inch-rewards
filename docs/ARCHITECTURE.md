@@ -319,6 +319,32 @@ canary preview. It never signs or broadcasts transactions.
 - P1: balance-read failures never fabricate zero balances (rawBalance=''),
   remain globally fail-closed (WALLET_STATE_UNKNOWN), and are documented.
 
+## V9 opportunity discovery & ranking layer (research-only)
+
+- New read-only research pipeline layered ON TOP of the accepted V8 model
+  (V8 economics untouched; MODEL_VERSION remains 8):
+  Aqua Universe Scanner -> Opportunity Normalizer -> Opportunity Ranking ->
+  V8 Simulator Input (adapter).
+- src/opportunity/scanner.ts builds the opportunity universe from persisted
+  audit artifacts only (Merkl campaign inventory, official market definitions,
+  per-market denominator metrics, group totals, competition, markouts, range
+  path, current prices). No new RPC, no invented token lists.
+- Per-market metrics: reward (group budget + pair share), liquidity
+  competition (active/in-range/accessible backing/competitionScore), trading
+  activity (fills24h/72h, volume24h/72h, fill frequency), risk (markout
+  availability, adverse bps, price/range reliability).
+- SmallCapitalOpportunityScore (0..100, research-only) with documented weights:
+  reward 30%, low competition 25%, volume 20%, price reliability 15%, markout
+  reliability 10%. It ranks markets; it NEVER replaces V8 PnL or lowers gates.
+- Capital fit: suitable capital among 50/100/250/500 USD (strict 10x 24h
+  volume rule, lenient 2x fallback) with per-tier capital efficiency; larger
+  is never assumed better.
+- Outputs: audit/opportunity-ranking.json + opportunity-ranking.md (top 20
+  table + full ranked list). CLI: npm run opportunity-scan.
+- src/opportunity/adapter.ts exposes the OpportunityCandidate interface that
+  can later feed the V8 candidate pipeline (computeCandidatePnl + inventory
+  replay); it is a preparation interface with no execution/signing fields.
+
 ## Dual-cutoff time model (mandatory)
 
 - liveCutoffBlock - latest finalized block. Used for: active strategy state,

@@ -941,6 +941,55 @@ signed or broadcast.
 
 ---
 
+# V9 OPPORTUNITY DISCOVERY & RANKING LAYER (branch feature/shadow-v1-opportunity-scanner)
+
+## BASELINE
+
+- Base: eadf650f4d1af4e82cc46e203ad3aa0f6a1988a1 (V8 accepted branch). V8
+  economic model untouched; MODEL_VERSION remains 8; no persistence; no
+  broadcaster.
+
+## NEW FILES
+
+- src/opportunity/types.ts, scanner.ts, rank.ts, adapter.ts
+- src/cli/opportunityScanner.ts (npm run opportunity-scan)
+- test/opportunity.test.ts
+- audit/opportunity-ranking.json + .md (generated)
+
+## ARCHITECTURE
+
+- Aqua Universe Scanner -> Opportunity Normalizer -> Opportunity Ranking ->
+  V8 Simulator Input (OpportunityCandidate adapter). Scanner consumes persisted
+  audit artifacts only (no new RPC, no invented token lists).
+
+## MARKET COVERAGE
+
+- Every market in the persisted per-market denominator metrics is ranked
+  (see live run; TOP 20 reported below).
+
+## V8 INTEGRATION READINESS
+
+- OpportunityCandidate adapter interface ready; it can later feed
+  computeCandidatePnl() + inventory replay. No execution path exists.
+
+## TESTS
+
+- 274 total (262 preserved + 12 V9 regressions) covering normalization,
+  opportunity != campaign, inactive exclusion, budget preservation, volume and
+  competition math, deterministic ranking, low-competition preference,
+  adapter plan, and no-execution-path / NO_BROADCAST scans.
+
+## LIVE VALIDATION / CI / SAFETY
+
+- See final report. No signing/broadcast/approvals; validationOnly=true;
+  NO_BROADCAST green; no persistence window started.
+
+## FINAL VERDICT
+
+**SHADOW_MODEL_READY** (see final report).
+
+---
+
 # V1.5.2 WALLET-READ INTEGRITY REPAIR (branch feature/shadow-v1-wallet-read-integrity)
 
 ## BASELINE

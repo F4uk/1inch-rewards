@@ -117,6 +117,22 @@ inventory buffer applies to **unfilled** capital.
   walletSnapshotBlock is persisted and enforced. No fallback to latest;
   failed historical reads => WALLET_STATE_UNKNOWN.
 
+## V9 SmallCapitalOpportunityScore (research-only)
+
+- score = 100 * (0.30*reward + 0.25*lowCompetition + 0.20*volume +
+  0.15*priceReliability + 0.10*markoutReliability), each component in [0,1]:
+  - reward = min(1, groupDailyReward * pairShareOfGroup / 25)
+  - lowCompetition = min(1, 5/(inRange+1)) * min(1, 5000/(backing+1))
+  - volume = volume24h >= 500 ? min(1, volume24h/50000) : (volume24h/500)*0.5
+  - priceReliability = 1 if fresh pair prices and coverage >= 95%
+  - markoutReliability = 1 if markouts available and range path reliable
+- competitionScore = inRangeStrategies + log10(accessibleBackingUsd+1)*2
+  (higher = more competitive).
+- Capital fit: smallest tier in {50,100,250,500} with volume24h >= 10x tier
+  (strict) or 2x (lenient); capital efficiency =
+  (groupDailyReward * pairShareOfGroup * 0.6) / tier.
+- This ranking NEVER replaces V8 PnL, never lowers V8 gates, and never trades.
+
 ## Adverse selection (markouts)
 
 - Sign convention: the maker always receives tokenIn (taker pays tokenIn);

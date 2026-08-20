@@ -30,6 +30,7 @@ public read-only RPCs are used by default.
     npm run doctor          # read-only environment check (exit non-zero on hard blockers)
     npm run shadow-cycle    # one-command TRADE / DO_NOT_TRADE decision + snapshot
     npm run shadow-cycle -- --validation-only  # full analytics + audit artifact, NO qualifying snapshot
+    npm run opportunity-scan   # V9 research ranking (audit/opportunity-ranking.json/.md)
     npm run decision/status # latest persisted decision + persistence status
     npm run canary-preview  # unsigned <= USD 50 preview (only when decision is TRADE)
     npm run typecheck
@@ -68,6 +69,10 @@ range are exact persistence identity.
 Wallet reads (V1.5.2) are block-pinned to the same finalized snapshot block
 for native ETH and ERC20; zero-balance supported tokens never require a price,
 and the wallet price gate is candidate-relative.
+
+V9 adds a read-only opportunity discovery & ranking layer (SmallCapital-
+OpportunityScore) on top of the accepted V8 model - research ranking only; it
+never trades, never lowers V8 safety gates, and never signs/broadcasts.
 
 ## Constraints (see AGENTS.md)
 

@@ -47,6 +47,15 @@ snapshot: any snapshot written carries validationOnly=true and
 evaluatePersistence excludes it. No real v4 persistence begins until external
 architecture ACCEPT.
 
+### Opportunity scanner (V9 research layer, read-only)
+
+    npm run opportunity-scan
+
+Reads audit/latest-shadow.json (produced by a validation-only cycle) and writes
+audit/opportunity-ranking.json + opportunity-ranking.md with the full ranked
+opportunity list (top-20 table). Research ranking only; it never trades and
+never lowers V8 gates.
+
 ### Wallet-driven capital (V1.5)
 
 - Set WALLET_ADDRESS (public, read-only) to the wallet whose balances drive
