@@ -341,6 +341,7 @@ test('P1-15: v2 snapshots never satisfy v3 persistence', () => {
       bestCandidate: null,
       capacitySummary: null,
       marginalReturns: [],
+      capitalSelectionRationale: [],
       generatedAt: 1000000n,
     };
     const p = evaluatePersistence(cfg, d);

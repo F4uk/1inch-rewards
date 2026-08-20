@@ -68,7 +68,7 @@ test('V1.5 #2: excluded and unpriced assets never enter deployable capital', () 
   assert.equal(w.priceUnknownTokens.length, 1);
 });
 
-test('V1.5 #3: gas reserve reduces deployable capital', () => {
+test('V1.5 #3: native ETH gas reserve reduces deployable capital (WETH is strategy inventory)', () => {
   const w = computeWalletState({
     walletAddress: ZERO_WALLET,
     snapshotBlock: 1n,
@@ -76,15 +76,17 @@ test('V1.5 #3: gas reserve reduces deployable capital', () => {
     assets: [
       asset(ONEINCH, '1INCH', 18, (2.5 * 1e18).toString(), 12),
       asset(USDC, 'USDC', 6, (30 * 1e6).toString(), 1),
-      asset(WETH, 'WETH', 18, ((8 * 1e18) / 3000).toString(), 3000),
+      asset('0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 'ETH', 18, ((8 * 1e18) / 3000).toString(), 3000),
     ],
     requiredGasReserveUsd: 5,
     emergencyReserveUsd: 2,
     source: 'ACTUAL_WALLET',
   });
+  assert.ok(Math.abs(w.nativeEthUsd - 8) < 1e-6);
+  assert.ok(Math.abs(w.nativeGasReserveUsd - 5) < 1e-6);
   assert.ok(Math.abs(w.gasReserveUsd - 5) < 1e-6);
   assert.ok(Math.abs(w.emergencyReserveUsd - 2) < 1e-6);
-  // relevant NAV = 60 (1INCH+USDC) + 8 (WETH) = 68; deployable = 68 - 5 - 2 = 61.
+  // relevant NAV = 60 (1INCH+USDC) + 8 (native ETH) = 68; deployable = 60 + (8-5-2) = 61.
   assert.ok(Math.abs(w.deployableWalletCapitalUsd - 61) < 1e-6);
   assert.equal(w.gasReserveSufficient, true);
 });
@@ -195,7 +197,7 @@ test('V1.5 #11: wallet inventory insufficiency fails closed', () => {
   });
   const level = computeCapitalLevel(500, 'ACTUAL_WALLET', wallet, ONEINCH, USDC, DEFAULT_CONFIG);
   assert.equal(level.walletInventorySufficient, false);
-  assert.ok(level.capitalActuallyDeployableUsd < 500);
+  assert.ok(level.effectiveDeployableCapitalUsd < 500);
 });
 
 // ---------- 12-13: fill share behavior ----------
@@ -289,7 +291,8 @@ function pnl(capitalUsd: number, fillShare: number): Candidate {
     comparableStrategyCount: 22,
     halfWidthPct: 5,
     feeBps: 20,
-    capitalUsd,
+    requestedCapitalUsd: capitalUsd,
+    effectiveDeployableCapitalUsd: capitalUsd,
     capitalSource: 'ACTUAL_WALLET',
     capitalFractionOfWallet: capitalUsd / 500,
     capitalMultipleOfWallet: capitalUsd / 500,
@@ -299,7 +302,6 @@ function pnl(capitalUsd: number, fillShare: number): Candidate {
     availableTokenBUsd: capitalUsd / 2,
     initialRebalanceUsd: 0,
     initialRebalanceLossUsd: 0,
-    capitalActuallyDeployableUsd: capitalUsd,
     walletInventorySufficient: true,
     walletInsufficiencyReason: null,
     dailyVolPct: 2,
@@ -337,6 +339,7 @@ test('V1.5 #17: absolute PnL can increase while ROC declines', () => {
 function point(capitalUsd: number, net: number, source: 'ACTUAL_WALLET' | 'HYPOTHETICAL_CAPACITY' = 'ACTUAL_WALLET', fraction?: number): CapitalCurvePoint {
   return {
     capitalUsd, capitalFractionOfWallet: fraction ?? capitalUsd / 500, capitalMultipleOfWallet: capitalUsd / 500, capitalSource: source,
+    requestedCapitalUsd: capitalUsd, effectiveDeployableCapitalUsd: capitalUsd,
     candidateFillShare: 0.1, empiricalFillShare: 0.1, structuralFillShare: 0.1,
     requestedFillUsdPerDay: 10, serviceableFillUsdPerDay: 10, unservedFillUsdPerDay: 0, turnoverPerCapitalPerDay: 0.1,
     startingTokenAUsd: capitalUsd / 2, startingTokenBUsd: capitalUsd / 2, initialRebalanceUsd: 0, initialRebalanceLossUsd: 0,
@@ -345,6 +348,7 @@ function point(capitalUsd: number, net: number, source: 'ACTUAL_WALLET' | 'HYPOT
     expectedNetUsdPerDay: net, stressNetUsdPerDay: net,
     expectedReturnOnCapitalPctPerDay: (net / capitalUsd) * 100, stressReturnOnCapitalPctPerDay: (net / capitalUsd) * 100,
     walletInventorySufficient: true, walletInsufficiencyReason: null,
+    qualified: true, qualificationEvidence: [],
   };
 }
 
@@ -479,6 +483,7 @@ function decision(cfg: AppConfig, opts: { capitalUsd?: number; capitalSource?: s
     bestCandidate: null,
     capacitySummary: null,
     marginalReturns: [],
+    capitalSelectionRationale: [],
     generatedAt: 1000000n,
   };
 }

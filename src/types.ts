@@ -380,6 +380,12 @@ export type WalletAssetState = {
   relevance: 'RELEVANT' | 'EXCLUDED' | 'UNKNOWN';
   deployableStatus: 'DEPLOYABLE' | 'RESERVED_GAS' | 'RESERVED_EMERGENCY' | 'EXCLUDED' | 'UNPRICED' | 'UNKNOWN';
   exclusionReason: string | null;
+  /** USD reserved for native gas from THIS asset (native ETH only). */
+  reservedGasUsd: number;
+  /** USD reserved for emergency operations from THIS asset. */
+  reservedEmergencyUsd: number;
+  /** Explicitly persisted deployable USD value for THIS asset (never derived by subtraction). */
+  deployableUsd: number;
 };
 
 export type WalletState = {
@@ -390,12 +396,16 @@ export type WalletState = {
   assets: WalletAssetState[];
   walletNavUsd: number;
   strategyRelevantNavUsd: number;
+  nativeEthUsd: number;
+  wethUsd: number;
   gasReserveUsd: number;
+  nativeGasReserveUsd: number;
   emergencyReserveUsd: number;
   excludedAssetUsd: number;
   unpricedAssetUsd: number;
   deployableWalletCapitalUsd: number;
   gasReserveSufficient: boolean;
+  gasReserveInsufficiencyReason: string | null;
   priceUnknownTokens: string[];
   balanceUnknownTokens: string[];
   unknown: boolean;
@@ -405,6 +415,10 @@ export type WalletState = {
 /** One research capital level with wallet-feasibility metadata (section 4/10). */
 export type CapitalLevel = {
   capitalUsd: number;
+  /** Research-axis capital (identity / persistence). */
+  requestedCapitalUsd: number;
+  /** Capital actually deployable after initial rebalance loss / feasibility effects. */
+  effectiveDeployableCapitalUsd: number;
   capitalFractionOfWallet: number;
   capitalMultipleOfWallet: number;
   capitalSource: CapitalSource;
@@ -415,7 +429,6 @@ export type CapitalLevel = {
   availableTokenBUsd: number;
   initialRebalanceUsd: number;
   initialRebalanceLossUsd: number;
-  capitalActuallyDeployableUsd: number;
   walletInventorySufficient: boolean;
   walletInsufficiencyReason: string | null;
 };
@@ -423,6 +436,8 @@ export type CapitalLevel = {
 /** One point on a per pair/range/fee capital curve (section 11). */
 export type CapitalCurvePoint = {
   capitalUsd: number;
+  requestedCapitalUsd: number;
+  effectiveDeployableCapitalUsd: number;
   capitalFractionOfWallet: number;
   capitalMultipleOfWallet: number;
   capitalSource: CapitalSource;
@@ -450,6 +465,9 @@ export type CapitalCurvePoint = {
   stressReturnOnCapitalPctPerDay: number;
   walletInventorySufficient: boolean;
   walletInsufficiencyReason: string | null;
+  /** V1.5.1: true only when all candidate-relevant gates pass (per-candidate gate evaluation). */
+  qualified: boolean;
+  qualificationEvidence: string[];
 };
 
 export type CapitalCurve = {
@@ -457,6 +475,7 @@ export type CapitalCurve = {
   halfWidthPct: number;
   feeBps: number;
   points: CapitalCurvePoint[];
+  capacitySummary: CapacitySummary | null;
 };
 
 /** Adjacent capital-level marginal returns (section 12). */
@@ -475,12 +494,13 @@ export type MarginalReturn = {
 
 /** Saturation / decay diagnostics (section 13). */
 export type CapacityDiagnostics = {
-  fillShareSaturation: number | null;
-  inventoryThroughputSaturation: number | null;
-  rewardShareSaturation: number | null;
-  turnoverDecay: number | null;
-  rocDecay: number | null;
-  marginalPnlDecay: number | null;
+  fillShareGrowthRatio: number | null;
+  serviceableFillGrowthRatio: number | null;
+  rewardGrowthRatio: number | null;
+  turnoverDecayRatio: number | null;
+  rocDecayRatio: number | null;
+  marginalPnlDecayRatio: number | null;
+  note: string;
   detail: string;
 };
 
@@ -520,6 +540,8 @@ export type Candidate = {
   halfWidthPct: number;
   feeBps: number;
   capitalUsd: number;
+  requestedCapitalUsd: number;
+  effectiveDeployableCapitalUsd: number;
   capitalSource: CapitalSource;
   capitalFractionOfWallet: number;
   capitalMultipleOfWallet: number;
@@ -529,9 +551,11 @@ export type Candidate = {
   availableTokenBUsd: number;
   initialRebalanceUsd: number;
   initialRebalanceLossUsd: number;
-  capitalActuallyDeployableUsd: number;
   walletInventorySufficient: boolean;
   walletInsufficiencyReason: string | null;
+  /** V1.5.1: all candidate-relevant gates passed (eligible for capital recommendation). */
+  qualified: boolean;
+  qualificationEvidence: string[];
   empiricalFillShare: number | null;
   structuralShare: number | null;
   fillShare: number;
@@ -619,6 +643,7 @@ export type DecisionResult = {
   bestCandidate: Candidate | null;
   capacitySummary: CapacitySummary | null;
   marginalReturns: MarginalReturn[];
+  capitalSelectionRationale: string[];
   generatedAt: bigint;
 };
 
@@ -712,6 +737,8 @@ export type Snapshot = {
   rangePathStats: Record<string, RangePathStats>;
   campaignBudgets: Record<string, { activeCampaignBudgetUsd: number; opportunitySummaryUsd: number; mismatchPct: number | null; detail: string }>;
   candidates: Candidate[];
+  eligibleActualCandidates: Candidate[];
+  rejectedActualCandidates: Candidate[];
   decision: DecisionResult;
   persistence: PersistenceStatus;
 };

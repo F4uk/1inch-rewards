@@ -460,7 +460,7 @@ test('P1: committed audit artifact contains validatedCodeSha, artifactGeneratedA
   const a = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
   assert.ok(typeof a.validatedCodeSha === 'string' && a.validatedCodeSha.length === 40, 'validatedCodeSha is a 40-char sha');
   assert.ok(typeof a.artifactGeneratedAt === 'string', 'artifactGeneratedAt present');
-  assert.equal(a.modelVersion, 6);
+  assert.equal(a.modelVersion, 7);
   assert.ok(a.cutoffs && typeof a.cutoffs === 'object');
   assert.ok(a.denominatorMarkets && typeof a.denominatorMarkets === 'object');
   assert.ok(a.perMarketDenominatorMetrics && Array.isArray(a.perMarketDenominatorMetrics));
@@ -612,14 +612,18 @@ function minimalCycleData(cfg: AppConfig, uni: RewardUniverse, validationOnly: b
       snapshotTimestamp: 1000000n,
       source: 'SYNTHETIC_TEST',
       assets: [],
-      walletNavUsd: 100,
-      strategyRelevantNavUsd: 100,
-      gasReserveUsd: 0,
+      walletNavUsd: 105,
+      strategyRelevantNavUsd: 105,
+      nativeEthUsd: 5,
+      wethUsd: 0,
+      gasReserveUsd: 5,
+      nativeGasReserveUsd: 5,
       emergencyReserveUsd: 0,
       excludedAssetUsd: 0,
       unpricedAssetUsd: 0,
       deployableWalletCapitalUsd: 100,
       gasReserveSufficient: true,
+      gasReserveInsufficiencyReason: null,
       priceUnknownTokens: [],
       balanceUnknownTokens: [],
       unknown: false,

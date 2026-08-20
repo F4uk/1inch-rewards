@@ -66,7 +66,6 @@ export function computeWalletState(input: ComputeWalletInput): WalletState {
   let excludedAssetUsd = 0;
   const unpricedRelevant: string[] = [];
   const balanceUnknownTokens: string[] = [];
-  let gasAssetUsd = 0;
   const out: WalletAssetState[] = [];
   for (const a of assets) {
     const tokenAmount = a.balanceReadOk ? Number(a.rawBalance) / 10 ** a.decimals : 0;
@@ -91,7 +90,6 @@ export function computeWalletState(input: ComputeWalletInput): WalletState {
       unpricedRelevant.push(a.token + ':' + a.symbol);
     } else {
       strategyRelevantNavUsd += usdValue;
-      if (a.token === WETH || a.symbol === 'ETH') gasAssetUsd += usdValue;
     }
     out.push({
       token: a.token,
@@ -104,38 +102,62 @@ export function computeWalletState(input: ComputeWalletInput): WalletState {
       relevance: a.relevance,
       deployableStatus,
       exclusionReason,
+      reservedGasUsd: 0,
+      reservedEmergencyUsd: 0,
+      deployableUsd: 0,
     });
   }
-  const gasReserveUsd = Math.min(requiredGasReserveUsd, gasAssetUsd);
-  const remainingGasUsd = Math.max(0, gasAssetUsd - gasReserveUsd);
-  const emergencyReservedUsd = Math.min(emergencyReserveUsd, remainingGasUsd);
-  const deployableGasUsd = Math.max(0, remainingGasUsd - emergencyReservedUsd);
-  // Assign reserve statuses to the gas assets (ETH/WETH).
+  // V1.5.1 P0-7: transaction gas is paid in NATIVE ETH only. WETH is strategy
+  // inventory and is NEVER treated as immediately spendable native gas (no
+  // unwrap mechanism is modeled in this task).
+  const nativeEthUsd = out.filter((a) => a.symbol === 'ETH').reduce((s, a) => s + (a.usdValue ?? 0), 0);
+  const wethUsd = out.filter((a) => a.token === WETH).reduce((s, a) => s + (a.usdValue ?? 0), 0);
+  const nativeGasReserveUsd = Math.min(requiredGasReserveUsd, nativeEthUsd);
+  const gasReserveSufficient = nativeEthUsd >= requiredGasReserveUsd;
+  const gasReserveInsufficiencyReason = gasReserveSufficient
+    ? null
+    : 'GAS_RESERVE_INSUFFICIENT_NATIVE_ETH: nativeEthUsd=' + nativeEthUsd.toFixed(2) + ' required=' + requiredGasReserveUsd.toFixed(2) + ' (WETH is NOT counted as native gas; no unwrap modeled)';
+  // V1.5.1 P0-8: emergency reserve drawn from native ETH surplus first, then
+  // WETH; strategy deployability is explicit per-asset deployableUsd.
+  const remainingNativeUsd = Math.max(0, nativeEthUsd - nativeGasReserveUsd);
+  const emergencyFromNative = Math.min(emergencyReserveUsd, remainingNativeUsd);
+  const emergencyFromWeth = Math.min(Math.max(0, emergencyReserveUsd - emergencyFromNative), wethUsd);
+  const emergencyReservedUsd = emergencyFromNative + emergencyFromWeth;
+  // Assign per-asset reserves + explicit deployable USD (P0-8 / P1-1).
   for (const a of out) {
-    if ((a.token === WETH || a.symbol === 'ETH') && a.usdValue !== null && a.usdValue > 0) {
-      const share = a.usdValue / Math.max(1e-12, gasAssetUsd);
-      const gasPart = gasReserveUsd * share;
-      const emergencyPart = emergencyReservedUsd * share;
-      const deployPart = deployableGasUsd * share;
-      const gasUnits = gasPart / a.fairUsdPrice!;
-      const emergencyUnits = emergencyPart / a.fairUsdPrice!;
-      const deployUnits = deployPart / a.fairUsdPrice!;
-      if (deployUnits > 0) {
+    const usdValue = a.usdValue ?? 0;
+    if (a.symbol === 'ETH') {
+      a.reservedGasUsd = nativeGasReserveUsd;
+      a.reservedEmergencyUsd = emergencyFromNative;
+      a.deployableUsd = Math.max(0, usdValue - a.reservedGasUsd - a.reservedEmergencyUsd);
+      if (a.deployableUsd > 0) {
         a.deployableStatus = 'DEPLOYABLE';
         a.exclusionReason = null;
-      } else if (emergencyUnits > 0) {
+      } else if (a.reservedEmergencyUsd > 0) {
         a.deployableStatus = 'RESERVED_EMERGENCY';
         a.exclusionReason = 'reserved for emergency operations';
       } else {
         a.deployableStatus = 'RESERVED_GAS';
-        a.exclusionReason = 'reserved for lifecycle gas';
+        a.exclusionReason = 'reserved for native lifecycle gas';
       }
+    } else if (a.token === WETH) {
+      a.reservedEmergencyUsd = emergencyFromWeth;
+      a.deployableUsd = Math.max(0, usdValue - a.reservedEmergencyUsd);
+      if (a.deployableUsd > 0) {
+        a.deployableStatus = 'DEPLOYABLE';
+        a.exclusionReason = null;
+      } else if (a.reservedEmergencyUsd > 0) {
+        a.deployableStatus = 'RESERVED_EMERGENCY';
+        a.exclusionReason = 'reserved for emergency operations';
+      }
+    } else if (a.deployableStatus === 'DEPLOYABLE') {
+      a.deployableUsd = usdValue;
     }
   }
-  const gasReserveSufficient = gasAssetUsd >= requiredGasReserveUsd;
-  // Deployable = wallet NAV - gas reserve - emergency reserve - excluded -
-  // unpriced (unpriced assets have no USD value and are already 0 in NAV).
-  const deployableWalletCapitalUsd = Math.max(0, walletNavUsd - gasReserveUsd - emergencyReservedUsd - excludedAssetUsd);
+  // V1.5.1 P1-1: deployable wallet capital = sum of EXPLICIT per-asset
+  // deployableUsd (whitelist-positive). Unknown-relevance priced assets can
+  // never become deployable through subtraction arithmetic.
+  const deployableWalletCapitalUsd = out.reduce((s, a) => s + a.deployableUsd, 0);
   const unknown = !walletAddress || balanceUnknownTokens.length > 0;
   return {
     walletAddress,
@@ -145,16 +167,20 @@ export function computeWalletState(input: ComputeWalletInput): WalletState {
     assets: out,
     walletNavUsd,
     strategyRelevantNavUsd,
-    gasReserveUsd,
+    nativeEthUsd,
+    wethUsd,
+    gasReserveUsd: nativeGasReserveUsd,
+    nativeGasReserveUsd,
     emergencyReserveUsd: emergencyReservedUsd,
     excludedAssetUsd,
     unpricedAssetUsd: 0,
     deployableWalletCapitalUsd,
+    gasReserveInsufficiencyReason,
     unknown,
     detail:
       'nav=' + walletNavUsd.toFixed(2) +
       ' relevant=' + strategyRelevantNavUsd.toFixed(2) +
-      ' gasReserve=' + gasReserveUsd.toFixed(2) + (gasReserveSufficient ? '' : ' GAS_RESERVE_INSUFFICIENT') +
+      ' nativeGasReserve=' + nativeGasReserveUsd.toFixed(2) + (gasReserveSufficient ? '' : ' GAS_RESERVE_INSUFFICIENT_NATIVE_ETH') +
       ' emergency=' + emergencyReservedUsd.toFixed(2) +
       ' excluded=' + excludedAssetUsd.toFixed(2) +
       ' unpriced=' + unpricedRelevant.join(',') +
@@ -238,9 +264,10 @@ export function makeSyntheticWalletState(
   const assets: WalletAssetInput[] = [
     { token: ONEINCH, symbol: '1INCH', decimals: 18, rawBalance: BigInt(Math.floor((half / oneInchUsd) * 1e18)).toString(), fairUsdPrice: oneInchUsd, relevance: 'RELEVANT', balanceReadOk: true },
     { token: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', symbol: 'USDC', decimals: 6, rawBalance: BigInt(Math.floor(half * 1e6)).toString(), fairUsdPrice: 1, relevance: 'RELEVANT', balanceReadOk: true },
-    // A small WETH balance fully consumed by the gas reserve keeps
-    // deployableWalletCapitalUsd exactly equal to the requested value.
-    { token: WETH, symbol: 'WETH', decimals: 18, rawBalance: BigInt(Math.ceil((5 * 1e18) / 3000)).toString(), fairUsdPrice: 3000, relevance: 'RELEVANT', balanceReadOk: true },
+    // A small NATIVE ETH balance fully consumed by the gas reserve keeps
+    // deployableWalletCapitalUsd exactly equal to the requested value (gas is
+    // paid in native ETH; WETH is never reserved as native gas).
+    { token: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', symbol: 'ETH', decimals: 18, rawBalance: BigInt(Math.ceil((5 * 1e18) / 3000)).toString(), fairUsdPrice: 3000, relevance: 'RELEVANT', balanceReadOk: true },
   ];
   return computeWalletState({
     walletAddress: '0x0000000000000000000000000000000000000000',

@@ -938,3 +938,98 @@ signed or broadcast.
 ## FINAL VERDICT
 
 **SHADOW_MODEL_READY** (see final report for the live decision).
+
+---
+
+# V1.5.1 WALLET/CAPITAL CORRECTNESS REPAIR (branch feature/shadow-v1-wallet-capital-correctness)
+
+## BASELINE
+
+- Base: 7b0836bddb3b61e28e5321525019e231ad1d0108
+  (feature/shadow-v1-wallet-capital-scaling). No main modification, no merge;
+  no persistence started; no broadcaster.
+- MODEL_VERSION bumped 6 -> 7; v1-v6 snapshots non-qualifying.
+
+## CAPITAL SELECTION FIX (P0-1/P0-3)
+
+- Capital recommendation is capital-efficiency-first, never max absolute net.
+- Conservative policy: base-positive + stress-nonnegative; positive
+  incremental expected PnL; non-negative incremental stress PnL; marginal
+  expected PnL per dollar retains >= MIN_MARGINAL_EFFICIENCY_RATIO (0.25) of
+  the reference marginal rate (from zero capital); negligible-incremental with
+  material ROC decline prefers the smaller point. Full rationale persisted.
+
+## PER-CANDIDATE GATES (P0-2)
+
+- Gates evaluated for EVERY candidate; eligibleActualCandidates[] and
+  rejectedActualCandidates[] produced; selection only across eligible;
+  fail closed when empty.
+
+## CAPACITY SUMMARY FIX (P0-4/P0-5)
+
+- bestActualWalletCapital/fraction and the recommendation derive ONLY from
+  qualified points; hypothetical points must also be qualified for
+  ADDITIONAL_CAPITAL_MAY_BE_EFFICIENT; the global capacity summary refers to
+  the SELECTED pair/range/fee regime (capital-efficiency-first), with all other
+  regime summaries persisted for research.
+
+## REQUESTED VS EFFECTIVE CAPITAL (P0-6)
+
+- requestedCapitalUsd = research axis (identity/persistence, ROC denominator);
+  effectiveDeployableCapitalUsd = capital after initial rebalance loss and
+  feasibility (fill-share backing, inventory throughput, stress buffer);
+  candidate.capitalUsd is the requested axis and is never mutated after PnL.
+
+## NATIVE ETH GAS RESERVE (P0-7/P0-8)
+
+- Gas reserved in NATIVE ETH only; ETH=0 + WETH=$100 fails
+  GAS_RESERVE_INSUFFICIENT_NATIVE_ETH; per-asset reservedGasUsd /
+  reservedEmergencyUsd / deployableUsd persisted; deployableUsdForToken returns
+  the persisted per-asset value; WETH remains strategy inventory.
+
+## DEPLOYABLE WALLET FORMULA (P1-1)
+
+- deployableWalletCapitalUsd = sum(asset.deployableUsd) (whitelist-positive);
+  UNKNOWN-relevance priced assets contribute zero (regression tested).
+
+## PERSISTENCE IDENTITY (P0-9)
+
+- Exact pair / feeBps / rangeHalfWidthPct / capitalSource / capital fraction /
+  walletAddress / modelVersion / configFingerprint; fee +/-10 and range +/-2
+  tolerances REMOVED; capital may drift only within the wallet regime tolerance
+  at the same fraction.
+
+## TESTS
+
+- 252 tests total (235 preserved + 17 V1.5.1 regressions), all calling
+  production functions (computeWalletState, capacitySummaryForCurve,
+  selectEfficientCapital, selectRecommendedRegime, computeCandidatePnl,
+  replayInventoryCapacity, evaluatePersistence, makeSyntheticWalletState).
+
+## LIVE VALIDATION
+
+- npm ci / typecheck / npm test (252) / build / doctor / shadow-cycle
+  --validation-only / decision/status (see final report; no wallet configured
+  => WALLET_CAPITAL_UNKNOWN fail-closed, plus a deterministic read-only wallet
+  integration fixture through the production wallet path).
+
+## CI
+
+- GitHub Actions PASS on the pushed head (independent; never equated with
+  local tests).
+
+## SAFETY
+
+- Wallet reads only; NO_BROADCAST green; no signing/broadcast/approvals;
+  validation-only mode; no v7 persistence started.
+
+## KNOWN GAPS
+
+- Live deployable-capital research requires a configured read-only
+  WALLET_ADDRESS (absent in this environment by design); 1INCH/WETH
+  reference-pool freshness still conservatively gates current price and range
+  path; BTC wrapper / DeFi major / RWA excluded; 0.60 haircut remains.
+
+## FINAL VERDICT
+
+**SHADOW_MODEL_READY** (see final report for the live decision).

@@ -18,7 +18,10 @@ export type PnlInputs = {
   comparableStrategyCount: number;
   halfWidthPct: number;
   feeBps: number;
-  capitalUsd: number;
+  /** Wallet capital committed to the strategy (ROC denominator; identity). */
+  requestedCapitalUsd: number;
+  /** Capital actually deployable (backing/inventory/stress use this). */
+  effectiveDeployableCapitalUsd: number;
   capitalSource: CapitalSource;
   capitalFractionOfWallet: number;
   capitalMultipleOfWallet: number;
@@ -28,7 +31,6 @@ export type PnlInputs = {
   availableTokenBUsd: number;
   initialRebalanceUsd: number;
   initialRebalanceLossUsd: number;
-  capitalActuallyDeployableUsd: number;
   walletInventorySufficient: boolean;
   walletInsufficiencyReason: string | null;
   dailyVolPct: number;
@@ -63,7 +65,8 @@ export type PnlInputs = {
  * backing competition already enters through the fill-share model.
  */
 export function computeCandidatePnl(input: PnlInputs): Candidate {
-  const { cfg, pairMetrics, group, competition, budgetUsdPerDay, markoutSummaries, markoutReliability, gasModel, rangeSim, fillShare, capitalUsd, dailyVolPct, rewardEligible, inventory, adverseRate, rangePathUnreliableReason } = input;
+  const { cfg, pairMetrics, group, competition, budgetUsdPerDay, markoutSummaries, markoutReliability, gasModel, rangeSim, fillShare, requestedCapitalUsd, effectiveDeployableCapitalUsd, dailyVolPct, rewardEligible, inventory, adverseRate, rangePathUnreliableReason } = input;
+  const capitalUsd = effectiveDeployableCapitalUsd;
   const pairDailyGrossFillUsd = pairMetrics.dailyFillRateUsd;
   const wholeGroupDailyGrossFillUsd = group.dailyFillRateUsd;
   const pairShareOfGroup = wholeGroupDailyGrossFillUsd > 0 ? pairDailyGrossFillUsd / wholeGroupDailyGrossFillUsd : 0;
@@ -112,7 +115,7 @@ export function computeCandidatePnl(input: PnlInputs): Candidate {
     tokenB: pairMetrics.tokenB,
     halfWidthPct: input.halfWidthPct,
     feeBps: input.feeBps,
-    capitalUsd,
+    capitalUsd: requestedCapitalUsd,
     capitalSource: input.capitalSource,
     capitalFractionOfWallet: input.capitalFractionOfWallet,
     capitalMultipleOfWallet: input.capitalMultipleOfWallet,
@@ -122,9 +125,12 @@ export function computeCandidatePnl(input: PnlInputs): Candidate {
     availableTokenBUsd: input.availableTokenBUsd,
     initialRebalanceUsd: input.initialRebalanceUsd,
     initialRebalanceLossUsd: input.initialRebalanceLossUsd,
-    capitalActuallyDeployableUsd: input.capitalActuallyDeployableUsd,
     walletInventorySufficient: input.walletInventorySufficient,
     walletInsufficiencyReason: input.walletInsufficiencyReason,
+    requestedCapitalUsd,
+    effectiveDeployableCapitalUsd: capitalUsd,
+    qualified: false,
+    qualificationEvidence: [],
     empiricalFillShare: null,
     structuralShare: null,
     fillShare,
@@ -153,8 +159,10 @@ export function computeCandidatePnl(input: PnlInputs): Candidate {
     gasUsdPerDay,
     expectedNetUsdPerDay,
     stressNetUsdPerDay: stress.net,
-    expectedReturnOnCapitalPctPerDay: capitalUsd > 0 ? (expectedNetUsdPerDay / capitalUsd) * 100 : 0,
-    stressReturnOnCapitalPctPerDay: capitalUsd > 0 ? (stress.net / capitalUsd) * 100 : 0,
+    // V1.5.1 P0-6: ROC denominator is REQUESTED capital (wallet capital
+    // committed to the strategy), never effective capital relabeled.
+    expectedReturnOnCapitalPctPerDay: requestedCapitalUsd > 0 ? (expectedNetUsdPerDay / requestedCapitalUsd) * 100 : 0,
+    stressReturnOnCapitalPctPerDay: requestedCapitalUsd > 0 ? (stress.net / requestedCapitalUsd) * 100 : 0,
     turnoverPerDay,
     inventoryUtilizationPct: inventory.utilizationPct,
     directionalImbalanceUsdPerDay: inventory.imbalanceUsdPerDay,
@@ -199,7 +207,7 @@ export function computeStressNet(
   const adverse = Math.max(0, base.adverseSelectionUsdPerDay) * f.adverseSelection;
   const rebalance = base.rebalanceCostUsdPerDay * f.rebalance;
   const gas = base.gasUsdPerDay * f.gas;
-  const inventoryBuffer = input.capitalUsd * (input.dailyVolPct / 100) * input.cfg.inventoryBufferMultiple;
+  const inventoryBuffer = input.effectiveDeployableCapitalUsd * (input.dailyVolPct / 100) * input.cfg.inventoryBufferMultiple;
   const net = reward + fee - adverse - rebalance - gas - inventoryBuffer;
   const sensitivity: Record<string, number> = {
     rewardBudget: reward,

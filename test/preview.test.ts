@@ -42,6 +42,7 @@ function decision(over: Partial<DecisionResult> = {}): DecisionResult {
     bestCandidate: null,
     capacitySummary: null,
     marginalReturns: [],
+    capitalSelectionRationale: [],
     generatedAt: 1n,
     ...over,
   };

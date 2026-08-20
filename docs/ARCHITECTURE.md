@@ -258,6 +258,42 @@ canary preview. It never signs or broadcasts transactions.
   deposits/withdrawals reset). Hypothetical candidates NEVER qualify.
 - Wallet reads only; NO_BROADCAST remains green; validation-only mode only.
 
+## V1.5.1 wallet/capital correctness repair (modelVersion 7)
+
+- P0-1/P0-2: gates are evaluated for EVERY candidate (per-candidate gate
+  evaluation); an eligible ACTUAL_WALLET candidate set and a rejected set are
+  produced, and capital selection happens only across the eligible set. One
+  stale/rejected candidate can never block a fully-qualified one.
+- P0-3: explicit conservative capital-efficiency selection: base-positive +
+  stress-nonnegative, positive incremental expected PnL, non-negative
+  incremental stress PnL, marginal efficiency retention >=
+  MIN_MARGINAL_EFFICIENCY_RATIO (default 0.25) of the reference marginal rate
+  (from zero capital), and a negligible-incremental/ROC-retention stop rule
+  (NEGLIGIBLE_INCREMENTAL_NET_PCT, MIN_ROC_RETENTION_RATIO). Full rationale is
+  persisted.
+- P0-4/P0-5: capacity summaries and bestActualWalletCapital derive ONLY from
+  QUALIFIED points; the global capacity summary refers to the SELECTED
+  pair/range/fee regime (capital-efficiency-first regime selection), never to
+  the largest recommended-capital number; all other regime summaries are
+  persisted for research.
+- P0-6: requestedCapitalUsd (identity/persistence; ROC denominator) and
+  effectiveDeployableCapitalUsd (fill-share backing, inventory throughput,
+  stress buffer) are separate and never conflated; candidate.capitalUsd is the
+  requested axis and is never mutated after PnL computation.
+- P0-7/P0-8: gas is reserved in NATIVE ETH only (WETH is strategy inventory;
+  no unwrap modeled); per-asset reservedGasUsd / reservedEmergencyUsd /
+  deployableUsd are persisted and deployableUsdForToken returns the persisted
+  per-asset value.
+- P1-1: deployableWalletCapitalUsd = sum(asset.deployableUsd); an
+  UNKNOWN-relevance priced asset contributes zero by whitelist-positive
+  construction (never by subtraction arithmetic).
+- P0-9: persistence identity requires EXACT feeBps and rangeHalfWidthPct (no
+  +/- tolerance); capital may drift only within the wallet regime tolerance at
+  the same capital fraction.
+- P1-2: capacity diagnostics are documented last/first growth ratios
+  (research-only, never gate overrides); the full capital curves persist fill
+  share / serviceable / reward / ROC / marginal data for reconstruction.
+
 ## Dual-cutoff time model (mandatory)
 
 - liveCutoffBlock - latest finalized block. Used for: active strategy state,

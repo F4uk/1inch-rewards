@@ -57,6 +57,11 @@ architecture ACCEPT.
   GAS_RESERVE_USD / EMERGENCY_RESERVE_USD.
 - If no wallet is configured the live cycle fails closed with
   WALLET_CAPITAL_UNKNOWN (still a correct implementation).
+- V1.5.1: gas is reserved in NATIVE ETH only; a wallet with zero native ETH
+  fails GAS_RESERVE_INSUFFICIENT_NATIVE_ETH even with WETH held (no unwrap
+  modeled). Capital efficiency thresholds are configurable via
+  MIN_MARGINAL_EFFICIENCY_RATIO / NEGLIGIBLE_INCREMENTAL_NET_PCT /
+  MIN_ROC_RETENTION_RATIO.
 
 ### Decision status
 

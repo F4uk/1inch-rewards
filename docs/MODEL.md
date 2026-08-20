@@ -87,6 +87,23 @@ inventory buffer applies to **unfilled** capital.
   (fillShare/inventoryThroughput/rewardShare saturation, turnover/ROC/marginal
   decay) are persisted per regime curve.
 
+## V1.5.1 capital correctness
+
+- requestedCapitalUsd is the research axis (identity/persistence) and the ROC
+  denominator; effectiveDeployableCapitalUsd is what can actually be deployed
+  (fill-share backing, inventory throughput, stress buffer). The initial
+  rebalance loss is a real cost charged against effective capital.
+- Capital selection policy (conservative, configurable): positive incremental
+  expected PnL, non-negative incremental stress PnL, marginal expected PnL per
+  dollar retaining >= MIN_MARGINAL_EFFICIENCY_RATIO of the reference marginal
+  rate (from zero capital), and a negligible-incremental / ROC-retention stop.
+  Absolute net is a diagnostic, never the primary selection criterion.
+- bestActualWalletCapital and the recommendation derive ONLY from qualified
+  (all gates passing) points; hypothetical points must also be qualified to
+  trigger ADDITIONAL_CAPITAL_MAY_BE_EFFICIENT.
+- Diagnostics are last/first growth ratios across the full curve (research
+  only); the underlying curves are persisted for reconstruction.
+
 ## Adverse selection (markouts)
 
 - Sign convention: the maker always receives tokenIn (taker pays tokenIn);

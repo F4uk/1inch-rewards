@@ -79,8 +79,12 @@ export function evaluatePersistence(cfg: AppConfig, latest: DecisionResult): Per
     const fee = s.decision.feeBps ?? -1;
     const lw = latest.rangeHalfWidthPct ?? -1;
     const lf = latest.feeBps ?? -1;
-    if (Math.abs(width - lw) > 2) return false;
-    if (Math.abs(fee - lf) > 10) return false;
+    // V1.5.1 P0-9: fee and range are EXACT persistence identity. A 10bps and
+    // 20bps strategy (or 3% and 5% ranges) must never combine into the same
+    // >=16h persistence window. Only capital may drift within the wallet
+    // regime tolerance.
+    if (width !== lw) return false;
+    if (fee !== lf) return false;
     return true;
   });
   const snapshotCount = qualifying.length;

@@ -290,11 +290,17 @@ test('V1.5: shadow candidate above $50 is NOT rejected by the live-execution saf
   }
 });
 
-function seedSnapshot(cfg: AppConfig, createdAt: number, decision: 'TRADE' | 'DO_NOT_TRADE', opts: { modelVersion?: number; fingerprint?: string; pair?: string } = {}) {
+function seedSnapshot(cfg: AppConfig, createdAt: number, decision: 'TRADE' | 'DO_NOT_TRADE', opts: { modelVersion?: number; fingerprint?: string; pair?: string; feeBps?: number; rangeHalfWidthPct?: number; capitalUsd?: number; capitalFractionOfWallet?: number; walletAddress?: string; walletDeployableCapitalUsd?: number } = {}) {
   const dir = snapshotDir(cfg);
   mkdirSync(dir, { recursive: true });
   const fp = opts.fingerprint ?? configFingerprint(cfg);
   const pair = opts.pair ?? KEY;
+  const feeBps = opts.feeBps ?? 20;
+  const rangeHalfWidthPct = opts.rangeHalfWidthPct ?? 5;
+  const capitalUsd = opts.capitalUsd ?? 50;
+  const capitalFractionOfWallet = opts.capitalFractionOfWallet ?? 1;
+  const walletAddress = opts.walletAddress ?? '0x0000000000000000000000000000000000000000';
+  const walletDeployableCapitalUsd = opts.walletDeployableCapitalUsd ?? 50;
   const snap = {
     schemaVersion: 2,
     modelVersion: opts.modelVersion ?? MODEL_VERSION,
@@ -306,7 +312,7 @@ function seedSnapshot(cfg: AppConfig, createdAt: number, decision: 'TRADE' | 'DO
     historicalCutoffBlock: '900',
     historicalCutoffTimestamp: '999000',
     sourceTimestamps: {},
-    walletState: { walletAddress: '0x0000000000000000000000000000000000000000', deployableWalletCapitalUsd: 50 },
+    walletState: { walletAddress, deployableWalletCapitalUsd: walletDeployableCapitalUsd },
     rewardUniverse: null,
     groupMetrics: [],
     competition: [],
@@ -318,13 +324,13 @@ function seedSnapshot(cfg: AppConfig, createdAt: number, decision: 'TRADE' | 'DO
       configFingerprint: fp,
       decision,
       pair,
-      capitalUsd: 50,
+      capitalUsd,
       capitalSource: 'ACTUAL_WALLET',
-      capitalFractionOfWallet: 1,
-      walletAddress: '0x0000000000000000000000000000000000000000',
-      walletDeployableCapitalUsd: 50,
-      rangeHalfWidthPct: 5,
-      feeBps: 20,
+      capitalFractionOfWallet,
+      walletAddress,
+      walletDeployableCapitalUsd,
+      rangeHalfWidthPct,
+      feeBps,
       expectedGrossFillUsdPerDay: 100,
       expectedQualifyingFillUsdPerDay: 60,
       rewardIncomeUsdPerDay: 50,
@@ -343,6 +349,7 @@ function seedSnapshot(cfg: AppConfig, createdAt: number, decision: 'TRADE' | 'DO
       bestCandidate: null,
       capacitySummary: null,
       marginalReturns: [],
+      capitalSelectionRationale: [],
       generatedAt: createdAt,
     },
     persistence: { snapshotCount: 0, spanHours: 0, gatePassed: false, details: [] },
@@ -376,9 +383,18 @@ test('persistence: fresh v2 history fails; primed qualifying TRADE history passe
 
   const cfg2 = tempCfg();
   try {
-    seedSnapshot(cfg2, 1000000 - 3 * 8 * 3600, 'TRADE');
-    seedSnapshot(cfg2, 1000000 - 2 * 8 * 3600, 'TRADE');
-    seedSnapshot(cfg2, 1000000 - 1 * 8 * 3600, 'TRADE');
+    // Probe once to discover the EXACT selected regime identity
+    // (pair/fee/range/requested capital/fraction), then seed persistence with
+    // those values so the >=16h window can actually qualify.
+    const probeCfg = tempCfg();
+    const probe = decide(probeCfg, cycleData());
+    const sel = probe.decision.bestCandidate;
+    assert.ok(sel && sel.qualified, 'fixture must produce an eligible selected candidate');
+    rmSync(probeCfg.dataDir, { recursive: true, force: true });
+    const seedOpts = { feeBps: sel.feeBps, rangeHalfWidthPct: sel.halfWidthPct, capitalUsd: sel.capitalUsd, capitalFractionOfWallet: sel.capitalFractionOfWallet, walletAddress: '0x0000000000000000000000000000000000000000', walletDeployableCapitalUsd: 50 };
+    seedSnapshot(cfg2, 1000000 - 3 * 8 * 3600, 'TRADE', seedOpts);
+    seedSnapshot(cfg2, 1000000 - 2 * 8 * 3600, 'TRADE', seedOpts);
+    seedSnapshot(cfg2, 1000000 - 1 * 8 * 3600, 'TRADE', seedOpts);
     const r = decide(cfg2, cycleData());
     assert.equal(r.decision.decision, 'TRADE');
     assert.ok(r.persistence.gatePassed);
@@ -448,6 +464,7 @@ test('persistence status helper counts qualifying snapshots', () => {
       bestCandidate: null,
       capacitySummary: null,
       marginalReturns: [],
+      capitalSelectionRationale: [],
       generatedAt: 1000000n,
     };
     const p = evaluatePersistence(cfg, d);

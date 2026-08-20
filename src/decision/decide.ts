@@ -28,14 +28,14 @@ import { blendFillShare, type FillShareInput } from '../model/fillShare.ts';
 import { replayInventoryCapacity } from '../model/inventory.ts';
 import { assessConfidence } from '../model/confidence.ts';
 import { conservativeAdverseRateUsdPerUsd } from '../analytics/markouts.ts';
-import { capitalCurvePointFromCandidate, capacitySummaryForCurve, computeCapitalLevel, marginalReturns } from '../model/capital.ts';
-import { campaignHoursRemaining, evaluateGates } from './gates.ts';
+import { capitalCurvePointFromCandidate, capacitySummaryForCurve, computeCapitalLevel, marginalReturns, selectEfficientCapital, selectRecommendedRegime } from '../model/capital.ts';
+import { campaignHoursRemaining, evaluateGates, type GateContext } from './gates.ts';
 import { evaluatePersistence, latestDecisionMdPath, latestDecisionPath, writeSnapshot } from './persistence.ts';
 import { atomicWriteJson } from '../index/store.ts';
 import { campaignBudgetByGroup } from '../sources/merkl.ts';
 import type { PriceGroup } from '../constants.ts';
 
-export const MODEL_VERSION = 6;
+export const MODEL_VERSION = 7;
 
 export type CycleData = {
   chainOk: boolean;
@@ -63,10 +63,8 @@ export type CycleData = {
   currentUsdByPair: Record<string, { usdTokenA: number | null; usdTokenB: number | null }>;
   pairFills: Record<string, FillEvent[]>;
   oneInchUsdAt: (ts: bigint) => number | null;
-  /** Fair USD price of any token at a historical timestamp (valuation grade). */
   fairUsdAt: (token: string, ts: bigint) => number | null;
   dailyVolPctByPair: Record<string, number | null>;
-  /** V1.5: observed read-only wallet state (primary shadow capital source). */
   walletState: WalletState | null;
   capitalResearch: CapitalResearch;
   lookbackHours: number;
@@ -78,14 +76,18 @@ export type CycleData = {
 
 export type DecideResult = {
   candidates: Candidate[];
+  eligibleActualCandidates: Candidate[];
+  rejectedActualCandidates: Candidate[];
   decision: DecisionResult;
   snapshot: Snapshot;
   persistence: ReturnType<typeof evaluatePersistence>;
 };
 
+type PairContext = { pair: PairMetrics; group: GroupMetrics; competition: CompetitionState | null; markouts: MarkoutSummary[]; reliability: MarkoutReliability };
+
 export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
   const candidates: Candidate[] = [];
-  const byPair = new Map<string, { pair: PairMetrics; group: GroupMetrics; competition: CompetitionState | null; markouts: MarkoutSummary[]; reliability: MarkoutReliability }>();
+  const byPair = new Map<string, PairContext>();
   for (const pm of cd.pairMetrics) {
     const group = cd.groupMetrics.find((g) => g.group === pm.group) ?? null;
     if (!group) continue;
@@ -108,7 +110,6 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
   const capitalAxes = cd.capitalResearch.fullCapitalGrid;
   for (const [pairKey, ctx] of byPair) {
     const { pair, group, competition, markouts, reliability } = ctx;
-    // CandidateMarketScope filter: only explicitly approved pairs may TRADE.
     if (!candidatePaired.has(pair.tokenB.toLowerCase())) continue;
     const rangeSims = cd.rangeSimsByPair[pairKey] ?? new Map();
     const dailyVolPct = cd.dailyVolPctByPair[pairKey] ?? null;
@@ -118,12 +119,8 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
     for (const halfWidthPct of cfg.candidateHalfWidthsPct) {
       for (const feeBps of cfg.candidateFeesBps) {
         for (const axis of capitalAxes) {
-          // V1.5 section 4/10: wallet feasibility is PAIR-specific (actual
-          // 1INCH + paired-asset balances), recomputed for every capital level.
           const level = computeCapitalLevel(axis.capitalUsd, axis.capitalSource, cd.walletState, pair.tokenA, pair.tokenB, cfg);
-          // V1.5 section 8: every capital level is recomputed from scratch -
-          // never a linear multiple of a single candidate.
-          const effectiveCapitalUsd = level.capitalActuallyDeployableUsd > 0 ? level.capitalActuallyDeployableUsd : level.capitalUsd;
+          const effectiveCapitalUsd = level.effectiveDeployableCapitalUsd > 0 ? level.effectiveDeployableCapitalUsd : level.requestedCapitalUsd;
           const fsi: FillShareInput = {
             pairMetrics: pair,
             competition,
@@ -135,8 +132,6 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
             minComparableStrategies: cfg.minComparableStrategies,
           };
           const fs = blendFillShare(fsi);
-          // P0-6: a missing/insufficient pair path must never default to
-          // reshipsPerDay=0 / timeInRange=100 / volatility=0; it blocks TRADE.
           const rangeSim = rangeSims.get(halfWidthPct) ?? { reshipsPerDay: 0, timeInRangePct: 0 };
           const inventory = replayInventoryCapacity({
             pairKey,
@@ -153,15 +148,14 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
             windowSec,
             rebalanceLossBps: cfg.fallbackRebalanceMaxLossBps,
           });
-          // V1.5 section 15: range reships are charged ONLY as rerange gas;
-          // inventory rebalance transactions are charged separately.
+          // V1.5 section 15: range reships are charged ONLY as rerange gas.
           const gasModel: CandidateGasOutput = computeCandidateGas({
             measurements: cd.gasMeasurements,
             holdingHorizonDays: cfg.holdingHorizonDays,
             reshipsPerDay: rangeSim.reshipsPerDay,
             expectedInventoryRebalanceTxsPerDay: inventory.rebalanceCountPerDay,
           });
-          const rewardEligible = true; // pair metrics are only built for eligible 1INCH pairs
+          const rewardEligible = true;
           const candidate = computeCandidatePnl({
             cfg,
             pairMetrics: pair,
@@ -177,7 +171,8 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
             comparableStrategyCount: fs.comparableStrategyCount,
             halfWidthPct,
             feeBps,
-            capitalUsd: effectiveCapitalUsd,
+            requestedCapitalUsd: level.requestedCapitalUsd,
+            effectiveDeployableCapitalUsd: effectiveCapitalUsd,
             capitalSource: level.capitalSource,
             capitalFractionOfWallet: level.capitalFractionOfWallet,
             capitalMultipleOfWallet: level.capitalMultipleOfWallet,
@@ -187,7 +182,6 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
             availableTokenBUsd: level.availableTokenBUsd,
             initialRebalanceUsd: level.initialRebalanceUsd,
             initialRebalanceLossUsd: level.initialRebalanceLossUsd,
-            capitalActuallyDeployableUsd: level.capitalActuallyDeployableUsd,
             walletInventorySufficient: level.walletInventorySufficient,
             walletInsufficiencyReason: level.walletInsufficiencyReason,
             dailyVolPct: dailyVolPct ?? 0,
@@ -207,7 +201,6 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
           });
           candidate.empiricalFillShare = fs.empirical;
           candidate.structuralShare = fs.structural;
-          candidate.capitalUsd = level.capitalUsd; // research axis identity
           candidate.confidence = assessConfidence({
             cfg,
             pairMetrics: pair,
@@ -225,56 +218,56 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
     }
   }
 
-  // V1.5 sections 11-13: capital curves per pair/range/fee + marginals + capacity.
-  const capitalCurves = buildCapitalCurves(candidates);
-  const capacitySummaries = capitalCurves.map((c) => ({
-    curve: c,
-    summary: capacitySummaryForCurve(c.points, cd.walletState?.deployableWalletCapitalUsd ?? null),
-  }));
-  const bestCapacity = [...capacitySummaries].sort((a, b) => (b.summary.bestActualWalletCapital ?? -1) - (a.summary.bestActualWalletCapital ?? -1))[0]?.summary ?? null;
-  const marginalReturnsAll = capitalCurves.flatMap((c) => marginalReturns(c.points));
+  // V1.5.1 P0-2: evaluate gates for EVERY candidate (not only after selecting
+  // the highest net), so one stale/rejected candidate can never block a
+  // different fully-qualified candidate.
+  const eligibleActualCandidates: Candidate[] = [];
+  const rejectedActualCandidates: Candidate[] = [];
+  for (const c of candidates) {
+    const gates = evaluateCandidateGates(cfg, cd, c, byPair);
+    c.qualified = gates.failed.length === 0;
+    c.qualificationEvidence = gates.failed.map((g) => g.name + ': ' + g.detail);
+    if (c.capitalSource === 'ACTUAL_WALLET') {
+      if (c.qualified) eligibleActualCandidates.push(c);
+      else rejectedActualCandidates.push(c);
+    }
+  }
 
-  // V1.5 section 16/18: only ACTUAL_WALLET candidates with feasible wallet
-  // inventory may ever become live candidates.
-  const tradable = candidates
-    .filter((c) =>
-      c.stressNetUsdPerDay >= 0 &&
-      c.expectedNetUsdPerDay > 0 &&
-      c.confidence !== 'LOW' &&
-      c.rewardEligible &&
-      c.markoutReliable &&
-      c.rangePathUnreliableReason === null &&
-      c.gasKnown &&
-      c.capitalSource === 'ACTUAL_WALLET' &&
-      c.walletInventorySufficient)
-    .sort((a, b) => b.expectedNetUsdPerDay - a.expectedNetUsdPerDay);
-  const best = tradable[0] ?? null;
+  // V1.5.1 P0-3/P0-4/P0-5: per-regime capital curves + conservative
+  // capital-efficiency selection across QUALIFIED points; the global capacity
+  // summary refers to the SELECTED regime.
+  const curves = buildCapitalCurves(candidates, cfg, cd);
+  const selectedByCurve = new Map<string, ReturnType<typeof selectEfficientCapital>['selected']>();
+  for (const curve of curves) {
+    const key = curve.pairKey + '|' + curve.halfWidthPct + '|' + curve.feeBps;
+    const qualifiedActual = curve.points.filter((p) => p.capitalSource === 'ACTUAL_WALLET' && p.qualified);
+    const selection = selectEfficientCapital(qualifiedActual, {
+      minMarginalEfficiencyRatio: cfg.minMarginalEfficiencyRatio,
+      negligibleIncrementalNetPct: cfg.negligibleIncrementalNetPct,
+      minRocRetentionRatio: cfg.minRocRetentionRatio,
+    });
+    selectedByCurve.set(key, selection.selected);
+    curve.capacitySummary = capacitySummaryForCurve(curve.points, cd.walletState?.deployableWalletCapitalUsd ?? null, selection.selected);
+  }
+  const recommended = selectRecommendedRegime(curves, selectedByCurve);
+  const best = recommended ? findCandidate(candidates, recommended.curve, recommended.selected) : null;
   const rejected = [...candidates].sort((a, b) => b.expectedNetUsdPerDay - a.expectedNetUsdPerDay)[0] ?? null;
+  const capitalSelectionRationale: string[] = [];
+  if (recommended) {
+    const sel = selectedByCurve.get(recommended.curve.pairKey + '|' + recommended.curve.halfWidthPct + '|' + recommended.curve.feeBps);
+    const selRationale = selectEfficientCapital(
+      recommended.curve.points.filter((p) => p.capitalSource === 'ACTUAL_WALLET' && p.qualified),
+      { minMarginalEfficiencyRatio: cfg.minMarginalEfficiencyRatio, negligibleIncrementalNetPct: cfg.negligibleIncrementalNetPct, minRocRetentionRatio: cfg.minRocRetentionRatio },
+    ).rationale;
+    capitalSelectionRationale.push(...selRationale, recommended.rationale, 'selectedCapital=' + (sel?.capitalUsd ?? 0).toFixed(2));
+  } else {
+    capitalSelectionRationale.push('no eligible ACTUAL_WALLET regime (fail closed)');
+  }
+
   const gateCandidate = best ?? rejected;
+  const gates = gateCandidate ? evaluateCandidateGates(cfg, cd, gateCandidate, byPair) : null;
   const hoursRemaining = gateCandidate ? campaignHoursRemaining(cd.universe, gateCandidate.group, cd.nowSec) : 0;
-  const gates = gateCandidate
-    ? evaluateGates({
-        cfg,
-        chainOk: cd.chainOk,
-        contractsOk: cd.contractsOk,
-        indexHealthy: cd.indexHealthy,
-        universe: cd.universe,
-        nowSec: cd.nowSec,
-        lookbackHours: cd.lookbackHours,
-        pair: byPair.get(gateCandidate.pairKey)?.pair ?? null,
-        group: byPair.get(gateCandidate.pairKey)?.group ?? null,
-        competition: byPair.get(gateCandidate.pairKey)?.competition ?? null,
-        markoutSummaries: byPair.get(gateCandidate.pairKey)?.markouts ?? [],
-        markoutReliability: byPair.get(gateCandidate.pairKey)?.reliability ?? { reliable: false, reason: 'no data', minObservationAgeSec: 0 },
-        denominator: cd.denominatorScopes[gateCandidate.group] ?? null,
-        currentPriceOk: cd.currentPriceOk[gateCandidate.pairKey] ?? false,
-        gasKnown: gateCandidate.gasKnown,
-        candidate: gateCandidate,
-        campaignHoursRemaining: hoursRemaining,
-        capitalUsd: gateCandidate.capitalUsd,
-        walletState: cd.walletState,
-      })
-    : null;
+  const capacitySummary = recommended ? capacitySummaryForCurve(recommended.curve.points, cd.walletState?.deployableWalletCapitalUsd ?? null, recommended.selected) : null;
 
   const decision: DecisionResult = {
     modelVersion: MODEL_VERSION,
@@ -300,17 +293,18 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
     confidence: best?.confidence ?? 'LOW',
     liveCutoffBlock: cd.liveCutoffBlock.toString(),
     historicalCutoffBlock: cd.historicalCutoffBlock.toString(),
-    reasons: buildReasons(cfg, cd, best, gates ? gates.failed : [], rejected, bestCapacity),
+    reasons: buildReasons(cfg, cd, best, gates ? gates.failed : [], rejected, capacitySummary, capitalSelectionRationale, eligibleActualCandidates.length),
     failedGates: gates?.failed ?? [],
     passedGates: gates?.passed ?? [],
     bestCandidate: best ?? rejected,
-    capacitySummary: bestCapacity,
-    marginalReturns: marginalReturnsAll,
+    capacitySummary,
+    marginalReturns: curves.flatMap((c) => marginalReturns(c.points)),
+    capitalSelectionRationale,
     generatedAt: cd.nowSec,
   };
 
   const snapshot: Snapshot = {
-    schemaVersion: 5,
+    schemaVersion: 6,
     modelVersion: MODEL_VERSION,
     validationOnly: cd.validationOnly,
     createdAt: cd.nowSec,
@@ -323,8 +317,10 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
     sourceTimestamps: cd.sourceTimestamps,
     walletState: cd.walletState,
     capitalResearch: cd.capitalResearch,
-    capitalCurves,
-    capacitySummary: bestCapacity,
+    capitalCurves: curves,
+    capacitySummary,
+    eligibleActualCandidates,
+    rejectedActualCandidates,
     rewardUniverse: cd.universe,
     campaignInventory: cd.campaignInventory,
     denominatorScopes: cd.denominatorScopes,
@@ -347,7 +343,6 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
     persistence: { snapshotCount: 0, spanHours: 0, gatePassed: false, details: [] },
   };
 
-  // P0-9: validation-only runs never create persistence-qualifying snapshots.
   writeSnapshot(cfg, snapshot);
   const persistence = evaluatePersistence(cfg, decision);
   snapshot.persistence = persistence;
@@ -360,10 +355,37 @@ export function decide(cfg: AppConfig, cd: CycleData): DecideResult {
 
   atomicWriteJson(latestDecisionPath(cfg), finalDecision);
   atomicWriteJson(latestDecisionMdPath(cfg), renderDecisionMd(finalDecision));
-  return { candidates, decision: finalDecision, snapshot, persistence };
+  return { candidates, eligibleActualCandidates, rejectedActualCandidates, decision: finalDecision, snapshot, persistence };
 }
 
-function buildCapitalCurves(candidates: Candidate[]): CapitalCurve[] {
+function evaluateCandidateGates(cfg: AppConfig, cd: CycleData, candidate: Candidate, byPair: Map<string, PairContext>): { passed: GateResult[]; failed: GateResult[] } {
+  const ctx = byPair.get(candidate.pairKey);
+  const hoursRemaining = campaignHoursRemaining(cd.universe, candidate.group, cd.nowSec);
+  const gateCtx: GateContext = {
+    cfg,
+    chainOk: cd.chainOk,
+    contractsOk: cd.contractsOk,
+    indexHealthy: cd.indexHealthy,
+    universe: cd.universe,
+    nowSec: cd.nowSec,
+    lookbackHours: cd.lookbackHours,
+    pair: ctx?.pair ?? null,
+    group: ctx?.group ?? null,
+    competition: ctx?.competition ?? null,
+    markoutSummaries: ctx?.markouts ?? [],
+    markoutReliability: ctx?.reliability ?? { reliable: false, reason: 'no data', minObservationAgeSec: 0 },
+    denominator: cd.denominatorScopes[candidate.group] ?? null,
+    currentPriceOk: cd.currentPriceOk[candidate.pairKey] ?? false,
+    gasKnown: candidate.gasKnown,
+    candidate,
+    campaignHoursRemaining: hoursRemaining,
+    capitalUsd: candidate.capitalUsd,
+    walletState: cd.walletState,
+  };
+  return evaluateGates(gateCtx);
+}
+
+function buildCapitalCurves(candidates: Candidate[], cfg: AppConfig, cd: CycleData): CapitalCurve[] {
   const byRegime = new Map<string, Candidate[]>();
   for (const c of candidates) {
     const key = c.pairKey + '|' + c.halfWidthPct + '|' + c.feeBps;
@@ -374,14 +396,15 @@ function buildCapitalCurves(candidates: Candidate[]): CapitalCurve[] {
   const curves: CapitalCurve[] = [];
   for (const [key, arr] of byRegime) {
     const [pairKey, halfWidthPct, feeBps] = key.split('|');
-    curves.push({
-      pairKey: pairKey!,
-      halfWidthPct: Number(halfWidthPct),
-      feeBps: Number(feeBps),
-      points: arr.map((c) => capitalCurvePointFromCandidate(c)).sort((a, b) => a.capitalUsd - b.capitalUsd),
-    });
+    const points = arr.map((c) => capitalCurvePointFromCandidate(c)).sort((a, b) => a.capitalUsd - b.capitalUsd);
+    const curve: CapitalCurve = { pairKey: pairKey!, halfWidthPct: Number(halfWidthPct), feeBps: Number(feeBps), points, capacitySummary: null };
+    curves.push(curve);
   }
   return curves;
+}
+
+function findCandidate(candidates: Candidate[], curve: CapitalCurve, point: NonNullable<ReturnType<typeof selectEfficientCapital>['selected']>): Candidate | null {
+  return candidates.find((c) => c.pairKey === curve.pairKey && c.halfWidthPct === curve.halfWidthPct && c.feeBps === curve.feeBps && c.capitalUsd === point.capitalUsd && c.capitalSource === 'ACTUAL_WALLET') ?? null;
 }
 
 function buildReasons(
@@ -391,6 +414,8 @@ function buildReasons(
   failed: GateResult[],
   rejected: Candidate | null,
   capacity: ReturnType<typeof capacitySummaryForCurve> | null,
+  selectionRationale: string[],
+  eligibleActualCount: number,
 ): string[] {
   const reasons: string[] = [];
   if (cd.universe === null || !cd.universe.sourceHealthy) reasons.push('MERKL_UNREACHABLE');
@@ -404,24 +429,24 @@ function buildReasons(
   if (!cd.walletState || cd.walletState.unknown) {
     reasons.push('WALLET_CAPITAL_UNKNOWN: ' + (cd.walletState?.detail ?? 'no wallet configured'));
   } else {
-    reasons.push('wallet=' + (cd.walletState.walletAddress ?? 'none') + ' nav=' + cd.walletState.walletNavUsd.toFixed(2) + ' deployable=' + cd.walletState.deployableWalletCapitalUsd.toFixed(2) + ' (gasReserve=' + cd.walletState.gasReserveUsd.toFixed(2) + ' emergency=' + cd.walletState.emergencyReserveUsd.toFixed(2) + ')');
+    reasons.push('wallet=' + (cd.walletState.walletAddress ?? 'none') + ' nav=' + cd.walletState.walletNavUsd.toFixed(2) + ' deployable=' + cd.walletState.deployableWalletCapitalUsd.toFixed(2) + ' (nativeGasReserve=' + cd.walletState.nativeGasReserveUsd.toFixed(2) + ' emergency=' + cd.walletState.emergencyReserveUsd.toFixed(2) + ')');
   }
   if (cd.capitalResearch.fullCapitalGrid.length === 0) reasons.push('CAPITAL_GRID_EMPTY: no research capital levels (wallet unknown or deployable <= 0)');
+  reasons.push('eligibleActualCandidates=' + eligibleActualCount);
+  for (const r of selectionRationale) reasons.push('CAPITAL_SELECTION: ' + r);
   if (capacity) reasons.push('capacity: ' + capacity.detail);
   if (capacity && capacity.recommendation !== 'NO_RECOMMENDATION') reasons.push('RECOMMENDATION: ' + capacity.recommendation);
   if (cd.validationOnly) reasons.push('VALIDATION_ONLY: no persistence-qualifying snapshot written (external ACCEPT pending)');
   if (best) {
-    reasons.push('best candidate: pair=' + best.pairKey + ' width=' + best.halfWidthPct + '% fee=' + best.feeBps + 'bps capital=' + best.capitalUsd.toFixed(2) + ' (' + best.capitalSource + ' ' + (best.capitalFractionOfWallet * 100).toFixed(0) + '% wallet) fillShare=' + best.fillShare.toFixed(5) + ' (' + best.fillShareSource + ')');
-    reasons.push('rewardShare=' + best.conservativeGroupRewardShare.toExponential(3) + ' pairShareOfGroup=' + best.pairShareOfGroup.toFixed(4) + ' groupBudget=' + best.groupBudgetUsd.toFixed(2));
-    reasons.push('net=' + best.expectedNetUsdPerDay.toFixed(4) + ' stressNet=' + best.stressNetUsdPerDay.toFixed(4) + ' roc=' + best.expectedReturnOnCapitalPctPerDay.toFixed(4) + '%/d confidence=' + best.confidence);
-    reasons.push('inventory: serviceable=' + best.expectedServiceableFillUsdPerDay.toFixed(4) + ' unserved=' + best.unservedFillUsdPerDay.toFixed(4) + ' rebalances=' + best.inventoryRebalanceCountPerDay.toFixed(3) + '/d utilization=' + best.inventoryUtilizationPct.toFixed(1) + '%');
-    reasons.push('walletFeasibility: requiredA=' + best.requiredTokenAUsd.toFixed(2) + ' requiredB=' + best.requiredTokenBUsd.toFixed(2) + ' initialRebalance=' + best.initialRebalanceUsd.toFixed(2) + ' loss=' + best.initialRebalanceLossUsd.toFixed(4) + ' deployable=' + best.capitalActuallyDeployableUsd.toFixed(2) + (best.walletInventorySufficient ? '' : ' ' + (best.walletInsufficiencyReason ?? 'WALLET_INVENTORY_INSUFFICIENT')));
-    reasons.push('adverseRateBps=' + best.adverseRateBps.toFixed(4) + ' favorableUsdPerDay=' + best.favorableMarkoutUsdPerDay.toFixed(4) + ' (diagnostic only)');
+    reasons.push('selected candidate: pair=' + best.pairKey + ' width=' + best.halfWidthPct + '% fee=' + best.feeBps + 'bps requested=' + best.requestedCapitalUsd.toFixed(2) + ' effective=' + best.effectiveDeployableCapitalUsd.toFixed(2) + ' (' + best.capitalSource + ' ' + (best.capitalFractionOfWallet * 100).toFixed(0) + '% wallet) fillShare=' + best.fillShare.toFixed(5) + ' (' + best.fillShareSource + ')');
+    reasons.push('rewardShare=' + best.conservativeGroupRewardShare.toExponential(3) + ' groupBudget=' + best.groupBudgetUsd.toFixed(2));
+    reasons.push('net=' + best.expectedNetUsdPerDay.toFixed(4) + ' stressNet=' + best.stressNetUsdPerDay.toFixed(4) + ' roc=' + best.expectedReturnOnCapitalPctPerDay.toFixed(4) + '%/d (requested-capital basis) confidence=' + best.confidence);
+    reasons.push('walletFeasibility: requiredA=' + best.requiredTokenAUsd.toFixed(2) + ' requiredB=' + best.requiredTokenBUsd.toFixed(2) + ' initialRebalance=' + best.initialRebalanceUsd.toFixed(2) + ' loss=' + best.initialRebalanceLossUsd.toFixed(4) + (best.walletInventorySufficient ? '' : ' ' + (best.walletInsufficiencyReason ?? 'WALLET_INVENTORY_INSUFFICIENT')));
     if (!best.markoutReliable) reasons.push(best.markoutUnreliableReason ?? 'MARKOUT_UNRELIABLE');
     if (best.rangePathUnreliableReason !== null) reasons.push(best.rangePathUnreliableReason);
     if (!best.gasKnown) reasons.push('GAS_UNKNOWN');
   } else if (rejected) {
-    reasons.push('no candidate passes gates; best rejected: pair=' + rejected.pairKey + ' capital=' + rejected.capitalUsd.toFixed(2) + ' (' + rejected.capitalSource + ') net=' + rejected.expectedNetUsdPerDay.toFixed(4) + ' stress=' + rejected.stressNetUsdPerDay.toFixed(4) + ' conf=' + rejected.confidence + ' eligible=' + rejected.rewardEligible + ' markoutReliable=' + rejected.markoutReliable + ' gasKnown=' + rejected.gasKnown + ' rangePathReliable=' + (rejected.rangePathUnreliableReason === null) + ' walletSufficient=' + rejected.walletInventorySufficient);
+    reasons.push('no eligible ACTUAL_WALLET candidate; best rejected: pair=' + rejected.pairKey + ' requested=' + rejected.requestedCapitalUsd.toFixed(2) + ' (' + rejected.capitalSource + ') net=' + rejected.expectedNetUsdPerDay.toFixed(4) + ' stress=' + rejected.stressNetUsdPerDay.toFixed(4) + ' qualified=' + rejected.qualified);
   } else {
     reasons.push('no candidates produced (no eligible pair data or no capital grid)');
   }
@@ -459,6 +484,9 @@ export function renderDecisionMd(d: DecisionResult): string {
   lines.push('- liveCutoffBlock: ' + d.liveCutoffBlock);
   lines.push('- historicalCutoffBlock: ' + d.historicalCutoffBlock);
   lines.push('- capacitySummary: ' + (d.capacitySummary?.detail ?? 'none'));
+  lines.push('');
+  lines.push('## Capital selection rationale');
+  for (const r of d.capitalSelectionRationale) lines.push('- ' + r);
   lines.push('');
   lines.push('## Reasons');
   for (const r of d.reasons) lines.push('- ' + r);

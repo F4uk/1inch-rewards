@@ -35,6 +35,12 @@ export type AppConfig = {
   gasReserveMargin: number;
   /** Tolerance (%) on deployable wallet NAV for a compatible persistence capital regime. */
   walletCapitalRegimeTolerancePct: number;
+  /** V1.5.1 conservative capital-efficiency policy (research-only thresholds). */
+  minMarginalEfficiencyRatio: number;
+  /** Incremental net below this % of the prior point's net is "negligible". */
+  negligibleIncrementalNetPct: number;
+  /** If new ROC < prior ROC x this ratio AND incremental net is negligible, prefer the smaller point. */
+  minRocRetentionRatio: number;
   minCampaignHoursRemaining: number;
   lookbackHours: number;
   markoutHorizonsSec: number[];
@@ -115,6 +121,9 @@ export const DEFAULT_CONFIG: AppConfig = {
   emergencyReserveUsd: 10,
   gasReserveMargin: 1.5,
   walletCapitalRegimeTolerancePct: 5,
+  minMarginalEfficiencyRatio: 0.25,
+  negligibleIncrementalNetPct: 5,
+  minRocRetentionRatio: 0.5,
   minCampaignHoursRemaining: 48,
   lookbackHours: 72,
   markoutHorizonsSec: [60, 300, 1800],
@@ -187,6 +196,12 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (gasReserve && Number.isFinite(Number(gasReserve)) && Number(gasReserve) >= 0) cfg.gasReserveUsd = Number(gasReserve);
   const emergency = env.EMERGENCY_RESERVE_USD;
   if (emergency && Number.isFinite(Number(emergency)) && Number(emergency) >= 0) cfg.emergencyReserveUsd = Number(emergency);
+  const minMarginal = env.MIN_MARGINAL_EFFICIENCY_RATIO;
+  if (minMarginal && Number.isFinite(Number(minMarginal)) && Number(minMarginal) > 0) cfg.minMarginalEfficiencyRatio = Number(minMarginal);
+  const negligible = env.NEGLIGIBLE_INCREMENTAL_NET_PCT;
+  if (negligible && Number.isFinite(Number(negligible)) && Number(negligible) >= 0) cfg.negligibleIncrementalNetPct = Number(negligible);
+  const rocRetention = env.MIN_ROC_RETENTION_RATIO;
+  if (rocRetention && Number.isFinite(Number(rocRetention)) && Number(rocRetention) > 0) cfg.minRocRetentionRatio = Number(rocRetention);
   const feed = env.CHAINLINK_1INCH_USD;
   if (feed && /^0x[a-fA-F0-9]{40}$/.test(feed)) cfg.feedOverrides['1INCH/USD'] = feed;
   const ethFeed = env.CHAINLINK_ETH_USD;
