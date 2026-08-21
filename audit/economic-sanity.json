@@ -1,0 +1,2222 @@
+{
+  "generatedAt": "2026-08-21T11:41:23.925Z",
+  "validationOnly": true,
+  "modelVersion": 8,
+  "liveBlock": "25802954",
+  "note": "Economic decomposition over accepted V8 bridge results; sanity checks documented in src/opportunity/sanity.ts; NOT a trade recommendation.",
+  "summary": {
+    "totalRows": 40,
+    "passedRows": 40,
+    "failedRows": 0,
+    "totalRewardUsdPerDay": 0,
+    "totalMakerFeeUsdPerDay": 0,
+    "totalAdverseUsdPerDay": 0,
+    "totalRebalanceUsdPerDay": 13.032262032554499,
+    "totalGasUsdPerDay": 31.88808989060975,
+    "mainCostComponent": "gas",
+    "verdict": "CONSERVATIVE",
+    "failedPairs": []
+  },
+  "opportunities": [
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x6c3ea9036406852006290770BEdFcAbA0e23A0e8",
+      "group": "STABLE",
+      "capital": 500,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 30640.915736008683,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 30640.915736008683,
+          "detail": "captured 0.0000 <= pairVolume 30640.9157"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 50,
+          "detail": "gas 0.2462 <= capital*10% = 50.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD",
+      "group": "STABLE",
+      "capital": 500,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 32753.012287005407,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 32753.012287005407,
+          "detail": "captured 0.0000 <= pairVolume 32753.0123"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 50,
+          "detail": "gas 0.2462 <= capital*10% = 50.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee",
+      "group": "ETH_LST",
+      "capital": 500,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 100074.16446596518,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 100074.16446596518,
+          "detail": "captured 0.0000 <= pairVolume 100074.1645"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 50,
+          "detail": "gas 0.2462 <= capital*10% = 50.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xdC035D45d973E3EC169d2276DDab16f1e407384F",
+      "group": "STABLE",
+      "capital": 500,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 58272.00687854379,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 58272.00687854379,
+          "detail": "captured 0.0000 <= pairVolume 58272.0069"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 50,
+          "detail": "gas 0.2462 <= capital*10% = 50.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x6c3ea9036406852006290770BEdFcAbA0e23A0e8",
+      "group": "STABLE",
+      "capital": 250,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 30640.915736008683,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 30640.915736008683,
+          "detail": "captured 0.0000 <= pairVolume 30640.9157"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 25,
+          "detail": "gas 0.2462 <= capital*10% = 25.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD",
+      "group": "STABLE",
+      "capital": 250,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 32753.012287005407,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 32753.012287005407,
+          "detail": "captured 0.0000 <= pairVolume 32753.0123"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 25,
+          "detail": "gas 0.2462 <= capital*10% = 25.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee",
+      "group": "ETH_LST",
+      "capital": 250,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 100074.16446596518,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 100074.16446596518,
+          "detail": "captured 0.0000 <= pairVolume 100074.1645"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 25,
+          "detail": "gas 0.2462 <= capital*10% = 25.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xdC035D45d973E3EC169d2276DDab16f1e407384F",
+      "group": "STABLE",
+      "capital": 250,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 58272.00687854379,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 58272.00687854379,
+          "detail": "captured 0.0000 <= pairVolume 58272.0069"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 25,
+          "detail": "gas 0.2462 <= capital*10% = 25.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "group": "ETH_LST",
+      "capital": 500,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 2914429.727330759,
+      "estimatedFillShare": 0.25,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.5437245129134572,
+      "gasUsd": 0.6599949909714781,
+      "expectedNetUsd": -1.2037195038849353,
+      "stressNetUsd": -2.135576751313142,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 2914429.727330759,
+          "detail": "captured 0.0000 <= pairVolume 2914429.7273"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.6599949909714781,
+          "limit": 50,
+          "detail": "gas 0.6600 <= capital*10% = 50.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x6c3ea9036406852006290770BEdFcAbA0e23A0e8",
+      "group": "STABLE",
+      "capital": 100,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 30640.915736008683,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 30640.915736008683,
+          "detail": "captured 0.0000 <= pairVolume 30640.9157"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 10,
+          "detail": "gas 0.2462 <= capital*10% = 10.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD",
+      "group": "STABLE",
+      "capital": 100,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 32753.012287005407,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 32753.012287005407,
+          "detail": "captured 0.0000 <= pairVolume 32753.0123"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 10,
+          "detail": "gas 0.2462 <= capital*10% = 10.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee",
+      "group": "ETH_LST",
+      "capital": 100,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 100074.16446596518,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 100074.16446596518,
+          "detail": "captured 0.0000 <= pairVolume 100074.1645"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 10,
+          "detail": "gas 0.2462 <= capital*10% = 10.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xdC035D45d973E3EC169d2276DDab16f1e407384F",
+      "group": "STABLE",
+      "capital": 100,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 58272.00687854379,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 58272.00687854379,
+          "detail": "captured 0.0000 <= pairVolume 58272.0069"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 10,
+          "detail": "gas 0.2462 <= capital*10% = 10.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+      "group": "ETH_LST",
+      "capital": 500,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 272613.15439456166,
+      "estimatedFillShare": 0.0011762734131356113,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.8209182122225601,
+      "gasUsd": 0.8709494397320972,
+      "expectedNetUsd": -1.6918676519546572,
+      "stressNetUsd": -2.973276197798034,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 272613.15439456166,
+          "detail": "captured 0.0000 <= pairVolume 272613.1544"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.8709494397320972,
+          "limit": 50,
+          "detail": "gas 0.8709 <= capital*10% = 50.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "group": "ETH_LST",
+      "capital": 250,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 2914429.727330759,
+      "estimatedFillShare": 0.25,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.2718622564567286,
+      "gasUsd": 0.6599949909714781,
+      "expectedNetUsd": -0.9318572474282067,
+      "stressNetUsd": -1.727783366628049,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 2914429.727330759,
+          "detail": "captured 0.0000 <= pairVolume 2914429.7273"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.6599949909714781,
+          "limit": 25,
+          "detail": "gas 0.6600 <= capital*10% = 25.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+      "group": "ETH_LST",
+      "capital": 500,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 191418.5237085881,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 1.0038107630820707,
+      "gasUsd": 1.0101372976998508,
+      "expectedNetUsd": -2.013948060781922,
+      "stressNetUsd": -3.5259907400228077,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 191418.5237085881,
+          "detail": "captured 0.0000 <= pairVolume 191418.5237"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.0101372976998508,
+          "limit": 50,
+          "detail": "gas 1.0101 <= capital*10% = 50.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x6c3ea9036406852006290770BEdFcAbA0e23A0e8",
+      "group": "STABLE",
+      "capital": 50,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 30640.915736008683,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 30640.915736008683,
+          "detail": "captured 0.0000 <= pairVolume 30640.9157"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 5,
+          "detail": "gas 0.2462 <= capital*10% = 5.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD",
+      "group": "STABLE",
+      "capital": 50,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 32753.012287005407,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 32753.012287005407,
+          "detail": "captured 0.0000 <= pairVolume 32753.0123"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 5,
+          "detail": "gas 0.2462 <= capital*10% = 5.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee",
+      "group": "ETH_LST",
+      "capital": 50,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 100074.16446596518,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 100074.16446596518,
+          "detail": "captured 0.0000 <= pairVolume 100074.1645"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 5,
+          "detail": "gas 0.2462 <= capital*10% = 5.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xdC035D45d973E3EC169d2276DDab16f1e407384F",
+      "group": "STABLE",
+      "capital": 50,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 58272.00687854379,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0,
+      "gasUsd": 0.24620093582093297,
+      "expectedNetUsd": -0.24620093582093297,
+      "stressNetUsd": -0.49240187164186594,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 58272.00687854379,
+          "detail": "captured 0.0000 <= pairVolume 58272.0069"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.24620093582093297,
+          "limit": 5,
+          "detail": "gas 0.2462 <= capital*10% = 5.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+      "group": "ETH_LST",
+      "capital": 250,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 272613.15439456166,
+      "estimatedFillShare": 0.0011762734131356113,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.41045910611128006,
+      "gasUsd": 0.8709494397320972,
+      "expectedNetUsd": -1.2814085458433773,
+      "stressNetUsd": -2.3575875386311145,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 272613.15439456166,
+          "detail": "captured 0.0000 <= pairVolume 272613.1544"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.8709494397320972,
+          "limit": 25,
+          "detail": "gas 0.8709 <= capital*10% = 25.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+      "group": "ETH_LST",
+      "capital": 250,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 191418.5237085881,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.5019053815410354,
+      "gasUsd": 1.0101372976998508,
+      "expectedNetUsd": -1.5120426792408863,
+      "stressNetUsd": -2.7731326677112547,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 191418.5237085881,
+          "detail": "captured 0.0000 <= pairVolume 191418.5237"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.0101372976998508,
+          "limit": 25,
+          "detail": "gas 1.0101 <= capital*10% = 25.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "group": "STABLE",
+      "capital": 500,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 2069881.7001052145,
+      "estimatedFillShare": 0.04330888277236349,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 1.6238159675236805,
+      "gasUsd": 1.4819837229890693,
+      "expectedNetUsd": -3.10579969051275,
+      "stressNetUsd": -5.399691397263659,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 2069881.7001052145,
+          "detail": "captured 0.0000 <= pairVolume 2069881.7001"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.4819837229890693,
+          "limit": 50,
+          "detail": "gas 1.4820 <= capital*10% = 50.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "group": "STABLE",
+      "capital": 500,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 4273414.024837276,
+      "estimatedFillShare": 0.19134887362652384,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 1.6238159675236805,
+      "gasUsd": 1.4819837229890693,
+      "expectedNetUsd": -3.10579969051275,
+      "stressNetUsd": -5.399691397263659,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 4273414.024837276,
+          "detail": "captured 0.0000 <= pairVolume 4273414.0248"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.4819837229890693,
+          "limit": 50,
+          "detail": "gas 1.4820 <= capital*10% = 50.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "group": "STABLE",
+      "capital": 500,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 345424.46075072285,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 1.6240601503759398,
+      "gasUsd": 1.4821695549871396,
+      "expectedNetUsd": -3.1062297053630794,
+      "stressNetUsd": -5.400429335538189,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 345424.46075072285,
+          "detail": "captured 0.0000 <= pairVolume 345424.4608"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.4821695549871396,
+          "limit": 50,
+          "detail": "gas 1.4822 <= capital*10% = 50.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "group": "ETH_LST",
+      "capital": 100,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 2914429.727330759,
+      "estimatedFillShare": 0.25,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.10874490258269144,
+      "gasUsd": 0.6599949909714781,
+      "expectedNetUsd": -0.7687398935541695,
+      "stressNetUsd": -1.4831073358169933,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 2914429.727330759,
+          "detail": "captured 0.0000 <= pairVolume 2914429.7273"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.6599949909714781,
+          "limit": 10,
+          "detail": "gas 0.6600 <= capital*10% = 10.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "group": "STABLE",
+      "capital": 250,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 2069881.7001052145,
+      "estimatedFillShare": 0.02213373505457839,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.8119079837618403,
+      "gasUsd": 1.4819837229890693,
+      "expectedNetUsd": -2.2938917067509097,
+      "stressNetUsd": -4.181829421620899,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 2069881.7001052145,
+          "detail": "captured 0.0000 <= pairVolume 2069881.7001"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.4819837229890693,
+          "limit": 25,
+          "detail": "gas 1.4820 <= capital*10% = 25.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "group": "STABLE",
+      "capital": 250,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 4273414.024837276,
+      "estimatedFillShare": 0.10579645285721698,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.8119079837618403,
+      "gasUsd": 1.4819837229890693,
+      "expectedNetUsd": -2.2938917067509097,
+      "stressNetUsd": -4.181829421620899,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 4273414.024837276,
+          "detail": "captured 0.0000 <= pairVolume 4273414.0248"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.4819837229890693,
+          "limit": 25,
+          "detail": "gas 1.4820 <= capital*10% = 25.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "group": "STABLE",
+      "capital": 250,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 345424.46075072285,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.8120300751879699,
+      "gasUsd": 1.4821695549871396,
+      "expectedNetUsd": -2.2941996301751093,
+      "stressNetUsd": -4.182384222756234,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 345424.46075072285,
+          "detail": "captured 0.0000 <= pairVolume 345424.4608"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.4821695549871396,
+          "limit": 25,
+          "detail": "gas 1.4822 <= capital*10% = 25.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+      "group": "ETH_LST",
+      "capital": 100,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 272613.15439456166,
+      "estimatedFillShare": 0.0011762734131356113,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.164183642444512,
+      "gasUsd": 0.8709494397320972,
+      "expectedNetUsd": -1.0351330821766092,
+      "stressNetUsd": -1.9881743431309622,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 272613.15439456166,
+          "detail": "captured 0.0000 <= pairVolume 272613.1544"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.8709494397320972,
+          "limit": 10,
+          "detail": "gas 0.8709 <= capital*10% = 10.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+      "group": "ETH_LST",
+      "capital": 100,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 191418.5237085881,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.20076215261641417,
+      "gasUsd": 1.0101372976998508,
+      "expectedNetUsd": -1.2108994503162651,
+      "stressNetUsd": -2.321417824324323,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 191418.5237085881,
+          "detail": "captured 0.0000 <= pairVolume 191418.5237"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.0101372976998508,
+          "limit": 10,
+          "detail": "gas 1.0101 <= capital*10% = 10.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "group": "ETH_LST",
+      "capital": 50,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 2914429.727330759,
+      "estimatedFillShare": 0.25,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.05437245129134572,
+      "gasUsd": 0.6599949909714781,
+      "expectedNetUsd": -0.7143674422628238,
+      "stressNetUsd": -1.4015486588799748,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 2914429.727330759,
+          "detail": "captured 0.0000 <= pairVolume 2914429.7273"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.6599949909714781,
+          "limit": 5,
+          "detail": "gas 0.6600 <= capital*10% = 5.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "group": "STABLE",
+      "capital": 100,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 2069881.7001052145,
+      "estimatedFillShare": 0.008972653016594941,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.32476319350473615,
+      "gasUsd": 1.4819837229890693,
+      "expectedNetUsd": -1.8067469164938055,
+      "stressNetUsd": -3.451112236235243,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 2069881.7001052145,
+          "detail": "captured 0.0000 <= pairVolume 2069881.7001"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.4819837229890693,
+          "limit": 10,
+          "detail": "gas 1.4820 <= capital*10% = 10.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "group": "STABLE",
+      "capital": 100,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 4273414.024837276,
+      "estimatedFillShare": 0.04518695273154105,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.32476319350473615,
+      "gasUsd": 1.4819837229890693,
+      "expectedNetUsd": -1.8067469164938055,
+      "stressNetUsd": -3.451112236235243,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 4273414.024837276,
+          "detail": "captured 0.0000 <= pairVolume 4273414.0248"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.4819837229890693,
+          "limit": 10,
+          "detail": "gas 1.4820 <= capital*10% = 10.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "group": "STABLE",
+      "capital": 100,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 345424.46075072285,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.324812030075188,
+      "gasUsd": 1.4821695549871396,
+      "expectedNetUsd": -1.8069815850623276,
+      "stressNetUsd": -3.451557155087061,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 345424.46075072285,
+          "detail": "captured 0.0000 <= pairVolume 345424.4608"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.4821695549871396,
+          "limit": 10,
+          "detail": "gas 1.4822 <= capital*10% = 10.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+      "group": "ETH_LST",
+      "capital": 50,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 272613.15439456166,
+      "estimatedFillShare": 0.0011762734131356113,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.082091821222256,
+      "gasUsd": 0.8709494397320972,
+      "expectedNetUsd": -0.9530412609543532,
+      "stressNetUsd": -1.8650366112975783,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 272613.15439456166,
+          "detail": "captured 0.0000 <= pairVolume 272613.1544"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 0.8709494397320972,
+          "limit": 5,
+          "detail": "gas 0.8709 <= capital*10% = 5.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+      "group": "ETH_LST",
+      "capital": 50,
+      "groupDailyRewardUsd": 3636.2434991038126,
+      "pairDailyVolumeUsd": 191418.5237085881,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.10038107630820708,
+      "gasUsd": 1.0101372976998508,
+      "expectedNetUsd": -1.110518374008058,
+      "stressNetUsd": -2.1708462098620123,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3636.2434991038126,
+          "detail": "rewardIncome 0.0000 <= groupReward 3636.2435"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 191418.5237085881,
+          "detail": "captured 0.0000 <= pairVolume 191418.5237"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.0101372976998508,
+          "limit": 5,
+          "detail": "gas 1.0101 <= capital*10% = 5.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "group": "STABLE",
+      "capital": 50,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 2069881.7001052145,
+      "estimatedFillShare": 0.0045065443376201535,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.16238159675236807,
+      "gasUsd": 1.4819837229890693,
+      "expectedNetUsd": -1.6443653197414374,
+      "stressNetUsd": -3.2075398411066907,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 2069881.7001052145,
+          "detail": "captured 0.0000 <= pairVolume 2069881.7001"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.4819837229890693,
+          "limit": 5,
+          "detail": "gas 1.4820 <= capital*10% = 5.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "group": "STABLE",
+      "capital": 50,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 4273414.024837276,
+      "estimatedFillShare": 0.02311574132098343,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.16238159675236807,
+      "gasUsd": 1.4819837229890693,
+      "expectedNetUsd": -1.6443653197414374,
+      "stressNetUsd": -3.2075398411066907,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 4273414.024837276,
+          "detail": "captured 0.0000 <= pairVolume 4273414.0248"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.4819837229890693,
+          "limit": 5,
+          "detail": "gas 1.4820 <= capital*10% = 5.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    },
+    {
+      "pairKey": "0x111111111117dC0aa78b770fA6A738034120C302/0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "group": "STABLE",
+      "capital": 50,
+      "groupDailyRewardUsd": 3116.7801415175536,
+      "pairDailyVolumeUsd": 345424.46075072285,
+      "estimatedFillShare": 1,
+      "capturedVolumeUsd": 0,
+      "qualifyingVolumeUsd": 0,
+      "rewardIncomeUsd": 0,
+      "makerFeeUsd": 0,
+      "adverseSelectionUsd": 0,
+      "rebalanceCostUsd": 0.162406015037594,
+      "gasUsd": 1.4821695549871396,
+      "expectedNetUsd": -1.6445755700247338,
+      "stressNetUsd": -3.2079481325306705,
+      "checks": {
+        "rewardCap": {
+          "name": "rewardCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 3116.7801415175536,
+          "detail": "rewardIncome 0.0000 <= groupReward 3116.7801"
+        },
+        "volumeCap": {
+          "name": "volumeCap",
+          "pass": true,
+          "actual": 0,
+          "limit": 345424.46075072285,
+          "detail": "captured 0.0000 <= pairVolume 345424.4608"
+        },
+        "adverseBound": {
+          "name": "adverseBound",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "adverse 0.0000 <= capturedNotional 0.0000 (maxRate 1)"
+        },
+        "gasAccounting": {
+          "name": "gasAccounting",
+          "pass": true,
+          "actual": 1.4821695549871396,
+          "limit": 5,
+          "detail": "gas 1.4822 <= capital*10% = 5.0000"
+        },
+        "noNegativeReward": {
+          "name": "noNegativeReward",
+          "pass": true,
+          "actual": 0,
+          "limit": 0,
+          "detail": "reward 0.0000 qualifying 0.0000 captured 0.0000 all >= 0"
+        }
+      },
+      "allChecksPass": true
+    }
+  ]
+}
