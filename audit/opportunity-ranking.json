@@ -1,7 +1,7 @@
 {
-  "validatedCodeSha": "c996fd5d9f1da3a2f36479507b9b8f946851cae7",
+  "validatedCodeSha": "0e35faf84bbd49a7a920dfa7896ac69605162dac",
   "modelVersion": 8,
-  "generatedAt": "2026-08-20T16:53:05.399Z",
+  "generatedAt": "2026-08-20T23:12:12.582Z",
   "ranked": [
     {
       "opportunityId": "15798041110823402464",
@@ -14,7 +14,7 @@
       "tokenB": "0xdac17f958d2ee523a2206206994597c13d831ec7",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1416.5180207909705,
+      "dailyRewardBudgetUsd": 1425.7083120024981,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -23,32 +23,32 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xdac17f958d2ee523a2206206994597c13d831ec7",
         "group": "STABLE",
-        "dailyRewardUsd": 3046.9528027909705,
+        "dailyRewardUsd": 3056.1430940024984,
         "rewardGroup": "STABLE",
-        "groupVolumeUsd72h": 22508876.152014803,
-        "pairVolumeUsd72h": 13972447.650053304,
-        "pairShareOfGroup": 0.6207527890637315,
-        "activeStrategies": 202,
+        "groupVolumeUsd72h": 22769001.298513573,
+        "pairVolumeUsd72h": 14048820.319402311,
+        "pairShareOfGroup": 0.6170152188589606,
+        "activeStrategies": 196,
         "inRangeStrategies": 1,
-        "accessibleBackingUsd": 2066.4965418645934,
-        "competitionScore": 7.6308895836313875,
+        "accessibleBackingUsd": 2075.760759649306,
+        "competitionScore": 7.634772938425473,
         "backingDataUnknownCount": 0,
-        "fills24h": 2975,
-        "fills72h": 8924,
-        "volume24hUsd": 4657482.550017768,
-        "volume72hUsd": 13972447.650053304,
-        "fillFrequencyPerHour": 123.94444444444444,
+        "fills24h": 2906,
+        "fills72h": 8719,
+        "volume24hUsd": 4682940.106467437,
+        "volume72hUsd": 14048820.319402311,
+        "fillFrequencyPerHour": 121.09722222222223,
         "markoutAvailable": true,
-        "markoutSampleCount": 96,
+        "markoutSampleCount": 116,
         "adverseSelectionBps": 49.9484056023947,
         "priceReliable": false,
-        "pricingCoveragePct": 96.11160914388167,
+        "pricingCoveragePct": 99.09393279045761,
         "rangeReliable": false
       },
       "score": {
@@ -63,8 +63,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 22.696853,
-        "detail": "tier=50 volume24h=4657483 haircutRewardPerDay=1134.8427 efficiency=22.696853 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 22.628242,
+        "detail": "tier=50 volume24h=4682940 haircutRewardPerDay=1131.4121 efficiency=22.628242 (strict 10x rule)"
       },
       "rank": 1
     },
@@ -79,7 +79,7 @@
       "tokenB": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1652.6043575894657,
+      "dailyRewardBudgetUsd": 1663.3263640029147,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -88,32 +88,32 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
         "group": "ETH_LST",
-        "dailyRewardUsd": 3554.778270589466,
+        "dailyRewardUsd": 3565.500277002915,
         "rewardGroup": "ETH_LST",
-        "groupVolumeUsd72h": 10784389.385910263,
-        "pairVolumeUsd72h": 770501.5526995863,
-        "pairShareOfGroup": 0.0714460063641843,
-        "activeStrategies": 78,
+        "groupVolumeUsd72h": 10974450.63871978,
+        "pairVolumeUsd72h": 779447.0952211188,
+        "pairShareOfGroup": 0.071023791612046,
+        "activeStrategies": 76,
         "inRangeStrategies": 1,
-        "accessibleBackingUsd": 0,
-        "competitionScore": 1,
+        "accessibleBackingUsd": 0.034754756994875784,
+        "competitionScore": 1.0296748632490043,
         "backingDataUnknownCount": 0,
-        "fills24h": 433,
-        "fills72h": 1299,
-        "volume24hUsd": 256833.8508998621,
-        "volume72hUsd": 770501.5526995863,
-        "fillFrequencyPerHour": 18.041666666666668,
+        "fills24h": 424,
+        "fills72h": 1272,
+        "volume24hUsd": 259815.69840703957,
+        "volume72hUsd": 779447.0952211188,
+        "fillFrequencyPerHour": 17.666666666666668,
         "markoutAvailable": false,
         "markoutSampleCount": 19,
         "adverseSelectionBps": 157.52338411932197,
         "priceReliable": false,
-        "pricingCoveragePct": 95.61200923787528,
+        "pricingCoveragePct": 98.19182389937107,
         "rangeReliable": false
       },
       "score": {
@@ -128,8 +128,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 3.047697,
-        "detail": "tier=50 volume24h=256834 haircutRewardPerDay=152.3848 efficiency=3.047697 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 3.038824,
+        "detail": "tier=50 volume24h=259816 haircutRewardPerDay=151.9412 efficiency=3.038824 (strict 10x rule)"
       },
       "rank": 2
     },
@@ -144,7 +144,7 @@
       "tokenB": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1652.6043575894657,
+      "dailyRewardBudgetUsd": 1663.3263640029147,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -153,32 +153,32 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xae7ab96520de3a18e5e111b5eaab095312d7fe84",
         "group": "ETH_LST",
-        "dailyRewardUsd": 3554.778270589466,
+        "dailyRewardUsd": 3565.500277002915,
         "rewardGroup": "ETH_LST",
-        "groupVolumeUsd72h": 10784389.385910263,
-        "pairVolumeUsd72h": 670581.4363773463,
-        "pairShareOfGroup": 0.0621807514900618,
-        "activeStrategies": 47,
+        "groupVolumeUsd72h": 10974450.63871978,
+        "pairVolumeUsd72h": 694318.6996870491,
+        "pairShareOfGroup": 0.06326682970693506,
+        "activeStrategies": 48,
         "inRangeStrategies": 1,
         "accessibleBackingUsd": 0,
         "competitionScore": 1,
         "backingDataUnknownCount": 0,
         "fills24h": 313,
-        "fills72h": 939,
-        "volume24hUsd": 223527.14545911542,
-        "volume72hUsd": 670581.4363773463,
-        "fillFrequencyPerHour": 13.041666666666666,
+        "fills72h": 938,
+        "volume24hUsd": 231439.5665623497,
+        "volume72hUsd": 694318.6996870491,
+        "fillFrequencyPerHour": 13.027777777777779,
         "markoutAvailable": false,
         "markoutSampleCount": 0,
         "adverseSelectionBps": 0,
         "priceReliable": false,
-        "pricingCoveragePct": 97.97657082002131,
+        "pricingCoveragePct": 99.68017057569296,
         "rangeReliable": false
       },
       "score": {
@@ -193,8 +193,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 2.652465,
-        "detail": "tier=50 volume24h=223527 haircutRewardPerDay=132.6233 efficiency=2.652465 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 2.706935,
+        "detail": "tier=50 volume24h=231440 haircutRewardPerDay=135.3467 efficiency=2.706935 (strict 10x rule)"
       },
       "rank": 3
     },
@@ -209,7 +209,7 @@
       "tokenB": "0x6b175474e89094c44da98b954eedeac495271d0f",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1416.5180207909705,
+      "dailyRewardBudgetUsd": 1425.7083120024981,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -218,32 +218,32 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x6b175474e89094c44da98b954eedeac495271d0f",
         "group": "STABLE",
-        "dailyRewardUsd": 3046.9528027909705,
+        "dailyRewardUsd": 3056.1430940024984,
         "rewardGroup": "STABLE",
-        "groupVolumeUsd72h": 22508876.152014803,
-        "pairVolumeUsd72h": 1034381.0697586875,
-        "pairShareOfGroup": 0.045954363193121864,
-        "activeStrategies": 55,
+        "groupVolumeUsd72h": 22769001.298513573,
+        "pairVolumeUsd72h": 1105464.3021019772,
+        "pairShareOfGroup": 0.04855128635677776,
+        "activeStrategies": 54,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
         "competitionScore": 0,
         "backingDataUnknownCount": 0,
-        "fills24h": 389,
-        "fills72h": 1166,
-        "volume24hUsd": 344793.68991956254,
-        "volume72hUsd": 1034381.0697586875,
-        "fillFrequencyPerHour": 16.194444444444443,
+        "fills24h": 387,
+        "fills72h": 1160,
+        "volume24hUsd": 368488.10070065904,
+        "volume72hUsd": 1105464.3021019772,
+        "fillFrequencyPerHour": 16.11111111111111,
         "markoutAvailable": false,
-        "markoutSampleCount": 7,
-        "adverseSelectionBps": 0,
+        "markoutSampleCount": 6,
+        "adverseSelectionBps": 38.053032605279036,
         "priceReliable": false,
-        "pricingCoveragePct": 95.96912521440824,
+        "pricingCoveragePct": 98.44827586206897,
         "rangeReliable": false
       },
       "score": {
@@ -258,8 +258,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 1.680249,
-        "detail": "tier=50 volume24h=344794 haircutRewardPerDay=84.0125 efficiency=1.680249 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 1.780556,
+        "detail": "tier=50 volume24h=368488 haircutRewardPerDay=89.0278 efficiency=1.780556 (strict 10x rule)"
       },
       "rank": 4
     },
@@ -274,7 +274,7 @@
       "tokenB": "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1652.6043575894657,
+      "dailyRewardBudgetUsd": 1663.3263640029147,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -283,32 +283,32 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee",
         "group": "ETH_LST",
-        "dailyRewardUsd": 3554.778270589466,
+        "dailyRewardUsd": 3565.500277002915,
         "rewardGroup": "ETH_LST",
-        "groupVolumeUsd72h": 10784389.385910263,
+        "groupVolumeUsd72h": 10974450.63871978,
         "pairVolumeUsd72h": 367444.60756194487,
-        "pairShareOfGroup": 0.03407189729647642,
-        "activeStrategies": 36,
+        "pairShareOfGroup": 0.0334818224308683,
+        "activeStrategies": 35,
         "inRangeStrategies": 1,
         "accessibleBackingUsd": 0,
         "competitionScore": 1,
         "backingDataUnknownCount": 0,
-        "fills24h": 66,
-        "fills72h": 199,
+        "fills24h": 65,
+        "fills72h": 196,
         "volume24hUsd": 122481.53585398162,
         "volume72hUsd": 367444.60756194487,
-        "fillFrequencyPerHour": 2.763888888888889,
+        "fillFrequencyPerHour": 2.7222222222222223,
         "markoutAvailable": false,
         "markoutSampleCount": 0,
         "adverseSelectionBps": 0,
         "priceReliable": false,
-        "pricingCoveragePct": 98.49246231155779,
+        "pricingCoveragePct": 100,
         "rangeReliable": false
       },
       "score": {
@@ -323,8 +323,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 1.453416,
-        "detail": "tier=50 volume24h=122482 haircutRewardPerDay=72.6708 efficiency=1.453416 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 1.432553,
+        "detail": "tier=50 volume24h=122482 haircutRewardPerDay=71.6277 efficiency=1.432553 (strict 10x rule)"
       },
       "rank": 5
     },
@@ -339,7 +339,7 @@
       "tokenB": "0xdc035d45d973e3ec169d2276ddab16f1e407384f",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1416.5180207909705,
+      "dailyRewardBudgetUsd": 1425.7083120024981,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -348,32 +348,32 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xdc035d45d973e3ec169d2276ddab16f1e407384f",
         "group": "STABLE",
-        "dailyRewardUsd": 3046.9528027909705,
+        "dailyRewardUsd": 3056.1430940024984,
         "rewardGroup": "STABLE",
-        "groupVolumeUsd72h": 22508876.152014803,
-        "pairVolumeUsd72h": 231642.54224540503,
-        "pairShareOfGroup": 0.010291164280304166,
-        "activeStrategies": 33,
+        "groupVolumeUsd72h": 22769001.298513573,
+        "pairVolumeUsd72h": 248281.54060682165,
+        "pairShareOfGroup": 0.010904366746337275,
+        "activeStrategies": 32,
         "inRangeStrategies": 1,
         "accessibleBackingUsd": 0,
         "competitionScore": 1,
         "backingDataUnknownCount": 0,
-        "fills24h": 124,
-        "fills72h": 373,
-        "volume24hUsd": 77214.18074846834,
-        "volume72hUsd": 231642.54224540503,
-        "fillFrequencyPerHour": 5.180555555555555,
+        "fills24h": 125,
+        "fills72h": 374,
+        "volume24hUsd": 82760.51353560721,
+        "volume72hUsd": 248281.54060682165,
+        "fillFrequencyPerHour": 5.194444444444445,
         "markoutAvailable": false,
         "markoutSampleCount": 0,
         "adverseSelectionBps": 0,
         "priceReliable": false,
-        "pricingCoveragePct": 97.58713136729223,
+        "pricingCoveragePct": 98.93048128342245,
         "rangeReliable": false
       },
       "score": {
@@ -388,8 +388,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 0.37628,
-        "detail": "tier=50 volume24h=77214 haircutRewardPerDay=18.8140 efficiency=0.376280 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 0.399904,
+        "detail": "tier=50 volume24h=82761 haircutRewardPerDay=19.9952 efficiency=0.399904 (strict 10x rule)"
       },
       "rank": 6
     },
@@ -404,7 +404,7 @@
       "tokenB": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1416.5180207909705,
+      "dailyRewardBudgetUsd": 1425.7083120024981,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -413,38 +413,38 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
         "group": "STABLE",
-        "dailyRewardUsd": 3046.9528027909705,
+        "dailyRewardUsd": 3056.1430940024984,
         "rewardGroup": "STABLE",
-        "groupVolumeUsd72h": 22508876.152014803,
+        "groupVolumeUsd72h": 22769001.298513573,
         "pairVolumeUsd72h": 182655.00758605934,
-        "pairShareOfGroup": 0.008114799084258571,
-        "activeStrategies": 32,
+        "pairShareOfGroup": 0.008022091315791862,
+        "activeStrategies": 31,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
         "competitionScore": 0,
         "backingDataUnknownCount": 0,
-        "fills24h": 101,
-        "fills72h": 303,
+        "fills24h": 100,
+        "fills72h": 299,
         "volume24hUsd": 60885.00252868644,
         "volume72hUsd": 182655.00758605934,
-        "fillFrequencyPerHour": 4.208333333333333,
+        "fillFrequencyPerHour": 4.152777777777778,
         "markoutAvailable": false,
         "markoutSampleCount": 0,
         "adverseSelectionBps": 0,
         "priceReliable": false,
-        "pricingCoveragePct": 98.67986798679867,
+        "pricingCoveragePct": 100,
         "rangeReliable": false
       },
       "score": {
-        "score": 74.6705,
+        "score": 74.42,
         "components": {
-          "reward": 0.9890163925546902,
+          "reward": 0.9806663589685886,
           "lowCompetition": 1,
           "volume": 1,
           "priceReliability": 0,
@@ -453,8 +453,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 0.296705,
-        "detail": "tier=50 volume24h=60885 haircutRewardPerDay=14.8352 efficiency=0.296705 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 0.2942,
+        "detail": "tier=50 volume24h=60885 haircutRewardPerDay=14.7100 efficiency=0.294200 (strict 10x rule)"
       },
       "rank": 7
     },
@@ -469,7 +469,7 @@
       "tokenB": "0x6c3ea9036406852006290770bedfcaba0e23a0e8",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1416.5180207909705,
+      "dailyRewardBudgetUsd": 1425.7083120024981,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -478,38 +478,38 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x6c3ea9036406852006290770bedfcaba0e23a0e8",
         "group": "STABLE",
-        "dailyRewardUsd": 3046.9528027909705,
+        "dailyRewardUsd": 3056.1430940024984,
         "rewardGroup": "STABLE",
-        "groupVolumeUsd72h": 22508876.152014803,
+        "groupVolumeUsd72h": 22769001.298513573,
         "pairVolumeUsd72h": 163571.92989259108,
-        "pairShareOfGroup": 0.007266996752210106,
-        "activeStrategies": 41,
+        "pairShareOfGroup": 0.007183974727221327,
+        "activeStrategies": 40,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
         "competitionScore": 0,
         "backingDataUnknownCount": 0,
-        "fills24h": 84,
-        "fills72h": 252,
+        "fills24h": 83,
+        "fills72h": 249,
         "volume24hUsd": 54523.9766308637,
         "volume72hUsd": 163571.92989259108,
-        "fillFrequencyPerHour": 3.5,
+        "fillFrequencyPerHour": 3.4583333333333335,
         "markoutAvailable": false,
         "markoutSampleCount": 0,
         "adverseSelectionBps": 0,
         "priceReliable": false,
-        "pricingCoveragePct": 98.80952380952381,
+        "pricingCoveragePct": 100,
         "rangeReliable": false
       },
       "score": {
-        "score": 71.5706,
+        "score": 71.3463,
         "components": {
-          "reward": 0.8856878448807786,
+          "reward": 0.8782101900034376,
           "lowCompetition": 1,
           "volume": 1,
           "priceReliability": 0,
@@ -518,8 +518,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 0.265706,
-        "detail": "tier=50 volume24h=54524 haircutRewardPerDay=13.2853 efficiency=0.265706 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 0.263463,
+        "detail": "tier=50 volume24h=54524 haircutRewardPerDay=13.1732 efficiency=0.263463 (strict 10x rule)"
       },
       "rank": 8
     },
@@ -534,7 +534,7 @@
       "tokenB": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1652.6043575894657,
+      "dailyRewardBudgetUsd": 1663.3263640029147,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -543,32 +543,32 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
         "group": "ETH_LST",
-        "dailyRewardUsd": 3554.778270589466,
+        "dailyRewardUsd": 3565.500277002915,
         "rewardGroup": "ETH_LST",
-        "groupVolumeUsd72h": 10784389.385910263,
-        "pairVolumeUsd72h": 8959019.761909204,
-        "pairShareOfGroup": 0.830739640541365,
-        "activeStrategies": 235,
+        "groupVolumeUsd72h": 10974450.63871978,
+        "pairVolumeUsd72h": 9116398.208887488,
+        "pairShareOfGroup": 0.8306928983509426,
+        "activeStrategies": 228,
         "inRangeStrategies": 5,
         "accessibleBackingUsd": 0,
         "competitionScore": 5,
-        "backingDataUnknownCount": 0,
-        "fills24h": 3604,
-        "fills72h": 10813,
-        "volume24hUsd": 2986339.920636401,
-        "volume72hUsd": 8959019.761909204,
-        "fillFrequencyPerHour": 150.18055555555554,
+        "backingDataUnknownCount": 7,
+        "fills24h": 3467,
+        "fills72h": 10402,
+        "volume24hUsd": 3038799.4029624956,
+        "volume72hUsd": 9116398.208887488,
+        "fillFrequencyPerHour": 144.47222222222223,
         "markoutAvailable": false,
         "markoutSampleCount": 10,
         "adverseSelectionBps": 8.94218264977681,
         "priceReliable": false,
-        "pricingCoveragePct": 94.6915749560714,
+        "pricingCoveragePct": 99.21169005960392,
         "rangeReliable": false
       },
       "score": {
@@ -583,8 +583,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 35.437143,
-        "detail": "tier=50 volume24h=2986340 haircutRewardPerDay=1771.8571 efficiency=35.437143 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 35.542029,
+        "detail": "tier=50 volume24h=3038799 haircutRewardPerDay=1777.1015 efficiency=35.542029 (strict 10x rule)"
       },
       "rank": 9
     },
@@ -599,7 +599,7 @@
       "tokenB": "0xe343167631d89b6ffc58b88d6b7fb0228795491d",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1416.5180207909705,
+      "dailyRewardBudgetUsd": 1425.7083120024981,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -608,38 +608,38 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xe343167631d89b6ffc58b88d6b7fb0228795491d",
         "group": "STABLE",
-        "dailyRewardUsd": 3046.9528027909705,
+        "dailyRewardUsd": 3056.1430940024984,
         "rewardGroup": "STABLE",
-        "groupVolumeUsd72h": 22508876.152014803,
-        "pairVolumeUsd72h": 150300.2205732305,
-        "pairShareOfGroup": 0.006677375607656756,
-        "activeStrategies": 34,
+        "groupVolumeUsd72h": 22769001.298513573,
+        "pairVolumeUsd72h": 150907.52513395596,
+        "pairShareOfGroup": 0.006627762155901306,
+        "activeStrategies": 33,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
         "competitionScore": 0,
         "backingDataUnknownCount": 0,
         "fills24h": 71,
         "fills72h": 212,
-        "volume24hUsd": 50100.07352441017,
-        "volume72hUsd": 150300.2205732305,
+        "volume24hUsd": 50302.50837798532,
+        "volume72hUsd": 150907.52513395596,
         "fillFrequencyPerHour": 2.9444444444444446,
         "markoutAvailable": false,
         "markoutSampleCount": 0,
         "adverseSelectionBps": 0,
         "priceReliable": false,
-        "pricingCoveragePct": 99.05660377358491,
+        "pricingCoveragePct": 99.52830188679245,
         "rangeReliable": false
       },
       "score": {
-        "score": 69.4148,
+        "score": 69.3065,
         "components": {
-          "reward": 0.8138259329215124,
+          "reward": 0.8102155816579555,
           "lowCompetition": 1,
           "volume": 1,
           "priceReliability": 0,
@@ -648,8 +648,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 0.244148,
-        "detail": "tier=50 volume24h=50100 haircutRewardPerDay=12.2074 efficiency=0.244148 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 0.243065,
+        "detail": "tier=50 volume24h=50303 haircutRewardPerDay=12.1532 efficiency=0.243065 (strict 10x rule)"
       },
       "rank": 10
     },
@@ -664,7 +664,7 @@
       "tokenB": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1416.5180207909705,
+      "dailyRewardBudgetUsd": 1425.7083120024981,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -673,39 +673,39 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
         "group": "STABLE",
-        "dailyRewardUsd": 3046.9528027909705,
+        "dailyRewardUsd": 3056.1430940024984,
         "rewardGroup": "STABLE",
-        "groupVolumeUsd72h": 22508876.152014803,
-        "pairVolumeUsd72h": 6592510.616341108,
-        "pairShareOfGroup": 0.29288493000797833,
-        "activeStrategies": 237,
+        "groupVolumeUsd72h": 22769001.298513573,
+        "pairVolumeUsd72h": 6675357.16590995,
+        "pairShareOfGroup": 0.29317742479753545,
+        "activeStrategies": 236,
         "inRangeStrategies": 6,
-        "accessibleBackingUsd": 10828.099786359839,
-        "competitionScore": 14.06918471120706,
-        "backingDataUnknownCount": 0,
-        "fills24h": 2950,
-        "fills72h": 8851,
-        "volume24hUsd": 2197503.53878037,
-        "volume72hUsd": 6592510.616341108,
-        "fillFrequencyPerHour": 122.93055555555556,
+        "accessibleBackingUsd": 10864.565211456767,
+        "competitionScore": 14.072104645267475,
+        "backingDataUnknownCount": 21,
+        "fills24h": 2908,
+        "fills72h": 8724,
+        "volume24hUsd": 2225119.0553033166,
+        "volume72hUsd": 6675357.16590995,
+        "fillFrequencyPerHour": 121.16666666666667,
         "markoutAvailable": true,
-        "markoutSampleCount": 109,
-        "adverseSelectionBps": 83.6703460445346,
+        "markoutSampleCount": 188,
+        "adverseSelectionBps": 46.630789476756675,
         "priceReliable": false,
-        "pricingCoveragePct": 96.91560275675066,
+        "pricingCoveragePct": 99.27785419532324,
         "rangeReliable": false
       },
       "score": {
-        "score": 58.245,
+        "score": 58.2173,
         "components": {
           "reward": 1,
-          "lowCompetition": 0.32979921155838693,
+          "lowCompetition": 0.3286923875495054,
           "volume": 1,
           "priceReliability": 0,
           "markoutReliability": 0
@@ -713,8 +713,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 10.708879,
-        "detail": "tier=50 volume24h=2197504 haircutRewardPerDay=535.4439 efficiency=10.708879 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 10.751906,
+        "detail": "tier=50 volume24h=2225119 haircutRewardPerDay=537.5953 efficiency=10.751906 (strict 10x rule)"
       },
       "rank": 11
     },
@@ -729,7 +729,7 @@
       "tokenB": "0x8292bb45bf1ee4d140127049757c2e0ff06317ed",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1416.5180207909705,
+      "dailyRewardBudgetUsd": 1425.7083120024981,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -738,48 +738,48 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x8292bb45bf1ee4d140127049757c2e0ff06317ed",
         "group": "STABLE",
-        "dailyRewardUsd": 3046.9528027909705,
+        "dailyRewardUsd": 3056.1430940024984,
         "rewardGroup": "STABLE",
-        "groupVolumeUsd72h": 22508876.152014803,
-        "pairVolumeUsd72h": 87242.75892982975,
-        "pairShareOfGroup": 0.003875926916147723,
-        "activeStrategies": 25,
+        "groupVolumeUsd72h": 22769001.298513573,
+        "pairVolumeUsd72h": 99066.44348710668,
+        "pairShareOfGroup": 0.004350934948278738,
+        "activeStrategies": 24,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
         "competitionScore": 0,
         "backingDataUnknownCount": 0,
-        "fills24h": 83,
-        "fills72h": 249,
-        "volume24hUsd": 29080.919643276586,
-        "volume72hUsd": 87242.75892982975,
-        "fillFrequencyPerHour": 3.4583333333333335,
+        "fills24h": 84,
+        "fills72h": 253,
+        "volume24hUsd": 33022.14782903556,
+        "volume72hUsd": 99066.44348710668,
+        "fillFrequencyPerHour": 3.513888888888889,
         "markoutAvailable": false,
         "markoutSampleCount": 0,
         "adverseSelectionBps": 0,
         "priceReliable": false,
-        "pricingCoveragePct": 98.79518072289156,
+        "pricingCoveragePct": 98.81422924901186,
         "rangeReliable": false
       },
       "score": {
-        "score": 50.8041,
+        "score": 54.1654,
         "components": {
-          "reward": 0.4723906552227707,
+          "reward": 0.5318831917854474,
           "lowCompetition": 1,
-          "volume": 0.5816183928655317,
+          "volume": 0.6604429565807112,
           "priceReliability": 0,
           "markoutReliability": 0
         }
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 0.141717,
-        "detail": "tier=50 volume24h=29081 haircutRewardPerDay=7.0859 efficiency=0.141717 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 0.159565,
+        "detail": "tier=50 volume24h=33022 haircutRewardPerDay=7.9782 efficiency=0.159565 (strict 10x rule)"
       },
       "rank": 12
     },
@@ -794,7 +794,7 @@
       "tokenB": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1416.5180207909705,
+      "dailyRewardBudgetUsd": 1425.7083120024981,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -803,38 +803,38 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
         "group": "STABLE",
-        "dailyRewardUsd": 3046.9528027909705,
+        "dailyRewardUsd": 3056.1430940024984,
         "rewardGroup": "STABLE",
-        "groupVolumeUsd72h": 22508876.152014803,
+        "groupVolumeUsd72h": 22769001.298513573,
         "pairVolumeUsd72h": 72939.56336499976,
-        "pairShareOfGroup": 0.0032404800165232077,
+        "pairShareOfGroup": 0.0032034590542081207,
         "activeStrategies": 40,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
         "competitionScore": 0,
         "backingDataUnknownCount": 0,
-        "fills24h": 56,
-        "fills72h": 168,
+        "fills24h": 55,
+        "fills72h": 164,
         "volume24hUsd": 24313.187788333253,
         "volume72hUsd": 72939.56336499976,
-        "fillFrequencyPerHour": 2.3333333333333335,
+        "fillFrequencyPerHour": 2.2777777777777777,
         "markoutAvailable": false,
         "markoutSampleCount": 0,
         "adverseSelectionBps": 0,
         "priceReliable": false,
-        "pricingCoveragePct": 97.61904761904762,
+        "pricingCoveragePct": 100,
         "rangeReliable": false
       },
       "score": {
-        "score": 46.5736,
+        "score": 46.4736,
         "components": {
-          "reward": 0.3949435867493407,
+          "reward": 0.391609170617517,
           "lowCompetition": 1,
           "volume": 0.48626375576666503,
           "priceReliability": 0,
@@ -843,8 +843,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 0.118483,
-        "detail": "tier=50 volume24h=24313 haircutRewardPerDay=5.9242 efficiency=0.118483 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 0.117483,
+        "detail": "tier=50 volume24h=24313 haircutRewardPerDay=5.8741 efficiency=0.117483 (strict 10x rule)"
       },
       "rank": 13
     },
@@ -859,7 +859,7 @@
       "tokenB": "0xbe9895146f7af43049ca1c1ae358b0541ea49704",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1652.6043575894657,
+      "dailyRewardBudgetUsd": 1663.3263640029147,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -868,38 +868,38 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xbe9895146f7af43049ca1c1ae358b0541ea49704",
         "group": "ETH_LST",
-        "dailyRewardUsd": 3554.778270589466,
+        "dailyRewardUsd": 3565.500277002915,
         "rewardGroup": "ETH_LST",
-        "groupVolumeUsd72h": 10784389.385910263,
+        "groupVolumeUsd72h": 10974450.63871978,
         "pairVolumeUsd72h": 16405.93679171867,
-        "pairShareOfGroup": 0.0015212671023500802,
-        "activeStrategies": 27,
+        "pairShareOfGroup": 0.0014949210062356704,
+        "activeStrategies": 26,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
         "competitionScore": 0,
         "backingDataUnknownCount": 0,
-        "fills24h": 16,
-        "fills72h": 47,
+        "fills24h": 15,
+        "fills72h": 45,
         "volume24hUsd": 5468.645597239556,
         "volume72hUsd": 16405.93679171867,
-        "fillFrequencyPerHour": 0.6527777777777778,
+        "fillFrequencyPerHour": 0.625,
         "markoutAvailable": false,
         "markoutSampleCount": 0,
         "adverseSelectionBps": 0,
         "priceReliable": false,
-        "pricingCoveragePct": 95.74468085106383,
+        "pricingCoveragePct": 100,
         "rangeReliable": false
       },
       "score": {
-        "score": 33.6768,
+        "score": 33.5836,
         "components": {
-          "reward": 0.21631068956786667,
+          "reward": 0.21320565047323037,
           "lowCompetition": 1,
           "volume": 0.10937291194479112,
           "priceReliability": 0,
@@ -908,8 +908,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 0.064893,
-        "detail": "tier=50 volume24h=5469 haircutRewardPerDay=3.2447 efficiency=0.064893 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 0.063962,
+        "detail": "tier=50 volume24h=5469 haircutRewardPerDay=3.1981 efficiency=0.063962 (strict 10x rule)"
       },
       "rank": 14
     },
@@ -924,7 +924,7 @@
       "tokenB": "0x9d39a5de30e57443bff2a8307a4256c8797a3497",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1416.5180207909705,
+      "dailyRewardBudgetUsd": 1425.7083120024981,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -933,27 +933,27 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x9d39a5de30e57443bff2a8307a4256c8797a3497",
         "group": "STABLE",
-        "dailyRewardUsd": 3046.9528027909705,
+        "dailyRewardUsd": 3056.1430940024984,
         "rewardGroup": "STABLE",
-        "groupVolumeUsd72h": 22508876.152014803,
-        "pairVolumeUsd72h": 16572.65009585954,
-        "pairShareOfGroup": 0.0007362717704755817,
+        "groupVolumeUsd72h": 22769001.298513573,
+        "pairVolumeUsd72h": 17325.35785407058,
+        "pairShareOfGroup": 0.000760918655452913,
         "activeStrategies": 22,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
         "competitionScore": 0,
         "backingDataUnknownCount": 0,
         "fills24h": 16,
-        "fills72h": 47,
-        "volume24hUsd": 5524.216698619846,
-        "volume72hUsd": 16572.65009585954,
-        "fillFrequencyPerHour": 0.6527777777777778,
+        "fills72h": 48,
+        "volume24hUsd": 5775.119284690192,
+        "volume72hUsd": 17325.35785407058,
+        "fillFrequencyPerHour": 0.6666666666666666,
         "markoutAvailable": false,
         "markoutSampleCount": 0,
         "adverseSelectionBps": 0,
@@ -962,19 +962,19 @@
         "rangeReliable": false
       },
       "score": {
-        "score": 29.9017,
+        "score": 30.1006,
         "components": {
-          "reward": 0.08973541338665775,
+          "reward": 0.09301905175840347,
           "lowCompetition": 1,
-          "volume": 0.11048433397239693,
+          "volume": 0.11550238569380385,
           "priceReliability": 0,
           "markoutReliability": 0
         }
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 0.026921,
-        "detail": "tier=50 volume24h=5524 haircutRewardPerDay=1.3460 efficiency=0.026921 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 0.027906,
+        "detail": "tier=50 volume24h=5775 haircutRewardPerDay=1.3953 efficiency=0.027906 (strict 10x rule)"
       },
       "rank": 15
     },
@@ -989,7 +989,7 @@
       "tokenB": "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1652.6043575894657,
+      "dailyRewardBudgetUsd": 1663.3263640029147,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -998,17 +998,17 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
         "group": "ETH_LST",
-        "dailyRewardUsd": 3554.778270589466,
+        "dailyRewardUsd": 3565.500277002915,
         "rewardGroup": "ETH_LST",
-        "groupVolumeUsd72h": 10784389.385910263,
+        "groupVolumeUsd72h": 10974450.63871978,
         "pairVolumeUsd72h": 200.64197748912449,
-        "pairShareOfGroup": 0.00001860485283953693,
+        "pairShareOfGroup": 0.00001828264430669764,
         "activeStrategies": 12,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
@@ -1027,9 +1027,9 @@
         "rangeReliable": false
       },
       "score": {
-        "score": 26.417,
+        "score": 26.4158,
         "components": {
-          "reward": 0.002645445064060024,
+          "reward": 0.002607470933595048,
           "lowCompetition": 1,
           "volume": 0.06688065916304149,
           "priceReliability": 0,
@@ -1038,8 +1038,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 0.000794,
-        "detail": "tier=50 volume24h=67 haircutRewardPerDay=0.0397 efficiency=0.000794 (no volume rule met; smallest tier)"
+        "capitalEfficiencyPerDay": 0.000782,
+        "detail": "tier=50 volume24h=67 haircutRewardPerDay=0.0391 efficiency=0.000782 (no volume rule met; smallest tier)"
       },
       "rank": 16
     },
@@ -1054,7 +1054,7 @@
       "tokenB": "0xf939e0a03fb07f59a73314e73794be0e57ac1b4e",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1416.5180207909705,
+      "dailyRewardBudgetUsd": 1425.7083120024981,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -1063,17 +1063,17 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xf939e0a03fb07f59a73314e73794be0e57ac1b4e",
         "group": "STABLE",
-        "dailyRewardUsd": 3046.9528027909705,
+        "dailyRewardUsd": 3056.1430940024984,
         "rewardGroup": "STABLE",
-        "groupVolumeUsd72h": 22508876.152014803,
+        "groupVolumeUsd72h": 22769001.298513573,
         "pairVolumeUsd72h": 4570.802463835879,
-        "pairShareOfGroup": 0.00020306666725458615,
+        "pairShareOfGroup": 0.00020074672595035052,
         "activeStrategies": 17,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
@@ -1092,9 +1092,9 @@
         "rangeReliable": false
       },
       "score": {
-        "score": 26.3519,
+        "score": 26.3457,
         "components": {
-          "reward": 0.02474938203779131,
+          "reward": 0.024540428806271036,
           "lowCompetition": 1,
           "volume": 0.03047201642557253,
           "priceReliability": 0,
@@ -1103,8 +1103,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 0.007425,
-        "detail": "tier=50 volume24h=1524 haircutRewardPerDay=0.3712 efficiency=0.007425 (strict 10x rule)"
+        "capitalEfficiencyPerDay": 0.007362,
+        "detail": "tier=50 volume24h=1524 haircutRewardPerDay=0.3681 efficiency=0.007362 (strict 10x rule)"
       },
       "rank": 17
     },
@@ -1119,7 +1119,7 @@
       "tokenB": "0xa35b1b31ce002fbf2058d22f30f95d405200a15b",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1652.6043575894657,
+      "dailyRewardBudgetUsd": 1663.3263640029147,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -1128,17 +1128,17 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xa35b1b31ce002fbf2058d22f30f95d405200a15b",
         "group": "ETH_LST",
-        "dailyRewardUsd": 3554.778270589466,
+        "dailyRewardUsd": 3565.500277002915,
         "rewardGroup": "ETH_LST",
-        "groupVolumeUsd72h": 10784389.385910263,
+        "groupVolumeUsd72h": 10974450.63871978,
         "pairVolumeUsd72h": 124.30792755746867,
-        "pairShareOfGroup": 0.00001152665423226244,
+        "pairShareOfGroup": 0.00001132702962997424,
         "activeStrategies": 13,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
@@ -1157,9 +1157,9 @@
         "rangeReliable": false
       },
       "score": {
-        "score": 25.8779,
+        "score": 25.8772,
         "components": {
-          "reward": 0.001638987999897785,
+          "reward": 0.0016154610913317353,
           "lowCompetition": 1,
           "volume": 0.04143597585248956,
           "priceReliability": 0,
@@ -1168,8 +1168,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 0.000492,
-        "detail": "tier=50 volume24h=41 haircutRewardPerDay=0.0246 efficiency=0.000492 (no volume rule met; smallest tier)"
+        "capitalEfficiencyPerDay": 0.000485,
+        "detail": "tier=50 volume24h=41 haircutRewardPerDay=0.0242 efficiency=0.000485 (no volume rule met; smallest tier)"
       },
       "rank": 18
     },
@@ -1184,7 +1184,7 @@
       "tokenB": "0xbf5495efe5db9ce00f80364c8b423567e58d2110",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1652.6043575894657,
+      "dailyRewardBudgetUsd": 1663.3263640029147,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -1193,17 +1193,17 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xbf5495efe5db9ce00f80364c8b423567e58d2110",
         "group": "ETH_LST",
-        "dailyRewardUsd": 3554.778270589466,
+        "dailyRewardUsd": 3565.500277002915,
         "rewardGroup": "ETH_LST",
-        "groupVolumeUsd72h": 10784389.385910263,
+        "groupVolumeUsd72h": 10974450.63871978,
         "pairVolumeUsd72h": 87.93616327670154,
-        "pairShareOfGroup": 0.000008154023387878555,
+        "pairShareOfGroup": 0.000008012807763374266,
         "activeStrategies": 13,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
@@ -1222,9 +1222,9 @@
         "rangeReliable": false
       },
       "score": {
-        "score": 25.621,
+        "score": 25.6205,
         "components": {
-          "reward": 0.0011594298062843596,
+          "reward": 0.0011427867319952821,
           "lowCompetition": 1,
           "volume": 0.02931205442556718,
           "priceReliability": 0,
@@ -1233,8 +1233,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 0.000348,
-        "detail": "tier=50 volume24h=29 haircutRewardPerDay=0.0174 efficiency=0.000348 (no volume rule met; smallest tier)"
+        "capitalEfficiencyPerDay": 0.000343,
+        "detail": "tier=50 volume24h=29 haircutRewardPerDay=0.0171 efficiency=0.000343 (no volume rule met; smallest tier)"
       },
       "rank": 19
     },
@@ -1249,7 +1249,7 @@
       "tokenB": "0xf1c9acdc66974dfb6decb12aa385b9cd01190e38",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1652.6043575894657,
+      "dailyRewardBudgetUsd": 1663.3263640029147,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -1258,17 +1258,17 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xf1c9acdc66974dfb6decb12aa385b9cd01190e38",
         "group": "ETH_LST",
-        "dailyRewardUsd": 3554.778270589466,
+        "dailyRewardUsd": 3565.500277002915,
         "rewardGroup": "ETH_LST",
-        "groupVolumeUsd72h": 10784389.385910263,
+        "groupVolumeUsd72h": 10974450.63871978,
         "pairVolumeUsd72h": 22.338574353878634,
-        "pairShareOfGroup": 0.0000020713805440912436,
+        "pairShareOfGroup": 0.0000020355072968358195,
         "activeStrategies": 19,
         "inRangeStrategies": 1,
         "accessibleBackingUsd": 0,
@@ -1287,9 +1287,9 @@
         "rangeReliable": false
       },
       "score": {
-        "score": 25.1578,
+        "score": 25.1576,
         "components": {
-          "reward": 0.00029453194193029353,
+          "reward": 0.0002903040732283828,
           "lowCompetition": 1,
           "volume": 0.0074461914512928785,
           "priceReliability": 0,
@@ -1298,8 +1298,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 0.000088,
-        "detail": "tier=50 volume24h=7 haircutRewardPerDay=0.0044 efficiency=0.000088 (no volume rule met; smallest tier)"
+        "capitalEfficiencyPerDay": 0.000087,
+        "detail": "tier=50 volume24h=7 haircutRewardPerDay=0.0044 efficiency=0.000087 (no volume rule met; smallest tier)"
       },
       "rank": 20
     },
@@ -1314,7 +1314,7 @@
       "tokenB": "0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1416.5180207909705,
+      "dailyRewardBudgetUsd": 1425.7083120024981,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -1323,17 +1323,17 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c",
         "group": "STABLE",
-        "dailyRewardUsd": 3046.9528027909705,
+        "dailyRewardUsd": 3056.1430940024984,
         "rewardGroup": "STABLE",
-        "groupVolumeUsd72h": 22508876.152014803,
+        "groupVolumeUsd72h": 22769001.298513573,
         "pairVolumeUsd72h": 18.671354457901728,
-        "pairShareOfGroup": 8.295107375332209e-7,
+        "pairShareOfGroup": 8.200339669320784e-7,
         "activeStrategies": 10,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
@@ -1354,7 +1354,7 @@
       "score": {
         "score": 25.1275,
         "components": {
-          "reward": 0.00010109920266688211,
+          "reward": 0.00010024564579547778,
           "lowCompetition": 1,
           "volume": 0.006223784819300576,
           "priceReliability": 0,
@@ -1379,7 +1379,7 @@
       "tokenB": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1416.5180207909705,
+      "dailyRewardBudgetUsd": 1425.7083120024981,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -1388,17 +1388,17 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x018008bfb33d285247a21d44e50697654f754e63/0x111111111117dc0aa78b770fa6a738034120c302",
         "group": "STABLE",
-        "dailyRewardUsd": 3046.9528027909705,
+        "dailyRewardUsd": 3056.1430940024984,
         "rewardGroup": "STABLE",
-        "groupVolumeUsd72h": 22508876.152014803,
+        "groupVolumeUsd72h": 22769001.298513573,
         "pairVolumeUsd72h": 12.43805978112421,
-        "pairShareOfGroup": 5.525846646950812e-7,
+        "pairShareOfGroup": 5.46271644419301e-7,
         "activeStrategies": 0,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
@@ -1419,7 +1419,7 @@
       "score": {
         "score": 25.0849,
         "components": {
-          "reward": 0.00006734797571487945,
+          "reward": 0.0000667793725416574,
           "lowCompetition": 1,
           "volume": 0.004146019927041404,
           "priceReliability": 0,
@@ -1444,7 +1444,7 @@
       "tokenB": "0x23878914efe38d27c4d67ab83ed1b93a74d4086a",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1416.5180207909705,
+      "dailyRewardBudgetUsd": 1425.7083120024981,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -1453,17 +1453,17 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0x23878914efe38d27c4d67ab83ed1b93a74d4086a",
         "group": "STABLE",
-        "dailyRewardUsd": 3046.9528027909705,
+        "dailyRewardUsd": 3056.1430940024984,
         "rewardGroup": "STABLE",
-        "groupVolumeUsd72h": 22508876.152014803,
+        "groupVolumeUsd72h": 22769001.298513573,
         "pairVolumeUsd72h": 10.231295394874563,
-        "pairShareOfGroup": 4.5454492377926847e-7,
+        "pairShareOfGroup": 4.4935196149962413e-7,
         "activeStrategies": 8,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
@@ -1484,7 +1484,7 @@
       "score": {
         "score": 25.0699,
         "components": {
-          "reward": 0.000055399077180146005,
+          "reward": 0.00005493135575654212,
           "lowCompetition": 1,
           "volume": 0.003410431798291521,
           "priceReliability": 0,
@@ -1493,8 +1493,8 @@
       },
       "capitalFit": {
         "suitableCapitalUsd": 50,
-        "capitalEfficiencyPerDay": 0.000017,
-        "detail": "tier=50 volume24h=3 haircutRewardPerDay=0.0008 efficiency=0.000017 (no volume rule met; smallest tier)"
+        "capitalEfficiencyPerDay": 0.000016,
+        "detail": "tier=50 volume24h=3 haircutRewardPerDay=0.0008 efficiency=0.000016 (no volume rule met; smallest tier)"
       },
       "rank": 23
     },
@@ -1509,7 +1509,7 @@
       "tokenB": "0xae78736cd615f374d3085123a210448e74fc6393",
       "rewardToken": "0x111111111117dc0aa78b770fa6a738034120c302",
       "rewardTokenSymbol": "1INCH",
-      "dailyRewardBudgetUsd": 1652.6043575894657,
+      "dailyRewardBudgetUsd": 1663.3263640029147,
       "campaignStatus": "ACTIVE",
       "startTimestamp": {
         "$bigint": "1785225600"
@@ -1518,17 +1518,17 @@
         "$bigint": "1793185200"
       },
       "sourceTimestamp": {
-        "$bigint": "1787237591"
+        "$bigint": "1787243735"
       },
       "active": true,
       "metrics": {
         "pairKey": "0x111111111117dc0aa78b770fa6a738034120c302/0xae78736cd615f374d3085123a210448e74fc6393",
         "group": "ETH_LST",
-        "dailyRewardUsd": 3554.778270589466,
+        "dailyRewardUsd": 3565.500277002915,
         "rewardGroup": "ETH_LST",
-        "groupVolumeUsd72h": 10784389.385910263,
+        "groupVolumeUsd72h": 10974450.63871978,
         "pairVolumeUsd72h": 0.8659277764553905,
-        "pairShareOfGroup": 8.029455776019361e-8,
+        "pairShareOfGroup": 7.890397478305164e-8,
         "activeStrategies": 17,
         "inRangeStrategies": 0,
         "accessibleBackingUsd": 0,
@@ -1549,7 +1549,7 @@
       "score": {
         "score": 25.0061,
         "components": {
-          "reward": 0.00001141717396690108,
+          "reward": 0.000011253285757824066,
           "lowCompetition": 1,
           "volume": 0.0002886425921517968,
           "priceReliability": 0,
