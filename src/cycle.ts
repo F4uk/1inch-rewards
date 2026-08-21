@@ -304,8 +304,10 @@ export async function runShadowCycle(
       rangeSimsByPair[pm.pairKey] = new Map(simulateAllWidths(path, cfg.candidateHalfWidthsPct, cfg.reshipCooldownSec).map((s) => [s.halfWidthPct, { reshipsPerDay: s.reshipsPerDay, timeInRangePct: s.timeInRangePct }]));
       const vol = realizedDailyVolPct(path, cfg.volResampleIntervalSec, cfg.volMaxGapSec);
       const stats = { ...vol.stats, pairKey: pm.pairKey };
-      rangePathStatsByPair[pm.pairKey] = stats;
       const reliable = vol.reliable && stats.coveragePct >= cfg.rangePathMinCoveragePct && stats.resampledBarCount >= cfg.rangePathMinBars;
+      // Persist the GATE-level reliability (RANGE_PATH_RELIABLE), not the
+      // volatility-level flag, so audit + V9 scanner agree with the gate.
+      rangePathStatsByPair[pm.pairKey] = { ...stats, reliable };
       rangePathReliableByPair[pm.pairKey] = {
         reliable,
         reason: reliable
@@ -753,6 +755,9 @@ function writeAuditArtifact(input: AuditInput): { path: string; audit: Record<st
       Object.entries(cd.markoutSummaries).map(([k, v]) => [k, conservativeAdverseRateUsdPerUsd(v) * 1e4]),
     ),
     rangePathCoverage: rangePathStatsByPair,
+    rangePathReliable: Object.fromEntries(
+      Object.entries(cd.rangePathReliableByPair).map(([k, v]) => [k, { reliable: v.reliable, reason: v.reason }]),
+    ),
     rangeSimulations: Object.fromEntries(
       Object.entries(cd.rangeSimsByPair).map(([k, v]) => [k, [...v.entries()].map(([w, s]) => ({ halfWidthPct: w, reshipsPerDay: s.reshipsPerDay, timeInRangePct: s.timeInRangePct }))]),
     ),
