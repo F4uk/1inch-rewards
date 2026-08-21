@@ -400,6 +400,34 @@ canary preview. It never signs or broadcasts transactions.
   AUTHORITATIVE V8 expected net, then pair/group/capital - never the
   diagnostic), outputs audit/opportunity-volume-attribution.json + .md.
 
+## V10 fair price & data reliability repair (research data layer)
+
+- Multi-source price resolver (src/sources/uniswapV2.ts +
+  analytics/markouts.ts buildFairPriceProvider): per USD leg priority is
+  Uniswap V3 pool -> Uniswap V2 pool (Sync reserve observations, same hard
+  quality rules) -> Chainlink token feed. Freshness is NEVER weakened: a stale
+  primary source is rejected and the next source is tried; with no fresh
+  source anywhere the price is unavailable (fail closed). Every observation
+  carries source, ordered sources list, and confidence.
+- V2 pools are discovered through the official Uniswap V2 factory
+  (getPair), priced from Sync reserves with block timestamps, and must pass
+  the SAME liquidity/observation/freshness/confidence thresholds as V3
+  (liquidity proxy = sqrt(reserve0*reserve1) from getReserves).
+- Markout completeness (config): horizons [60, 300, 900]s with
+  minMarkoutSamplesPerPair >= 30 and minCompletedMarkoutCount >= 30 for active
+  candidates. computeMarkoutSamples/summarizeMarkouts/conservative adverse
+  rate are unchanged; historical samples stay matched to the same historical
+  cutoff with no look-ahead.
+- Range path reliability (analytics/rangePath.ts buildComposedPairPath):
+  paths are composed from ALL qualified V3+V2 series for the 1INCH/WETH and
+  WETH/tokenB legs plus Chainlink anchor update timestamps, evaluated through
+  the multi-source provider with the same freshness rule. The
+  RANGE_PATH_RELIABLE gate (coveragePct >= rangePathMinCoveragePct,
+  resampledBarCount >= rangePathMinBars) is unchanged; sparse/missing paths
+  still fail closed.
+- V8 economics, evaluateGates, wallet logic, MODEL_VERSION (8), NO_BROADCAST,
+  persistence boundaries: unchanged.
+
 ## Dual-cutoff time model (mandatory)
 
 - liveCutoffBlock - latest finalized block. Used for: active strategy state,

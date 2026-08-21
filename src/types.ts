@@ -177,6 +177,8 @@ export type PoolDepthStats = {
   token0: string;
   token1: string;
   feeTier: number;
+  /** V10: source kind for the multi-source resolver ('v3' default). */
+  kind?: 'v3' | 'v2';
   liquidity: bigint;
   observationCount: number;
   /** Rankable volume proxy in token0 units (NOT USD-priced). */
@@ -278,6 +280,8 @@ export type CompetitionState = {
 
 export type FairPriceObservation = {
   source: string;
+  /** V10: ordered list of sources that produced usable (fresh) data, best first. */
+  sources?: string[];
   timestamp: bigint;
   blockNumber: bigint;
   price: number;

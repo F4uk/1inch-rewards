@@ -92,6 +92,15 @@ recommend); and reliable=true requires the full V8 research candidate to be
 qualified. Missing/unsafe inputs fail closed to reliable=false. Outputs:
 audit/opportunity-volume-attribution.json/.md. Research only; never feeds TRADE.
 
+V10 adds a multi-source fair-price resolver and data-reliability repair:
+Uniswap V3 -> Uniswap V2 -> Chainlink USD priority per price leg (freshness
+checks unchanged; a stale source is rejected and the next source is tried),
+markout horizons 60s/300s/900s with >=30 reliable samples per horizon for
+active candidates, and range paths composed from V3 + V2 pool observations
+plus Chainlink anchor timestamps. The RANGE_PATH_RELIABLE gate, the accepted
+V8 economics, evaluateGates, MODEL_VERSION (8), NO_BROADCAST, and the
+no-persistence boundary are all unchanged.
+
 ## Constraints (see AGENTS.md)
 
 Ethereum only; official Aqua registry/router and official SDKs only; no custom

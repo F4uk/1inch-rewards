@@ -8,6 +8,7 @@ import { makeClient, getFinalizedBlock, getBlockAtOrBeforeTimestamp, assertChain
 import { fetchRewardUniverse } from './sources/merkl.ts';
 import { fetchPriceSeries, type PriceSeries } from './sources/chainlink.ts';
 import { discoverPool, fetchPoolSeries, computePoolDepthStats, selectBestPool, FEE_TIERS, type PoolSeries } from './sources/uniswap.ts';
+import { discoverV2Pool, fetchV2PoolSeries, computeV2PoolDepthStats } from './sources/uniswapV2.ts';
 import { indexLifecycleEvents } from './index/events.ts';
 import { indexFillEvents } from './index/fills.ts';
 import { loadCheckpoint, saveCheckpoint, loadJsonl, appendJsonl, dedupeByKey, eventKey, ensureDataDir, bigintReplacer, type Checkpoint } from './index/store.ts';
@@ -15,7 +16,8 @@ import { computePairAndGroupMetrics, pairKey, tokenToFeedName, ONEINCH } from '.
 import { buildDenominatorScopes, denominatorCampaignGroups } from './analytics/denominator.ts';
 import { buildStrategies, computeCompetition, activeStrategiesAt } from './analytics/competition.ts';
 import { buildFairPriceProvider, computeMarkoutSamples, summarizeMarkouts, markoutReliability, conservativeAdverseRateUsdPerUsd, WETH } from './analytics/markouts.ts';
-import { simulateAllWidths, type PricePoint } from './analytics/rangeCross.ts';
+import { simulateAllWidths } from './analytics/rangeCross.ts';
+import { buildComposedPairPath } from './analytics/rangePath.ts';
 import { realizedDailyVolPct } from './util/vol.ts';
 import { decide, type CycleData } from './decision/decide.ts';
 import { buildCapitalGrid } from './model/capital.ts';
@@ -40,7 +42,9 @@ export type CycleResult = {
   auditPath: string;
 };
 
-const MAX_MARKOUT_HORIZON_SEC = 1800;
+// V10: markout horizons are 60s / 300s / 900s; the historical cutoff only
+// needs to complete the longest configured horizon.
+const MAX_MARKOUT_HORIZON_SEC = 900;
 
 export async function runShadowCycle(
   cfg: AppConfig,
@@ -137,48 +141,61 @@ export async function runShadowCycle(
       neededPairs.set(pairKey(WETH, paired), { a: WETH, b: paired });
     }
   }
-  const poolCandidates = new Map<string, { poolAddress: string; token0: string; token1: string; feeTier: number }[]>();
+  const poolCandidates = new Map<string, { poolAddress: string; token0: string; token1: string; feeTier: number; kind: 'v3' | 'v2' }[]>();
   for (const [key, p] of neededPairs) {
     const found = [];
     for (const fee of FEE_TIERS) {
       const pool = await discoverPool(ctx, cfg, p.a, p.b, fee);
       if (pool) {
-        found.push(pool);
+        found.push({ ...pool, kind: 'v3' as const });
         log('pool-candidate ' + key.slice(0, 10) + ' fee=' + fee + ' ' + pool.poolAddress.slice(0, 10));
       }
+    }
+    // V10: Uniswap V2-compatible fallback for the same pair (V3 priority is
+    // enforced by the provider; V2 is used only when it passes the SAME hard
+    // quality rules).
+    const v2 = await discoverV2Pool(ctx, cfg, p.a, p.b);
+    if (v2) {
+      found.push({ ...v2, kind: 'v2' as const });
+      log('pool-candidate ' + key.slice(0, 10) + ' fee=0(v2) ' + v2.poolAddress.slice(0, 10));
     }
     if (found.length > 0) poolCandidates.set(key, found);
   }
   const allSeries: Record<string, PoolSeries[]> = {};
   // Serialize pool-series fetching (3 pairs at a time) to avoid public RPC
   // rate limits while still completing in reasonable time.
-  await mapWithConcurrency([...poolCandidates.entries()], 3, async ([key, pools]) => {
-    const series = await Promise.all(pools.map((p) => fetchPoolSeries(ctx, cfg, p, seriesStartBlock, liveCutoffBlock, (f, t, n) => log('  pool ' + key.slice(0, 10) + ':' + p.feeTier + ' ' + f + '-' + t + ': ' + n))));
+  await mapWithConcurrency([...poolCandidates.entries()], 3, async ([key, metas]) => {
+    const series = await Promise.all(metas.map((p) => (p.kind === 'v2'
+      ? fetchV2PoolSeries(ctx, cfg, p, seriesStartBlock, liveCutoffBlock, (f, t, n) => log('  pool ' + key.slice(0, 10) + ':v2 ' + f + '-' + t + ': ' + n))
+      : fetchPoolSeries(ctx, cfg, p, seriesStartBlock, liveCutoffBlock, (f, t, n) => log('  pool ' + key.slice(0, 10) + ':' + p.feeTier + ' ' + f + '-' + t + ': ' + n)))));
     allSeries[key] = series;
-    for (const s of series) log('pool-series ' + key.slice(0, 10) + ':' + s.feeTier + ' swaps=' + s.observations.length);
+    for (const s of series) log('pool-series ' + key.slice(0, 10) + ':' + (s.kind === 'v2' ? 'v2' : s.feeTier) + ' swaps=' + s.observations.length);
   });
-  const pools: Record<string, PoolSeries> = {};
+  // V10: all QUALIFIED series per pair key (V3 candidates first, V2 after);
+  // the provider tries them in order (V3 -> V2 -> Chainlink).
+  const pools: Record<string, PoolSeries[]> = {};
   const poolSelections: PoolSelection[] = [];
   const statsByKey = new Map<string, Awaited<ReturnType<typeof computePoolDepthStats>>[]>();
   for (const [key, seriesList] of Object.entries(allSeries)) {
-    const stats = [];
+    const stats: Awaited<ReturnType<typeof computePoolDepthStats>>[] = [];
     for (let i = 0; i < seriesList.length; i++) {
       const meta = poolCandidates.get(key)![i]!;
       const s = seriesList[i]!;
-      stats.push(await computePoolDepthStats(ctx, cfg, meta, s, nowSec, historicalCutoffTimestamp - BigInt(lookbackSec)));
+      stats.push(meta.kind === 'v2'
+        ? await computeV2PoolDepthStats(ctx, cfg, meta, s, nowSec, historicalCutoffTimestamp - BigInt(lookbackSec))
+        : await computePoolDepthStats(ctx, cfg, meta, s, nowSec, historicalCutoffTimestamp - BigInt(lookbackSec)));
     }
     statsByKey.set(key, stats);
-    const selection = selectBestPool(key, stats, {
+    const quality = {
       minLiquidity: cfg.poolMinLiquidity,
       minObservations: cfg.poolMinObservations,
       maxAgeSec: cfg.poolMaxAgeSec,
       minConfidence: cfg.poolMinConfidence,
-    });
+    };
+    const qualified = seriesList.filter((s, i) => poolQualityPassed(stats[i]!, quality));
+    if (qualified.length > 0) pools[key] = qualified;
+    const selection = selectBestPool(key, stats, quality);
     poolSelections.push(selection);
-    if (selection.selected && selection.qualityPassed) {
-      const chosenSeries = seriesList.find((s) => s.poolAddress === selection.selected!.poolAddress);
-      if (chosenSeries) pools[key] = chosenSeries;
-    }
     log('pool-select ' + key.slice(0, 10) + ': ' + selection.rationale);
   }
 
@@ -282,7 +299,7 @@ export async function runShadowCycle(
   const pairFills: Record<string, FillEvent[]> = {};
   for (const pm of pairMetrics) {
     pairFills[pm.pairKey] = fillsInWindow.filter((f) => pairKey(f.tokenIn, f.tokenOut) === pm.pairKey);
-    const path = buildComposedPairPath(provider, pm.tokenA, pm.tokenB, pools, historicalCutoffTimestamp - BigInt(lookbackSec), historicalCutoffTimestamp, cfg.markoutMaxPoolAgeSec);
+    const path = buildComposedPairPath(provider, pm.tokenA, pm.tokenB, pools, anchors, historicalCutoffTimestamp - BigInt(lookbackSec), historicalCutoffTimestamp, cfg.markoutMaxPoolAgeSec);
     if (path.length > 1) {
       rangeSimsByPair[pm.pairKey] = new Map(simulateAllWidths(path, cfg.candidateHalfWidthsPct, cfg.reshipCooldownSec).map((s) => [s.halfWidthPct, { reshipsPerDay: s.reshipsPerDay, timeInRangePct: s.timeInRangePct }]));
       const vol = realizedDailyVolPct(path, cfg.volResampleIntervalSec, cfg.volMaxGapSec);
@@ -433,27 +450,15 @@ export async function runShadowCycle(
   };
 }
 
-/** Composed pair path (paired per 1INCH) sampled on pool-observation timestamps. */
-function buildComposedPairPath(
-  provider: ReturnType<typeof buildFairPriceProvider>,
-  tokenA: string,
-  tokenB: string,
-  pools: Record<string, PoolSeries>,
-  fromTs: bigint,
-  toTs: bigint,
-  maxAgeSec: number,
-): PricePoint[] {
-  const samples: PricePoint[] = [];
-  const p1 = pools[pairKey(ONEINCH, WETH)];
-  const p2 = pools[pairKey(WETH, tokenB)];
-  const times = new Set<bigint>();
-  if (p1) for (const o of p1.observations) if (o.timestamp >= fromTs && o.timestamp <= toTs) times.add(o.timestamp);
-  if (p2) for (const o of p2.observations) if (o.timestamp >= fromTs && o.timestamp <= toTs) times.add(o.timestamp);
-  for (const ts of [...times].sort((a, b) => (a < b ? -1 : 1))) {
-    const ratio = provider.pairUsdRatioAt(tokenA, tokenB, ts, maxAgeSec);
-    if (ratio) samples.push({ timestamp: ts, price: ratio.price });
-  }
-  return samples;
+/** Same hard-quality predicate as selectBestPool (never weakened). */
+function poolQualityPassed(stats: Awaited<ReturnType<typeof computePoolDepthStats>>, quality: { minLiquidity: bigint; minObservations: number; maxAgeSec: number; minConfidence: 'HIGH' | 'MEDIUM' }): boolean {
+  const confRank = { LOW: 0, MEDIUM: 1, HIGH: 2 } as const;
+  return (
+    stats.liquidity >= quality.minLiquidity &&
+    stats.observationCount >= quality.minObservations &&
+    stats.maxObservationAgeSec <= quality.maxAgeSec &&
+    confRank[stats.sourceConfidence] >= confRank[quality.minConfidence]
+  );
 }
 
 async function buildGasMeasurements(
@@ -697,6 +702,7 @@ function writeAuditArtifact(input: AuditInput): { path: string; audit: Record<st
         ? {
             poolAddress: s.selected.poolAddress,
             feeTier: s.selected.feeTier,
+            kind: s.selected.kind ?? 'v3',
             liquidity: s.selected.liquidity.toString(),
             observationCount: s.selected.observationCount,
             recentVolumeProxy: s.selected.recentVolumeProxy,

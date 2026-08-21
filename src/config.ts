@@ -129,12 +129,15 @@ export const DEFAULT_CONFIG: AppConfig = {
   minRocRetentionRatio: 0.5,
   minCampaignHoursRemaining: 48,
   lookbackHours: 72,
-  markoutHorizonsSec: [60, 300, 1800],
+  // V10: markout horizons are 60s / 300s / 900s with >=30 reliable samples
+  // per horizon for active candidates (data-reliability repair; adverse
+  // calculation itself is unchanged).
+  markoutHorizonsSec: [60, 300, 900],
   historicalCutoffSafetySec: 3600,
   reshipCooldownSec: 3600,
   qualificationHaircut: 0.6,
   minPairFillCount: 20,
-  minCompletedMarkoutCount: 20,
+  minCompletedMarkoutCount: 30,
   minComparableStrategies: 20,
   minCampaignHoursRemainingGate: 48,
   candidateHalfWidthsPct: [3, 5, 8, 12],
@@ -165,7 +168,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   rangePathMinBars: 100,
   budgetMismatchTolerancePct: 10,
   inventoryInitialTokenSplit: 0.5,
-  minMarkoutSamplesPerPair: 20,
+  minMarkoutSamplesPerPair: 30,
   fallbackRebalanceMaxLossBps: 30,
   feedOverrides: {},
   logChunkBlocks: 600,

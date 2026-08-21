@@ -156,6 +156,24 @@ inventory buffer applies to **unfilled** capital.
   rate 0 is valid when markouts are reliable; unreliable markouts => null.
   The layer never lowers V8 gates or trades.
 
+## V10 multi-source fair price (data reliability)
+
+- Per USD leg: Uniswap V3 pool -> Uniswap V2 pool -> Chainlink token feed.
+  Pool legs are anchored by Chainlink USD (ETH/USD or USDC/USD within 2h);
+  direct feeds must be fresh within the query maxAge. A stale source is never
+  used; the resolver falls through to the next fresh source, and with none the
+  price is null.
+- V2 prices come from Sync reserves (token1-per-token0 = reserve1/reserve0,
+  decimal-normalized) with block timestamps; V2 pools must pass the exact same
+  hard quality rules as V3 (min liquidity proxy, min observations, max age,
+  min confidence).
+- Markout horizons are 60s/300s/900s; each configured horizon needs >=30
+  reliable samples for active candidates (per-horizon, never pooled). Adverse
+  calculation is unchanged.
+- Range paths: composed pair price = USD(base)/USD(quote) sampled at V3 + V2
+  pool observation timestamps and Chainlink anchor updates; reliability
+  thresholds (coverage and bar count) are unchanged and never bypassed.
+
 ## Adverse selection (markouts)
 
 - Sign convention: the maker always receives tokenIn (taker pays tokenIn);

@@ -1129,6 +1129,49 @@ signed or broadcast.
 
 ---
 
+# V10 FAIR PRICE & DATA RELIABILITY REPAIR (branch feature/shadow-v1-v10-data-reliability)
+
+## BASELINE
+
+- Base: 23cbbaecfb0d400786ccf30739decce386919283 (V9.2.1). V8 economics,
+  evaluateGates, wallet logic, MODEL_VERSION (8), NO_BROADCAST, and the
+  no-persistence boundary unchanged.
+
+## REPAIR
+
+- Multi-source fair price resolver: Uniswap V3 -> Uniswap V2 (Sync reserves,
+  official V2 factory) -> Chainlink USD feed per leg. Freshness unchanged; a
+  stale source is rejected and the next source is tried; with none the price is
+  unavailable (fail closed). Observations expose price + ordered sources +
+  confidence.
+- V2 pools pass the SAME hard quality rules as V3 (liquidity proxy
+  sqrt(reserve0*reserve1), min observations, max age, min confidence).
+- Markout horizons [60, 300, 900]s; minMarkoutSamplesPerPair=30 and
+  minCompletedMarkoutCount=30; adverse calculation and no-look-ahead matching
+  unchanged.
+- Range paths composed from V3 + V2 pool observations and Chainlink anchor
+  timestamps via USD(base)/USD(quote); RANGE_PATH_RELIABLE gate thresholds
+  (coverage/bars) unchanged and never bypassed.
+
+## TESTS
+
+- test/v10.test.ts adds 7 regressions: stale price source rejected; fallback
+  sources accepted (V3 priority when fresh); V2 quality gate unchanged;
+  markout sample completeness (60/300/900s x >=30); range path coverage +
+  NO_PATH preserved; no gate weakening; current-price freshness + source list.
+  Full suite: 346 tests pass.
+
+## LIVE VALIDATION / CI / SAFETY
+
+- See final report. No signing/broadcast/approvals; validationOnly=true;
+  NO_BROADCAST green; no persistence window started.
+
+## FINAL VERDICT
+
+**SHADOW_MODEL_READY** (see final report).
+
+---
+
 # V1.5.2 WALLET-READ INTEGRITY REPAIR (branch feature/shadow-v1-wallet-read-integrity)
 
 ## BASELINE

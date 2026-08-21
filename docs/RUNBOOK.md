@@ -77,6 +77,15 @@ result; reliable requires the full V8 research candidate to be qualified.
 Outputs audit/opportunity-volume-attribution.json + .md. Missing/unsafe inputs
 fail closed to reliable=false. Research only; no execution.
 
+### V10 fair price & data reliability (read-only)
+
+Runs automatically inside every shadow-cycle: Uniswap V3 -> V2 -> Chainlink
+multi-source price resolution (stale sources rejected, fallbacks tried),
+markout horizons 60/300/900s with >=30 samples per horizon, and range paths
+composed from V3 + V2 pools plus Chainlink anchors. No new env vars required;
+V8 economics, gates, MODEL_VERSION, NO_BROADCAST, and the no-persistence
+boundary are unchanged.
+
 ### Wallet-driven capital (V1.5)
 
 - Set WALLET_ADDRESS (public, read-only) to the wallet whose balances drive

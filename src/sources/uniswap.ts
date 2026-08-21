@@ -35,6 +35,8 @@ export type PoolSeries = {
   token0: string;
   token1: string;
   feeTier: number;
+  /** V10: source kind; 'v3' for Uniswap V3 swaps, 'v2' for V2 Sync reserves. */
+  kind?: 'v3' | 'v2';
   observations: PoolSwapObservation[];
 };
 
@@ -256,6 +258,7 @@ export async function fetchPoolSeries(
     token0: pool.token0,
     token1: pool.token1,
     feeTier: pool.feeTier,
+    kind: 'v3',
     observations,
   };
 }

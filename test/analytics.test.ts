@@ -259,11 +259,20 @@ test('markouts: favorable never creates negative adverse; stress cannot improve'
 });
 
 test('markouts: stale pool observation cannot serve as fresh 1-minute price', () => {
-  // pool obs at t=1000000 for fill at 1000000, but next obs only at 1000000+600 (10m later)
+  // V10 multi-source: the stale pool observation (age 60 > 30s maxAge) must
+  // NEVER be used, but a DIFFERENT fresh source (Chainlink feed) may serve the
+  // horizon. With no fresh source anywhere the sample must still be dropped.
   const pools = { [pairKey(ONEINCH, WETH)]: fakePoolSeries([{ ts: 1000000n, price: 0.01 }, { ts: 1000600n, price: 0.0099 }]) };
   const provider = buildFairPriceProvider(pools, fakeAnchors(), 2000000n);
+  const horizon = provider.usdPriceAt(ONEINCH, 1000060n, 30)!;
+  assert.equal(horizon.source, 'chainlink:1INCH/USD', 'stale V3 pool must not be the source');
   const samples = computeMarkoutSamples([fill({ timestamp: 1000000n, tokenIn: ONEINCH })], provider, [60], 2000000n, 30);
-  assert.equal(samples.length, 0); // nearest obs for the 60s target is 60s old > 30s maxAge
+  assert.equal(samples.length, 1, 'fresh feed fallback serves the horizon');
+  // No fresh source anywhere (feed obs older than maxAge too) => fail closed.
+  const staleAnchors = { ...fakeAnchors(), '1INCH/USD': { feedName: '1INCH/USD', decimals: 8, observations: [{ answer: 8300000n, roundId: 1n, updatedAt: 1000000n, blockNumber: 0n, txHash: '0x', logIndex: 0 }] } };
+  const providerNoFresh = buildFairPriceProvider(pools, staleAnchors, 2000000n);
+  const samplesNoFresh = computeMarkoutSamples([fill({ timestamp: 1000000n, tokenIn: ONEINCH })], providerNoFresh, [60], 2000000n, 30);
+  assert.equal(samplesNoFresh.length, 0, 'stale-only sources never serve a fresh price');
 });
 
 test('markouts: incomplete horizons excluded (no look-ahead beyond historical cutoff)', () => {
