@@ -1216,6 +1216,45 @@ signed or broadcast.
 
 ---
 
+# V10.6 ECONOMIC SANITY AUDIT (branch feature/shadow-v1-v10-6-economic-sanity)
+
+## BASELINE
+
+- Base: 6b13a6a5c52ee2c248b4985548c8027e3d04a0fa (V10.5). V8 economics, gates,
+  wallet logic, MODEL_VERSION (8), NO_BROADCAST, and the no-persistence
+  boundary unchanged.
+
+## AUDIT
+
+- src/opportunity/sanity.ts decomposes accepted V8 bridge candidates into
+  group reward, pair volume, fill share, captured/qualifying volume, reward,
+  maker fee, adverse, rebalance, gas, expected/stress net.
+- Five documented bounds: reward <= group budget; captured <= market volume;
+  adverse <= captured notional (rate <= 1.0); gas <= 10% of capital/day; no
+  negative reward/volume. Verdict CONSERVATIVE or ECONOMICALLY_IMPOSSIBLE with
+  failed pairs listed; main cost component (adverse/rebalance/gas) reported.
+- Outputs audit/economic-sanity.json + .md every validation-only cycle after
+  the V9->V8 bridge. Never trades, signs, broadcasts, or qualifies persistence;
+  V8 economics and gates unchanged.
+
+## TESTS
+
+- test/sanity.test.ts adds 8 regressions: reward cap, volume cap, adverse
+  bound, gas accounting, no negative reward, decomposition from accepted V8
+  results, summary main-cost/verdict, no execution path. Full suite: 381 tests
+  pass.
+
+## LIVE VALIDATION / CI / SAFETY
+
+- See final report. No signing/broadcast/approvals; validationOnly=true;
+  NO_BROADCAST green; no persistence window started.
+
+## FINAL VERDICT
+
+**SHADOW_MODEL_READY** (see final report).
+
+---
+
 # V1.5.2 WALLET-READ INTEGRITY REPAIR (branch feature/shadow-v1-wallet-read-integrity)
 
 ## BASELINE

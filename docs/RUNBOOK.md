@@ -96,6 +96,14 @@ history) and writes audit/opportunity-windows.json + .md with per-pair
 qualified windows, averages, and worst-blocker frequency. Research only; never
 trades, signs, broadcasts, or qualifies persistence.
 
+### V10.6 economic sanity audit (read-only)
+
+Runs automatically inside every shadow-cycle (validation-only): decomposes the
+top opportunities' accepted V8 economics and applies five documented sanity
+bounds, writing audit/economic-sanity.json + .md (verdict CONSERVATIVE /
+ECONOMICALLY_IMPOSSIBLE, main cost component, per-row checks). Research only;
+no economics or gates are changed.
+
 ### Wallet-driven capital (V1.5)
 
 - Set WALLET_ADDRESS (public, read-only) to the wallet whose balances drive

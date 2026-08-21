@@ -110,6 +110,16 @@ qualified counts/percentages, average expected/stress net, the best contiguous
 qualified window, and worst-blocker frequency. It never trades, never
 signs/broadcasts, and never qualifies persistence.
 
+V10.6 adds a research-only economic sanity audit: every validation-only cycle
+decomposes each top opportunity's accepted V8 economics into group reward,
+pair volume, fill share, captured/qualifying volume, reward, maker fee,
+adverse selection, rebalance, gas, and expected/stress net, then applies five
+documented bounds (reward <= group budget, captured <= market volume, adverse
+<= captured notional, gas <= 10% of capital/day, no negative reward).
+Outputs audit/economic-sanity.json/.md with a per-row verdict
+(CONSERVATIVE vs ECONOMICALLY_IMPOSSIBLE) and the main cost component. It
+never changes V8 economics or gates.
+
 ## Constraints (see AGENTS.md)
 
 Ethereum only; official Aqua registry/router and official SDKs only; no custom

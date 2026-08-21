@@ -450,6 +450,26 @@ canary preview. It never signs or broadcasts transactions.
   signs/broadcasts, never qualifies persistence (validationOnly recorded in
   every report), and changes no V8 economics or gates.
 
+## V10.6 economic sanity audit (research-only)
+
+- src/opportunity/sanity.ts decomposes every accepted V8 bridge candidate
+  (pair x research capital level) into: groupDailyRewardUsd (active-campaign
+  group budget), pairDailyVolumeUsd, estimatedFillShare, capturedVolumeUsd
+  (V8 inventory-bounded serviceable fill), qualifyingVolumeUsd (captured x
+  qualificationHaircut), rewardIncomeUsd, makerFeeUsd, adverseSelectionUsd,
+  rebalanceCostUsd, gasUsd, expectedNetUsd, stressNetUsd.
+- Five documented sanity checks (bounds never change V8 economics or gates):
+  1. rewardCap: rewardIncome <= groupDailyRewardUsd;
+  2. volumeCap: capturedVolume <= pairDailyVolumeUsd;
+  3. adverseBound: adverseSelection <= capturedVolume (adverse rate <= 100% of
+     captured fill notional per day);
+  4. gasAccounting: gasUsd <= capital * 10% per day;
+  5. noNegativeReward: reward/qualifying/captured all >= 0.
+- Outputs audit/economic-sanity.json + .md with per-row checks and an overall
+  verdict (CONSERVATIVE when every row passes; ECONOMICALLY_IMPOSSIBLE when a
+  bound is violated, with the failed pairs listed) plus the main cost
+  component (largest of adverse/rebalance/gas across the audit).
+
 ## Dual-cutoff time model (mandatory)
 
 - liveCutoffBlock - latest finalized block. Used for: active strategy state,

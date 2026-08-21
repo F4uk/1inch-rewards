@@ -25,6 +25,7 @@ import { fetchWalletState, makeSyntheticWalletState } from './sources/wallet.ts'
 import { runOpportunityEconomicBridge } from './opportunity/bridge.ts';
 import { runVolumeAttributionLayer } from './opportunity/attribution.ts';
 import { runOpportunityMonitor } from './opportunity/monitor.ts';
+import { runEconomicSanityAudit } from './opportunity/sanity.ts';
 import type { CapitalResearch, WalletState } from './types.ts';
 import { rangeHalfWidthPct } from './util/price.ts';
 import { AQUA_ROUTER, REGISTRY_DEPLOY_BLOCK, SEASON1_GROUPS } from './constants.ts';
@@ -438,6 +439,13 @@ export async function runShadowCycle(
   // V10.5 research-only live opportunity monitor: hourly snapshot collector +
   // per-pair window analysis (never trades, never qualifies persistence).
   runOpportunityMonitor(cfg, cd, bridgeResults, {
+    validationOnly,
+    modelVersion: result.decision.modelVersion,
+    log,
+  });
+  // V10.6 research-only economic sanity audit over the accepted V8 bridge
+  // results (decomposition + documented bounds; never changes economics).
+  runEconomicSanityAudit(cfg, cd, bridgeResults, {
     validationOnly,
     modelVersion: result.decision.modelVersion,
     log,

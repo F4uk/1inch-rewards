@@ -187,6 +187,19 @@ inventory buffer applies to **unfilled** capital.
 - The monitor is diagnostic only: it never alters the accepted V8 candidate
   economics, never lowers gates, and never qualifies persistence.
 
+## V10.6 economic sanity decomposition (research-only)
+
+- Decomposition of the accepted V8 bridge result: capturedVolume =
+  V8 serviceable fill; qualifyingVolume = captured x qualificationHaircut;
+  reward = group budget x qualifying/group volume; costs = adverse (captured x
+  conservative rate, >= 0), rebalance (range reships + inventory replay),
+  gas (lifecycle receipts); net = reward + fee - adverse - rebalance - gas.
+- Bounds: reward <= group daily budget; captured <= pair daily volume; adverse
+  <= captured notional (rate <= 1.0); gas <= 10% of capital per day; no
+  negative reward/volume. A violated bound labels the row
+  ECONOMICALLY_IMPOSSIBLE; otherwise CONSERVATIVE. The audit changes no V8
+  economics and never lowers gates.
+
 ## Adverse selection (markouts)
 
 - Sign convention: the maker always receives tokenIn (taker pays tokenIn);
