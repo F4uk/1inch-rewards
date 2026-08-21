@@ -24,6 +24,7 @@ import { buildCapitalGrid } from './model/capital.ts';
 import { fetchWalletState, makeSyntheticWalletState } from './sources/wallet.ts';
 import { runOpportunityEconomicBridge } from './opportunity/bridge.ts';
 import { runVolumeAttributionLayer } from './opportunity/attribution.ts';
+import { runOpportunityMonitor } from './opportunity/monitor.ts';
 import type { CapitalResearch, WalletState } from './types.ts';
 import { rangeHalfWidthPct } from './util/price.ts';
 import { AQUA_ROUTER, REGISTRY_DEPLOY_BLOCK, SEASON1_GROUPS } from './constants.ts';
@@ -433,7 +434,14 @@ export async function runShadowCycle(
   const auditPath = auditOut.path;
   // V9->V8 bridge (additive research layer): simulate the top ranked V9
   // opportunities through the accepted V8 computeCandidatePnl pipeline.
-  runOpportunityEconomicBridge(cfg, cd, auditOut.audit, cfg.opportunityTopN, log);
+  const bridgeResults = runOpportunityEconomicBridge(cfg, cd, auditOut.audit, cfg.opportunityTopN, log);
+  // V10.5 research-only live opportunity monitor: hourly snapshot collector +
+  // per-pair window analysis (never trades, never qualifies persistence).
+  runOpportunityMonitor(cfg, cd, bridgeResults, {
+    validationOnly,
+    modelVersion: result.decision.modelVersion,
+    log,
+  });
   // V9.2 research-only fill-volume attribution: real market/competition data
   // -> captured volume estimate per research capital level. Never feeds TRADE.
   runVolumeAttributionLayer(cfg, cd, auditOut.audit, cfg.opportunityTopN, log);

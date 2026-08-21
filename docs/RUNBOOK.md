@@ -86,6 +86,16 @@ composed from V3 + V2 pools plus Chainlink anchors. No new env vars required;
 V8 economics, gates, MODEL_VERSION, NO_BROADCAST, and the no-persistence
 boundary are unchanged.
 
+### V10.5 live opportunity monitor (read-only)
+
+Runs automatically inside every shadow-cycle (validation-only): appends one
+observation row per (pair x 50/100/250/500 capital level) to
+data/opportunity-snapshots.jsonl (deduped by liveBlock+pair+capitalLevel, so
+an hourly cron of `npm run shadow-cycle -- --validation-only` accumulates
+history) and writes audit/opportunity-windows.json + .md with per-pair
+qualified windows, averages, and worst-blocker frequency. Research only; never
+trades, signs, broadcasts, or qualifies persistence.
+
 ### Wallet-driven capital (V1.5)
 
 - Set WALLET_ADDRESS (public, read-only) to the wallet whose balances drive

@@ -33,6 +33,8 @@ export type EconomicSimulationResult = {
   stressNetUsdPerDay: number;
   expectedROCPctPerDay: number;
   stressROCPctPerDay: number;
+  /** V10.5: candidate confidence after the accepted assessConfidence() step. */
+  confidence: Candidate['confidence'];
   fillShare: number;
   empiricalFillShare: number | null;
   structuralFillShare: number | null;
@@ -247,6 +249,7 @@ export function simulateOpportunityAtCapital(cfg: AppConfig, cd: CycleData, pair
     stressNetUsdPerDay: candidate.stressNetUsdPerDay,
     expectedROCPctPerDay: candidate.expectedReturnOnCapitalPctPerDay,
     stressROCPctPerDay: candidate.stressReturnOnCapitalPctPerDay,
+    confidence: candidate.confidence,
     fillShare: candidate.fillShare,
     empiricalFillShare: fs.empirical,
     structuralFillShare: fs.structural,

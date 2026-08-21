@@ -1172,6 +1172,50 @@ signed or broadcast.
 
 ---
 
+# V10.5 LIVE OPPORTUNITY MONITOR (branch feature/shadow-v1-v10-5-opportunity-monitor)
+
+## BASELINE
+
+- Base: b27e4904c0bc6963d6d97376f294517d3ba879c0 (V10). V8 economics, gates,
+  wallet logic, MODEL_VERSION (8), NO_BROADCAST, and the no-persistence
+  boundary unchanged.
+
+## MONITOR
+
+- src/opportunity/monitor.ts: hourly snapshot collector appending one row per
+  (pair x research capital level) to data/opportunity-snapshots.jsonl, deduped
+  by liveBlock+pair+capitalLevel (idempotent; re-runs never duplicate). Row:
+  timestamp (live block time), liveBlock, pair, group, capitalLevel,
+  currentPriceAvailable, markoutReliable, rangePathReliable, confidence,
+  expectedNet, stressNet, qualified, failedGates.
+- Window analysis per pair: total observations, qualified count/pct, average
+  expected/stress net, best contiguous qualified window (highest average
+  expectedNet), worst blocker frequency. Ranking: qualified % -> average net
+  -> observations (deterministic).
+- Outputs audit/opportunity-windows.json + .md every validation-only cycle
+  (after the V9->V8 bridge). Never trades, signs, broadcasts, or qualifies
+  persistence; validationOnly recorded in the report.
+- src/opportunity/bridge.ts: EconomicSimulationResult now also carries the
+  accepted candidate confidence (additive; V8 economics untouched).
+
+## TESTS
+
+- test/monitor.test.ts adds 6 regressions: deterministic snapshot rows,
+  idempotent appends (no duplicates), failed gate tracking, qualified window
+  aggregation (counts/pct/best window), deterministic qualified-first ranking,
+  no execution path. Full suite: 352 tests pass.
+
+## LIVE VALIDATION / CI / SAFETY
+
+- See final report. No signing/broadcast/approvals; validationOnly=true;
+  NO_BROADCAST green; no persistence window started.
+
+## FINAL VERDICT
+
+**SHADOW_MODEL_READY** (see final report).
+
+---
+
 # V1.5.2 WALLET-READ INTEGRITY REPAIR (branch feature/shadow-v1-wallet-read-integrity)
 
 ## BASELINE

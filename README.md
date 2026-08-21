@@ -101,6 +101,15 @@ plus Chainlink anchor timestamps. The RANGE_PATH_RELIABLE gate, the accepted
 V8 economics, evaluateGates, MODEL_VERSION (8), NO_BROADCAST, and the
 no-persistence boundary are all unchanged.
 
+V10.5 adds a research-only live opportunity monitor: every validation-only
+shadow cycle appends one observation row per (pair x 50/100/250/500 research
+capital level) to data/opportunity-snapshots.jsonl (deduped by
+liveBlock+pair+capitalLevel, so hourly runs accumulate history without
+duplicates) and writes audit/opportunity-windows.json/.md with per-pair
+qualified counts/percentages, average expected/stress net, the best contiguous
+qualified window, and worst-blocker frequency. It never trades, never
+signs/broadcasts, and never qualifies persistence.
+
 ## Constraints (see AGENTS.md)
 
 Ethereum only; official Aqua registry/router and official SDKs only; no custom

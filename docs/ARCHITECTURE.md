@@ -428,6 +428,28 @@ canary preview. It never signs or broadcasts transactions.
 - V8 economics, evaluateGates, wallet logic, MODEL_VERSION (8), NO_BROADCAST,
   persistence boundaries: unchanged.
 
+## V10.5 live opportunity monitor (research-only)
+
+- src/opportunity/monitor.ts: hourly shadow snapshot collector. Every
+  validation-only cycle builds one row per V8 bridge candidate
+  (pair x research capital level) with timestamp (live cutoff block time),
+  liveBlock, pair, group, capitalLevel, currentPriceAvailable,
+  markoutReliable, rangePathReliable, confidence, expectedNet, stressNet,
+  qualified, and failedGates, then appends to data/opportunity-snapshots.jsonl
+  deduped by liveBlock+pair+capitalLevel (re-runs of the same block never
+  duplicate; running the cycle hourly accumulates history).
+- Opportunity window analysis: per pair - total observations, qualified count
+  and percentage, average expected/stress net, best contiguous qualified
+  window (highest average expectedNet over a run of window-qualified
+  timestamps; tie -> more observations, then earlier), and worst blocker
+  frequency (most frequent failed gate). Pairs rank by qualified % then
+  average net then observations, deterministically.
+- Outputs: audit/opportunity-windows.json + .md, written during every
+  validation-only cycle after the V9->V8 bridge. The monitor reads only the
+  accepted bridge results and CycleData; it never trades, never
+  signs/broadcasts, never qualifies persistence (validationOnly recorded in
+  every report), and changes no V8 economics or gates.
+
 ## Dual-cutoff time model (mandatory)
 
 - liveCutoffBlock - latest finalized block. Used for: active strategy state,

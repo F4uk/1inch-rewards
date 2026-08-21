@@ -174,6 +174,19 @@ inventory buffer applies to **unfilled** capital.
   pool observation timestamps and Chainlink anchor updates; reliability
   thresholds (coverage and bar count) are unchanged and never bypassed.
 
+## V10.5 opportunity windows (research-only monitor)
+
+- Snapshot per (pair x research capital level) per validation-only cycle:
+  reliability flags (current price, markouts, range path), confidence,
+  expected/stress net, qualified, failedGates. Identity = liveBlock + pair +
+  capitalLevel; appends are idempotent (no duplicate rows for the same block).
+- Per-pair aggregation: qualified count/pct, average expected/stress net,
+  best window = contiguous run of timestamps where ANY capital level for the
+  pair is qualified, scored by average expectedNet; worst blocker = most
+  frequent failed gate. Ranking: qualified % -> average net -> observations.
+- The monitor is diagnostic only: it never alters the accepted V8 candidate
+  economics, never lowers gates, and never qualifies persistence.
+
 ## Adverse selection (markouts)
 
 - Sign convention: the maker always receives tokenIn (taker pays tokenIn);
